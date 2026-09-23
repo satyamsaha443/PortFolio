@@ -1,0 +1,107 @@
+<h1>Asynchronous Jobs: Accept, Enqueue, Return</h1>
+<blockquote>
+<p><strong>Lesson 9.2</strong> · All levels · 30 min</p>
+</blockquote>
+<hr>
+<p>Some work is too slow to finish inside a request. Transcoding a video into several resolutions, generating a large report, or sending a batch of thousands of emails can each take minutes. If the request handler does that work inline, the connection stays open the whole time, and a gateway or proxy usually cuts it off after 30–60 seconds. The caller sees an error even when the work was progressing fine.</p>
+<p>Holding the connection open also pins a request thread that could serve other users, and ties the caller&#39;s experience to the slowest step in the chain.</p>
+<hr>
+<h2>The Pattern: Accept, Enqueue, Return</h2>
+<p>Stop doing the slow work inside the request. <strong>Accept the request, record that work is pending, hand the slow part to a background process, and answer the client immediately.</strong></p>
+<p>The response is <strong>202 Accepted</strong> — the server took the request but has not finished it. It carries a job ID the client uses to track progress.</p>
+<p>Three components make this work:</p>
+<p><strong>1. Durable queue</strong> — holds job records until a worker claims one. Durable means the queue survives a crash; an enqueued job is not lost if a broker restarts. Also absorbs bursts: a spike of jobs that arrive faster than workers can process them.</p>
+<p><strong>2. Worker pool</strong> — processes that pull jobs from the queue and run them. Workers are separate from the API servers, doing the transcoding, report building, or email sending on their own machines, at their own pace.</p>
+<p><strong>3. Job-status store</strong> — a small record per job holding its state: <code>queued → running → done | failed</code>, plus the result or error. The API server writes the initial <code>queued</code> row; the worker updates it as the job progresses; the client reads it to learn the outcome.</p>
+<pre><code>Client → POST /transcode
+Server → stores raw file, writes &quot;queued&quot; status row, enqueues job
+Server → 202 Accepted { &quot;job_id&quot;: &quot;abc123&quot;, &quot;status_url&quot;: &quot;/jobs/abc123&quot; }
+
+Worker → pulls job, transcodes video
+Worker → updates status to &quot;done&quot;, stores output URL
+
+Client → GET /jobs/abc123 → { &quot;status&quot;: &quot;done&quot;, &quot;output&quot;: &quot;...&quot; }
+</code></pre>
+<blockquote>
+<p><strong>Key idea.</strong> Slow work does not belong on the request thread. Accept the request, enqueue a job, and return a job ID so the client can check back.</p>
+</blockquote>
+<hr>
+<h2>How the Client Learns the Result</h2>
+<p>The client holds a job ID but no result yet. Two mechanisms close that gap:</p>
+<h3>Polling</h3>
+<p>The client calls <code>GET /v1/jobs/{id}</code> on a timer (say every 2 seconds) until the status turns <code>done</code> or <code>failed</code>.</p>
+<ul>
+<li><strong>Pro:</strong> Simple, needs nothing special from the client or server.</li>
+<li><strong>Con:</strong> Wasted requests — most polls return <code>running</code> and learn nothing. Lag up to one poll interval between job finishing and client noticing.</li>
+</ul>
+<h3>Webhooks</h3>
+<p>The client registers a callback URL once. When the job finishes, the system sends an HTTP request to that URL with the result.</p>
+<ul>
+<li><strong>Pro:</strong> No wasted polls, client hears the result the moment work completes.</li>
+<li><strong>Con:</strong> Client must expose a reachable endpoint; server must retry the callback if the client is briefly down.</li>
+</ul>
+<p><strong>How to choose:</strong> A browser cannot easily receive a webhook, so it polls (or uses SSE). A server-to-server integration usually prefers webhooks to avoid polling waste. Many systems offer both.</p>
+<blockquote>
+<p><strong>Key idea.</strong> Polling wastes requests but needs no client setup; webhooks are efficient but require a reachable, retried callback.</p>
+</blockquote>
+<hr>
+<h2>Why This Absorbs Spikes</h2>
+<p>On the synchronous path, a spike of uploads competes directly with every other request for the same threads. Ten times normal traffic means ten times the transcoding load on the servers answering users.</p>
+<p>With a queue in the middle:</p>
+<ul>
+<li>The enqueue is cheap and constant — a burst of uploads writes a burst of jobs in milliseconds each.</li>
+<li>The user-facing path stays fast because it never runs the heavy work.</li>
+<li>The queue holds the backlog; workers drain it at a steady rate.</li>
+</ul>
+<p><strong>Throughput is set by the worker pool, not the API tier</strong> — the two scale independently:</p>
+<ul>
+<li>Transcoding falling behind? Add workers; API servers untouched.</li>
+<li>Request volume growing? Add API servers; workers untouched.</li>
+<li>Queue length is a visible health signal — a growing backlog means workers are under-provisioned.</li>
+</ul>
+<blockquote>
+<p><strong>Key idea.</strong> The queue turns a spike into a backlog. Workers set throughput and scale on their own, so bursts never slow the request path.</p>
+</blockquote>
+<hr>
+<h2>Reliability: At-Least-Once and Idempotency</h2>
+<p>Queues delay removing a job until a worker confirms it finished. This gives <strong>at-least-once delivery</strong> — every job runs at least once, but some run more than once.</p>
+<blockquote>
+<p><strong>At-least-once delivery</strong> — If a worker processes a job and dies before acknowledging it, the queue cannot tell &quot;done&quot; from &quot;crashed,&quot; so it redelivers. The alternative, at-most-once, acknowledges first and can silently drop work.</p>
+</blockquote>
+<p>A transcode that runs twice wastes CPU but is otherwise harmless. A job that sends a payment or an email is different — running it twice charges the user twice. <strong>Workers must be idempotent.</strong></p>
+<blockquote>
+<p><strong>Idempotency</strong> — An operation is idempotent when running it many times leaves the same result as running it once. Common technique: key the side effect on the job ID. Before sending the email, check whether <code>job_id</code> is already recorded as sent; if so, skip. The second run becomes a no-op.</p>
+</blockquote>
+<p>Idempotency is what makes at-least-once safe. Without it, redelivery corrupts data. With it, redelivery is just a retry.</p>
+<h3>Retries, Backoff, and the Dead-Letter Queue</h3>
+<p>Most failures are transient (downstream service briefly down, network timeout, file momentarily locked). Retrying usually works — but retrying immediately under load makes things worse.</p>
+<p><strong>Exponential backoff with jitter:</strong> wait 1s, 2s, 4s, 8s... with random jitter so many workers don&#39;t retry in lockstep.</p>
+<p>Some jobs fail no matter how many retries. A malformed video file will never transcode. After a fixed number of attempts, the job moves to a <strong>dead-letter queue (DLQ)</strong> — a separate queue for jobs that exhausted their retries.</p>
+<p>The DLQ:</p>
+<ul>
+<li>Prevents a bad job from clogging the pipeline behind healthy ones.</li>
+<li>Fires an alert on depth so an engineer can inspect and replay.</li>
+<li>Nothing is lost, nothing loops forever.</li>
+</ul>
+<blockquote>
+<p><strong>Key idea.</strong> At-least-once means jobs can repeat, so workers must be idempotent. Transient failures retry with exponential backoff; poison jobs stop at a dead-letter queue for a human.</p>
+</blockquote>
+<hr>
+<h2>The Transferable Pattern</h2>
+<p>Any request that triggers slow or spiky work follows this shape:</p>
+<ol>
+<li>Do the cheap part synchronously — validate, store, record a pending status.</li>
+<li>Enqueue the heavy part and return a job ID.</li>
+<li>A durable queue holds the backlog; a worker pool drains it at its own rate.</li>
+<li>A status store carries the outcome back to the client.</li>
+<li>Because the queue delivers at-least-once, the worker must be idempotent.</li>
+<li>Retries use backoff; a DLQ catches what never succeeds.</li>
+</ol>
+<p><strong>Transcoding, report generation, bulk email, image processing, data exports, and payment settlement all reduce to this.</strong> The moment a request&#39;s work outlives the request, move it off the thread and behind a queue.</p>
+<hr>
+<h2>Sources and Further Reading</h2>
+<ul>
+<li><strong>Amazon SQS dead-letter queues</strong> — AWS docs — how a DLQ isolates messages that exhaust their retry limit.</li>
+<li><strong>Designing robust and predictable APIs with idempotency</strong> — Stripe — keying side effects on a request ID so retries are safe.</li>
+<li><strong>Best practices for using webhooks</strong> — Stripe docs — reachable callback endpoints and retrying failed deliveries.</li>
+</ul>

@@ -1,0 +1,207 @@
+<h1>How to Drive the Conversation (by Seniority)</h1>
+<blockquote>
+<p><strong>Lesson 5.2</strong> · Pro + Senior · 30 min</p>
+</blockquote>
+<hr>
+<h2>What Interviewers Are Actually Evaluating</h2>
+<p>Before you can drive a system design interview, you need to understand what the person across the table is scoring you on — and it is not the same thing at every level.</p>
+<p>Interviewers use a mental rubric, usually implicit. At most companies that rubric looks like this:</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Label</th>
+<th>The Core Question</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>L4 (Mid-level)</td>
+<td>&quot;Competent Engineer&quot;</td>
+<td>Can you produce a reasonable, working design with guidance?</td>
+</tr>
+<tr>
+<td>L5 (Senior)</td>
+<td>&quot;Independent Engineer&quot;</td>
+<td>Can you own a hard problem end-to-end with no hand-holding?</td>
+</tr>
+<tr>
+<td>L6/Staff (Principal)</td>
+<td>&quot;Technical Leader&quot;</td>
+<td>Can you frame the right problem, identify systemic risks, and make decisions that hold up across teams?</td>
+</tr>
+</tbody></table>
+<p>The word &quot;guidance&quot; in the L4 row is the trap. It sounds like a feature — someone helps you through. In reality, the amount of guidance an interviewer provides is inversely proportional to the signal you are sending. Every hint the interviewer gives you is a point subtracted. The rubric assumes you can drive; the hints are the interviewer rescuing a stumbling candidate, not coaching a strong one.</p>
+<hr>
+<h2>The Beginner Trap: Waiting to Be Led</h2>
+<p>The single most common failure mode at Pro and Senior levels is <strong>passive waiting</strong> — answering questions as they are asked rather than steering the conversation yourself.</p>
+<p>It looks like this:</p>
+<pre><code>Interviewer: &quot;Design a URL shortener.&quot;
+Candidate:   [pause] &quot;Okay... so, what kind of scale are we thinking?&quot;
+Interviewer: &quot;Let&#39;s say 100 million URLs.&quot;
+Candidate:   &quot;And should it support custom aliases?&quot;
+Interviewer: &quot;Sure.&quot;
+Candidate:   &quot;Okay... and do we need analytics?&quot;
+Interviewer: &quot;What do you think?&quot;
+Candidate:   [longer pause] &quot;Maybe?&quot;
+</code></pre>
+<p>The candidate is asking for permission at every step. The interviewer is doing the work of defining the problem. Even if the candidate produces a technically correct design at the end, the signal they have sent is unmistakable: <em>this person needs to be managed</em>.</p>
+<p>What they have demonstrated is an L3 or junior engineer who executes well once the requirements are handed to them. At L5 and above, that is a no-hire.</p>
+<p>The deeper issue is that this candidate probably knows the material. They can design a URL shortener. But they have given away the most important dimension of the evaluation before they drew a single box.</p>
+<hr>
+<h2>How to Take the Wheel</h2>
+<h3>The Opening Move</h3>
+<p>The first 30 seconds of a system design interview are the most important for establishing seniority. Do not wait for a question. The moment the prompt is given, narrate your process out loud and visibly.</p>
+<p>A strong opening:</p>
+<blockquote>
+<p>&quot;Before I jump into any components, I want to spend a couple of minutes on requirements and constraints — that&#39;ll shape every decision downstream. I&#39;ll be explicit about assumptions as I make them so you can correct me if I&#39;ve gone in the wrong direction.&quot;</p>
+</blockquote>
+<p>This does several things simultaneously. It signals that you know requirements come before architecture. It signals that you will drive the structure of the conversation. And it gives the interviewer permission to redirect you without it feeling like a failure — you&#39;ve already made &quot;correction&quot; part of the contract.</p>
+<h3>Explicit Signposting</h3>
+<p>Signposting is the practice of announcing a transition before you make it. Interviewers lose track of where you are in the design surprisingly often, especially if you are working quickly. A candidate who signposts is easier to follow and sounds more structured.</p>
+<p>Strong signposts:</p>
+<pre><code>&quot;I&#39;m going to start with requirements — both functional and non-functional.&quot;
+&quot;Now that I have the constraints, let me sketch the high-level architecture.&quot;
+&quot;I&#39;m going to zoom in on the write path specifically, because that&#39;s where the scale challenge lives.&quot;
+&quot;I think the storage layer deserves a deeper look — let me spend a minute there.&quot;
+&quot;I&#39;m going to come back to this trade-off in a moment; I want to finish the read path first.&quot;
+</code></pre>
+<p>The last one is particularly powerful. It shows you noticed a complexity, you are not ignoring it, and you have a plan for addressing it. Interviewers almost never interrupt a candidate who says &quot;I&#39;ll come back to that.&quot;</p>
+<h3>Transitioning Between Sections</h3>
+<p>Weak transitions sound like you are finishing a section because you ran out of things to say. Strong transitions sound like you are choosing to move because you have accomplished the goal of the current section.</p>
+<table>
+<thead>
+<tr>
+<th>Weak</th>
+<th>Strong</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>&quot;Okay... so... that&#39;s the database...&quot;</td>
+<td>&quot;I think the data model is clear enough to proceed — let me move to the API layer.&quot;</td>
+</tr>
+<tr>
+<td>&quot;Um, should I talk about caching?&quot;</td>
+<td>&quot;I&#39;m going to address caching now because it directly affects the read latency target we set.&quot;</td>
+</tr>
+<tr>
+<td>&quot;I don&#39;t know what else to say about the architecture.&quot;</td>
+<td>&quot;The high-level design covers our core paths. The interesting problems are in the details — I want to go deeper on X.&quot;</td>
+</tr>
+</tbody></table>
+<p>Notice the strong transitions name a reason for moving. That reason is almost always &quot;we have enough to proceed&quot; or &quot;this next section is where the hard problem lives.&quot;</p>
+<hr>
+<h2>Handling Interruptions</h2>
+<p>Interviewers interrupt for three reasons:</p>
+<ol>
+<li><strong>You went too deep too early</strong> — they want you to zoom out</li>
+<li><strong>They want to test a specific area</strong> — the clock is running and they need signal on something you have not covered</li>
+<li><strong>You said something they want to probe</strong> — you mentioned eventual consistency and they want to know if you actually understand it</li>
+</ol>
+<p>Each reason requires a different response.</p>
+<p><strong>Zoom out:</strong> &quot;Sure — let me pull back to the high level and we can zoom in where it&#39;s most useful.&quot;</p>
+<p><strong>Coverage redirect:</strong> &quot;Happy to go there. Just to note where we are: I&#39;ve covered requirements and the read path. I&#39;ll plan to come back to X before we finish.&quot; Then move to what they asked.</p>
+<p><strong>Probe:</strong> Engage directly. This is not an interruption to navigate — it is the real interview. Answer it, make the trade-off explicit, and then offer to return to the thread if they want. &quot;So on eventual consistency — the key question is whether the user who just wrote data needs to immediately read their own write. In this case I think yes, so I&#39;d use read-your-write consistency for that specific path and accept stale reads everywhere else. Should I keep going on the messaging layer, or shall we stay here?&quot;</p>
+<p>The technique in all three cases is the same: <strong>acknowledge, park, move</strong>. You acknowledge the redirect, you explicitly park what you were doing (so it is clear you have not forgotten it), and you move to where they want you.</p>
+<hr>
+<h2>Reading the Room</h2>
+<p>In an in-person or video interview, the interviewer&#39;s body language gives you real-time feedback on whether you are hitting the mark.</p>
+<p><strong>Slow down when:</strong></p>
+<ul>
+<li>The interviewer is writing or typing quickly — they are capturing something and you are moving faster than they can follow</li>
+<li>They are frowning or tilting their head — you have lost them or said something they want to challenge</li>
+<li>They lean forward — you are in territory they care about; give it more depth</li>
+</ul>
+<p><strong>Speed up when:</strong></p>
+<ul>
+<li>They are nodding along rapidly — they already know this, move on</li>
+<li>They glance at their notes or the clock — you are spending too long on something that is not earning signal</li>
+<li>They say &quot;sure, sure&quot; in a way that sounds like &quot;yes I know this already&quot;</li>
+</ul>
+<p><strong>Ask explicitly when:</strong></p>
+<ul>
+<li>You finish a section and are not sure which direction is most valuable: &quot;I&#39;ve sketched the storage layer. I can go deeper on partitioning strategy, or move to the API design — which is more useful right now?&quot;</li>
+<li>You are about to make a significant design decision: &quot;I&#39;m going to go with a pull-based fan-out here — does that make sense to pursue, or would you rather I design for push?&quot;</li>
+</ul>
+<p>The question &quot;should I go deeper here?&quot; is not a sign of weakness. It is the same question a Staff engineer asks in a real design review. It signals awareness of the audience, and it keeps the conversation collaborative rather than monologic.</p>
+<hr>
+<h2>Seniority-Specific Tactics</h2>
+<h3>Mid-Level (L4): Show Breadth, Name Trade-offs, Don&#39;t Over-Engineer</h3>
+<p>At L4 you are not expected to have solved every problem. You are expected to know the landscape — to know that sharding exists, that caching has invalidation costs, that you could use a message queue here but it adds operational overhead.</p>
+<p><strong>Your goal:</strong> Produce a coherent design that covers the happy path and names the major trade-offs. Do not spend 20 minutes on the storage engine internals of a URL shortener.</p>
+<pre><code>L4 signal: &quot;I&#39;d use Redis for caching here. There&#39;s a trade-off between
+            cache-aside and write-through — I&#39;d go with cache-aside to
+            avoid write amplification, accepting slightly stale reads.&quot;
+
+L4 trap:   &quot;Let me walk you through exactly how the Redis LRU eviction
+            algorithm works and how to tune maxmemory-policy.&quot;
+</code></pre>
+<p>The trap is depth-at-the-wrong-time. Name the trade-off and move forward. If the interviewer wants depth, they will ask for it.</p>
+<h3>Senior (L5): Drive to the Hard Problem Fast</h3>
+<p>At L5 you are expected to know what is actually difficult about the problem — and to get there without being asked. The hard problem in a URL shortener is not the redirect path (that&#39;s trivial); it is analytics at scale. The hard problem in a messaging system is not sending a message; it is guaranteeing delivery exactly once when the network is unreliable.</p>
+<p><strong>Your goal:</strong> Spend minimal time on the parts you both know are easy. Get to the interesting problem fast and show you have seen failure modes before.</p>
+<pre><code>L5 signal: &quot;The basic redirect path is straightforward — I want to get
+            there quickly and then focus on the write path, because that&#39;s
+            where we&#39;ll hit contention at 10k writes/sec and where the
+            database design actually matters.&quot;
+
+L5 trap:   Spending 10 minutes explaining what a CDN is.
+</code></pre>
+<p>If you have three minutes left and you have not mentioned a single failure mode or trade-off at depth, the interview is over. Get to the hard part.</p>
+<h3>Staff/Principal (L6+): Open With Constraints and Organisational Concerns</h3>
+<p>At Staff and above, the expectation shifts. You are not just designing a system — you are making a decision that other teams will live with for years. The first question a Staff engineer asks in a real design review is not &quot;what database should we use?&quot; It is: &quot;Who owns this? What team depends on it? What does failure here cost the business?&quot;</p>
+<p>Open by surfacing constraints that a mid-level engineer would not think to ask:</p>
+<pre><code>L6 signal: &quot;Before I get into the architecture, I want to understand the
+            organisational context. Is this a net-new system or replacing
+            something? Who are the consumers — one internal team or
+            multiple? What&#39;s the migration story if we need to change the
+            design six months from now?&quot;
+
+L6 signal: &quot;The choice between a monolith and microservices here isn&#39;t
+            just technical — it depends on whether the team owning this
+            will stay the same or get split. If it stays one team,
+            a monolith is the right call.&quot;
+</code></pre>
+<p>Technical depth still matters at L6, but it is not the primary signal. The primary signal is: does this person think like someone who has to be accountable to the whole organisation, not just their own codebase?</p>
+<hr>
+<h2>Phrases That Signal Seniority</h2>
+<p>The vocabulary you use tells the interviewer where you sit on the ladder before they have evaluated a single design decision. These are real signals, not performance. Senior engineers use these phrases because they reflect how they actually think.</p>
+<h3>Phrases That Sound Senior</h3>
+<pre><code>1.  &quot;The interesting constraint here is...&quot;
+2.  &quot;I&#39;ve seen this pattern fail when...&quot;
+3.  &quot;The trade-off I&#39;m making is X in exchange for Y.&quot;
+4.  &quot;I&#39;m going to make an explicit assumption that... — correct me if that&#39;s wrong.&quot;
+5.  &quot;This is the part I&#39;d want to stress-test in a real design review.&quot;
+6.  &quot;At this scale, the bottleneck moves to...&quot;
+7.  &quot;I&#39;d rather over-provision here than under-provision, because the failure mode is...&quot;
+8.  &quot;This decision has implications downstream for the team that owns X.&quot;
+9.  &quot;I&#39;m comfortable leaving this as a known unknown and revisiting if we have time.&quot;
+10. &quot;The naive solution works until [specific threshold]; here&#39;s where it breaks.&quot;
+</code></pre>
+<h3>Phrases That Sound Junior</h3>
+<pre><code>1.  &quot;Should I use a database?&quot;
+2.  &quot;I think maybe we could use... I&#39;m not sure...&quot;
+3.  &quot;Is that okay?&quot;
+4.  &quot;I&#39;ve heard of Kafka but I don&#39;t know if we need it here.&quot;
+5.  &quot;So basically what happens is...&quot;
+6.  &quot;Let me just figure out what we&#39;re building first.&quot;
+7.  &quot;Sorry, let me start over.&quot;
+8.  &quot;I usually just use Postgres for everything.&quot;
+9.  &quot;I don&#39;t know much about distributed systems but...&quot;
+10. &quot;Is this the kind of answer you&#39;re looking for?&quot;
+</code></pre>
+<p>The junior phrases are not wrong because of the words themselves. They are wrong because of what they signal: uncertainty about your own judgement, deference to the interviewer, and lack of a framework for making decisions under ambiguity. The senior phrases signal the opposite: you have opinions, you can defend them, and you know the limits of your own knowledge.</p>
+<hr>
+<h2>Putting It Together: A 45-Minute Interview Arc</h2>
+<pre><code>0:00 – 0:02   Anchor the problem: restate it in your own words
+0:02 – 0:08   Requirements: functional, non-functional, explicit assumptions
+0:08 – 0:10   Capacity estimation: justify the numbers, don&#39;t just recite them
+0:10 – 0:20   High-level design: core components, major data flows, APIs
+0:20 – 0:35   Deep dive: the hard part of the problem; trade-offs at depth
+0:35 – 0:42   Edge cases, failure modes, operational concerns
+0:42 – 0:45   Summary + invite questions; offer to go deeper on anything
+</code></pre>
+<p>The structure is not a script. It is a skeleton. The skill is knowing how to compress or expand each section based on what the interviewer is responding to — which is why you read the room, park threads when interrupted, and ask explicitly when you are unsure where to spend the remaining time.</p>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./03-estimation-under-pressure.md">Lesson 5.3 — Estimation Under Pressure</a></p>
+</blockquote>

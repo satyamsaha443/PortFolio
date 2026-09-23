@@ -1,0 +1,212 @@
+<h1>Design 02: Chat Messaging App (like WhatsApp)</h1>
+<blockquote>
+<p><strong>Lesson 3.2</strong> · Beginner + Pro · 75 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a real-time chat messaging system that supports:</p>
+<ul>
+<li>1-to-1 direct messages</li>
+<li>Group chats (up to 500 members)</li>
+<li>Online presence (is the user online?)</li>
+<li>Message delivery receipts (sent, delivered, read)</li>
+<li>Push notifications for offline users</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Send and receive text messages in real-time</li>
+<li>Group chats up to 500 members</li>
+<li>Message history (up to 5 years)</li>
+<li>Delivery and read receipts</li>
+<li>Online/offline presence</li>
+<li>Push notifications when offline</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>500M daily active users</li>
+<li>Average 40 messages/user/day → 20B messages/day</li>
+<li>Messages delivered with &lt; 200ms latency</li>
+<li>Messages never lost (at-least-once delivery)</li>
+<li>Message ordering guaranteed within a conversation</li>
+</ul>
+<hr>
+<h2>Step 2: Capacity Estimates</h2>
+<pre><code>Messages sent: 20B/day = 231,000 messages/second (peak ~2x = 462,000/s)
+
+Storage per message: ~100 bytes (text content + metadata)
+20B messages/day × 365 × 5 years = 36.5T messages total
+36.5T × 100 bytes = 3.65 PB  (need distributed storage)
+
+Connections: 500M users × 20% online at peak = 100M concurrent WebSocket connections
+</code></pre>
+<hr>
+<h2>Step 3: The Real-Time Problem</h2>
+<p>HTTP is request-response: the client asks, the server answers. Chat is push-based: the server needs to push a message to the client without the client asking.</p>
+<p><strong>Options:</strong></p>
+<ol>
+<li><strong>Short polling:</strong> Client polls every second. Wastes bandwidth. 100M users × 1 req/s = 100M req/s — crushes servers.</li>
+<li><strong>Long polling:</strong> Client makes a request; server holds it open until there is a message. More efficient, but still creates connection overhead.</li>
+<li><strong>WebSocket:</strong> Persistent bidirectional TCP connection. One connection per user — server can push messages at any time. <strong>Best for chat.</strong></li>
+<li><strong>Server-Sent Events (SSE):</strong> One-way server→client push over HTTP. Fine for notifications, not for bidirectional chat.</li>
+</ol>
+<p><strong>Decision: WebSocket connections for online users, push notifications for offline users.</strong></p>
+<hr>
+<h2>Step 4: System Architecture</h2>
+<pre><code>                     ┌──────────────────────────────────────────┐
+                     │                 Clients                  │
+                     └──────────┬───────────────────────────────┘
+                                │ WebSocket
+                     ┌──────────▼───────────────────────────────┐
+                     │           Chat Servers (stateful)        │
+                     │  Each server holds N WebSocket connections│
+                     └──────┬───────────────┬───────────────────┘
+                            │               │
+               ┌────────────▼───┐   ┌───────▼────────┐
+               │  Message Queue │   │   Presence     │
+               │    (Kafka)     │   │  Service       │
+               └────────────┬───┘   │  (Redis)       │
+                            │       └────────────────┘
+               ┌────────────▼───────────────────────┐
+               │         Message Store              │
+               │     (Cassandra / HBase)            │
+               └────────────────────────────────────┘
+                            │
+               ┌────────────▼───────────────────────┐
+               │       Push Notification Service    │
+               │     (APNs / FCM for offline users) │
+               └────────────────────────────────────┘
+</code></pre>
+<hr>
+<h2>Step 5: Message Flow</h2>
+<h3>Sending a message from Alice to Bob</h3>
+<pre><code>1. Alice sends message over WebSocket to Chat Server A
+2. Chat Server A persists message to Cassandra (with status = SENT)
+3. Chat Server A publishes message to Kafka topic &quot;messages&quot;
+4. Is Bob online?
+   a. Yes: Bob&#39;s Chat Server B (where Bob&#39;s WebSocket lives)
+      subscribes to Kafka, receives message, pushes to Bob via WebSocket
+      Bob&#39;s client sends &quot;delivered&quot; receipt → status = DELIVERED
+   b. No: Push Notification Service reads from Kafka,
+      sends push via APNs (iOS) or FCM (Android)
+      When Bob comes online: client fetches undelivered messages from Cassandra
+</code></pre>
+<h3>How Chat Server A knows which server Bob is on</h3>
+<p>A <strong>service registry</strong> (Redis) maps <code>user_id → chat_server_id</code>. When a user connects via WebSocket, their mapping is stored in Redis. Chat servers subscribe to Kafka for messages destined for their connected users.</p>
+<p>Alternative: route via a message bus — each chat server subscribes to a topic. Not scalable (every server receives every message).</p>
+<hr>
+<h2>Step 6: Message Storage with Cassandra</h2>
+<p>Why Cassandra instead of PostgreSQL?</p>
+<ul>
+<li>20B messages/day — write throughput far exceeds what a single PostgreSQL can handle</li>
+<li>Writes distributed across many nodes</li>
+<li>Messages are mostly written once and read by time range — perfect for Cassandra&#39;s partition model</li>
+</ul>
+<h3>Schema</h3>
+<pre><code class="language-cassandra">-- 1-to-1 conversations
+CREATE TABLE messages (
+    conversation_id  UUID,
+    message_id       TIMEUUID,        -- time-based UUID for ordering
+    sender_id        BIGINT,
+    content          TEXT,
+    status           TEXT,            -- SENT, DELIVERED, READ
+    created_at       TIMESTAMP,
+    PRIMARY KEY (conversation_id, message_id)
+) WITH CLUSTERING ORDER BY (message_id DESC);
+
+-- conversation_id = hash(min(user_a, user_b), max(user_a, user_b))
+-- This ensures Alice+Bob always map to the same conversation_id
+</code></pre>
+<p>Fetching last 50 messages for a conversation:</p>
+<pre><code class="language-cassandra">SELECT * FROM messages
+WHERE conversation_id = &lt;id&gt;
+ORDER BY message_id DESC
+LIMIT 50;
+</code></pre>
+<p>This is a single partition read — extremely fast.</p>
+<h3>Group chats</h3>
+<p>For group chats, <code>conversation_id</code> is the group ID. Same schema. Messages are fanned out to all group members via Kafka consumer groups.</p>
+<hr>
+<h2>Step 7: Presence Service</h2>
+<p>Online/offline status needs to be fast and real-time.</p>
+<p><strong>Implementation using Redis:</strong></p>
+<pre><code>When user connects:    SET presence:{user_id} &quot;online&quot;  EX 30
+When user disconnects: DEL presence:{user_id}
+Heartbeat (every 20s): SET presence:{user_id} &quot;online&quot;  EX 30
+Check presence:        GET presence:{user_id}  → &quot;online&quot; or nil
+</code></pre>
+<p>The TTL (30 seconds) ensures that if a user&#39;s connection drops without a clean disconnect (network failure), they are automatically marked offline within 30 seconds.</p>
+<p><strong>Scale:</strong> 500M users × ~10 bytes per key = ~5GB. Easily fits in Redis.</p>
+<hr>
+<h2>Step 8: Message Ordering</h2>
+<p>Within a conversation, messages must appear in order. Using TIMEUUID (time-based UUID) in Cassandra provides ordering by timestamp with microsecond granularity. Collisions at the same microsecond are broken by the UUID&#39;s clock sequence and node ID.</p>
+<p><strong>The tricky case:</strong> Alice and Bob both send messages at the same millisecond. The server timestamps both on arrival. The recipient sees them in server-arrival order, which may differ from the order they were sent. This is acceptable for chat — users understand that simultaneous messages can appear in either order.</p>
+<hr>
+<h2>Step 9: Message Delivery Guarantees</h2>
+<p><strong>At-least-once delivery:</strong> Every message is persisted to Cassandra before delivery is attempted. If the chat server crashes after persisting but before delivering, the message is not lost — it exists in Cassandra and will be fetched when the recipient reconnects.</p>
+<p><strong>Exactly-once display:</strong> The client deduplicates by <code>message_id</code>. If the same message arrives twice (due to at-least-once semantics), the second delivery is silently ignored.</p>
+<hr>
+<h2>Step 10: Push Notifications (Offline Users)</h2>
+<pre><code>Kafka consumer (Push Service) reads undelivered messages
+  │
+  ▼
+Is user on iOS? → APNs (Apple Push Notification Service)
+Is user on Android? → FCM (Firebase Cloud Messaging)
+Is user on Web? → Web Push (via service worker)
+
+Message: &quot;You have 3 new messages from Alice&quot;
+(Never include message content in push notification payload — privacy)
+</code></pre>
+<p>When the user opens the app:</p>
+<ol>
+<li>App connects via WebSocket</li>
+<li>App fetches all messages since <code>last_seen_message_id</code> from Cassandra</li>
+<li>App marks messages as delivered, sends receipts</li>
+</ol>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Real-time protocol</td>
+<td>WebSocket (persistent, bidirectional)</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>Cassandra (high write throughput, time-range queries)</td>
+</tr>
+<tr>
+<td>Message routing</td>
+<td>Kafka fan-out; service registry (Redis) maps user→server</td>
+</tr>
+<tr>
+<td>Presence</td>
+<td>Redis with TTL + heartbeat</td>
+</tr>
+<tr>
+<td>Offline delivery</td>
+<td>Cassandra persists; push notification wakes client</td>
+</tr>
+<tr>
+<td>Group chat scale</td>
+<td>Fan-out via Kafka; Cassandra partition per group</td>
+</tr>
+<tr>
+<td>Message ordering</td>
+<td>TIMEUUID cluster key in Cassandra</td>
+</tr>
+<tr>
+<td>Exactly-once display</td>
+<td>Client deduplicates by message_id</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./03-instagram.md">Design 03 — Instagram / Photo Sharing</a></p>
+</blockquote>

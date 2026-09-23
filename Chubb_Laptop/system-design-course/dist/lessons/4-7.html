@@ -1,0 +1,204 @@
+<h1>API Gateway Patterns (BFF, Aggregation, Auth)</h1>
+<blockquote>
+<p><strong>Lesson 4.7</strong> · Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<h2>What Is an API Gateway?</h2>
+<p>An API gateway is the single entry point for all client requests. Clients talk to the gateway; the gateway routes to the appropriate backend service.</p>
+<pre><code>Mobile App  ─┐
+Web App     ─┤──► API Gateway ──► User Service
+Third-Party ─┘              ├──► Order Service
+                            ├──► Payment Service
+                            └──► Product Service
+</code></pre>
+<p>Without a gateway, clients would need to know the address of every service, handle authentication themselves, and deal with each service&#39;s different protocols.</p>
+<hr>
+<h2>Core Gateway Functions</h2>
+<p><strong>Routing:</strong> Map <code>/api/users/*</code> to the user service, <code>/api/orders/*</code> to the order service.</p>
+<p><strong>Authentication:</strong> Validate JWTs or API keys once at the gateway. Backend services trust the gateway&#39;s assertion: &quot;this request is from user_id=42.&quot;</p>
+<p><strong>Rate limiting:</strong> 100 requests/minute per API key. Enforced at the gateway before reaching services.</p>
+<p><strong>SSL termination:</strong> HTTPS is terminated at the gateway. Traffic within the internal network can be plain HTTP (or mTLS via service mesh).</p>
+<p><strong>Request transformation:</strong> Add headers, transform request/response formats (JSON → protobuf), strip sensitive fields from responses.</p>
+<p><strong>Observability:</strong> Log all requests, emit metrics, inject trace IDs.</p>
+<hr>
+<h2>Pattern 1: Backend for Frontend (BFF)</h2>
+<p>The problem: a mobile app and a web app have very different data needs.</p>
+<p>Web app product page needs: full product details, reviews, seller info, recommended products, Q&amp;A — 5 backend calls.</p>
+<p>Mobile app product page needs: minimal product info, 3 key attributes, one image — 2 backend calls.</p>
+<p>If both use the same API, the mobile app either gets too much data (wasteful bandwidth) or the API has complex filtering logic.</p>
+<p><strong>BFF:</strong> A separate API gateway per client type. Each BFF is optimized for its client.</p>
+<pre><code>Mobile App  ──► Mobile BFF  ──► Product Service (minimal fields)
+                          └──► Image Service (single image)
+
+Web App     ──► Web BFF    ──► Product Service (full details)
+                          ├──► Reviews Service
+                          ├──► Recommendations Service
+                          └──► Seller Service
+
+Third-Party ──► Public API ──► (rate-limited, versioned, documented)
+</code></pre>
+<p>Each BFF is owned by the frontend team that uses it. Mobile team controls Mobile BFF. Web team controls Web BFF.</p>
+<p><strong>Trade-off:</strong> More services to maintain. But each is simpler and evolution of one does not break others.</p>
+<hr>
+<h2>Pattern 2: API Aggregation</h2>
+<p>The problem: a client needs data from 5 services to render one page. Without aggregation:</p>
+<pre><code>Client makes 5 serial requests:
+  GET /users/123         (100ms)
+  GET /orders?user=123   (80ms)
+  GET /products/42       (90ms)
+  GET /reviews?product=42 (70ms)
+  GET /recommendations   (120ms)
+  Total: 460ms
+</code></pre>
+<p>With API gateway aggregation:</p>
+<pre><code>Client makes 1 request:
+  GET /gateway/home-page-data?user=123
+
+Gateway makes 5 parallel requests to internal services:
+  All 5 run concurrently: max(100, 80, 90, 70, 120) = 120ms
+
+Gateway combines responses, returns one JSON blob.
+Total: ~130ms (parallel + small overhead)
+</code></pre>
+<p>The aggregation pattern is especially valuable for mobile clients where the cost of multiple round trips (100ms RTT each over cellular) is high.</p>
+<hr>
+<h2>Pattern 3: Authentication and Authorization</h2>
+<h3>JWT Validation at the Gateway</h3>
+<pre><code>Client sends: Authorization: Bearer eyJhbGc...
+
+Gateway:
+  1. Verify JWT signature (using public key)
+  2. Check expiration
+  3. Extract claims: user_id=42, roles=[&quot;admin&quot;]
+  4. Forward to backend with trusted header:
+     X-User-Id: 42
+     X-User-Roles: admin
+  5. Backend trusts the gateway; no JWT re-validation
+
+If JWT invalid: return 401 Unauthorized (backend never called)
+</code></pre>
+<p>The backend services do not need JWT libraries. They trust the headers set by the gateway. Only the gateway handles authentication.</p>
+<h3>API Keys for Third-Party Access</h3>
+<pre><code>Developer registers → gets API key: &quot;sk-prod-abc123&quot;
+Request: GET /api/v1/products?api_key=sk-prod-abc123
+
+Gateway:
+  1. Look up API key in Redis: key→{customer_id, rate_limit, permissions}
+  2. Check rate limit (100 req/min for this customer)
+  3. Check permission (&quot;read:products&quot; allowed for this key)
+  4. Enrich request: X-Customer-Id: customer_123
+  5. Forward to product service
+
+Redis lookup: &lt; 1ms. No performance impact.
+</code></pre>
+<hr>
+<h2>Pattern 4: Versioning</h2>
+<p>APIs evolve. Old clients cannot be forced to upgrade immediately.</p>
+<pre><code>/api/v1/users/123  →  User Service v1 handler
+/api/v2/users/123  →  User Service v2 handler
+</code></pre>
+<p>The gateway routes based on the version prefix. V1 and V2 can run different code simultaneously. Old clients continue using v1. New clients use v2. When v1 clients drop below a threshold, deprecate v1.</p>
+<p><strong>Version sunset:</strong> Add <code>Sunset: Sat, 01 Jun 2025 00:00:00 GMT</code> header to v1 responses. This signals to API consumers when v1 will stop working.</p>
+<hr>
+<h2>Pattern 5: Circuit Breaker at the Gateway</h2>
+<p>If a backend service is failing (high error rate), the gateway stops sending requests to it.</p>
+<pre><code>Normal: Gateway → Order Service (healthy)
+         ↓ order service returns 50% 500 errors for 30 seconds
+Gateway opens circuit breaker:
+  Next 60 seconds: all requests to Order Service return 503 immediately
+  (No waiting for timeouts; clients get fast failure)
+         ↓ after 60 seconds
+Gateway &quot;half-opens&quot;: sends 1 test request
+  If success → close circuit breaker (resume normal traffic)
+  If failure → keep open for another 60 seconds
+</code></pre>
+<p>This prevents a failing service from causing cascading latency across the entire system.</p>
+<hr>
+<h2>Common API Gateway Products</h2>
+<table>
+<thead>
+<tr>
+<th>Product</th>
+<th>Type</th>
+<th>Best for</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AWS API Gateway</td>
+<td>Managed</td>
+<td>AWS-native, serverless backends</td>
+</tr>
+<tr>
+<td>Kong</td>
+<td>Open source</td>
+<td>Custom plugins, self-hosted</td>
+</tr>
+<tr>
+<td>Nginx</td>
+<td>Open source</td>
+<td>High performance, simple routing</td>
+</tr>
+<tr>
+<td>Envoy</td>
+<td>Open source</td>
+<td>Service mesh integration</td>
+</tr>
+<tr>
+<td>AWS ALB</td>
+<td>Managed</td>
+<td>Simple path-based routing</td>
+</tr>
+<tr>
+<td>Apigee</td>
+<td>Managed</td>
+<td>Enterprise API management</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Common Pitfalls</h2>
+<p><strong>The &quot;god gateway&quot;:</strong> A gateway with thousands of lines of business logic. The gateway should be infrastructure — routing, auth, rate limiting. Keep business logic in services.</p>
+<p><strong>Tight coupling:</strong> Gateway that knows too much about each service&#39;s internal data model. Changes to a service require gateway changes.</p>
+<p><strong>Bypass paths:</strong> Services that accept requests directly, bypassing the gateway. Auth and rate limiting are useless if they can be bypassed.</p>
+<p><strong>Missing timeout configuration:</strong> Gateway must have aggressive timeouts. If a backend takes 30 seconds, the gateway should time out at 5 seconds, freeing the connection for other clients.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API gateway responsibilities</td>
+<td>Routing, auth, rate limiting, SSL termination, observability</td>
+</tr>
+<tr>
+<td>BFF pattern</td>
+<td>Separate gateway per client type; each optimized for its client</td>
+</tr>
+<tr>
+<td>Aggregation pattern</td>
+<td>Parallel calls to multiple services; return combined response</td>
+</tr>
+<tr>
+<td>Auth at gateway</td>
+<td>Validate JWT once; pass user_id header to backend (backend trusts it)</td>
+</tr>
+<tr>
+<td>Circuit breaker</td>
+<td>Stop forwarding to failing services; return 503; try again after cooldown</td>
+</tr>
+<tr>
+<td>Versioning</td>
+<td>Route /v1 and /v2 to different handlers; run both simultaneously</td>
+</tr>
+<tr>
+<td>Pitfall</td>
+<td>Business logic in gateway; bypass paths; missing timeouts</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./08-data-pipelines.md">Lesson 4.8 — Data Pipelines &amp; Analytics (Lambda / Kappa Architecture)</a></p>
+</blockquote>

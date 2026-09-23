@@ -1,0 +1,298 @@
+<h1>Latency vs Throughput — Everyday Analogies</h1>
+<blockquote>
+<p><strong>Lesson 1.8</strong> · Beginner + Pro · 20 min</p>
+</blockquote>
+<hr>
+<h2>Two Different Things</h2>
+<p>People often confuse latency and throughput. They are related but measure different properties of a system.</p>
+<p><strong>Latency</strong> is the time it takes to complete one operation.
+<strong>Throughput</strong> is the number of operations completed per unit of time.</p>
+<hr>
+<h2>The Highway Analogy</h2>
+<p>Imagine a highway between two cities 100 miles apart.</p>
+<p><strong>Latency</strong> = how long it takes one car to drive from City A to City B.</p>
+<p>At 60 mph, latency = 100 minutes. You cannot reduce this without increasing speed.</p>
+<p><strong>Throughput</strong> = how many cars arrive at City B per hour.</p>
+<p>A 4-lane highway moves 4x more cars than a 1-lane highway, but each individual car still takes 100 minutes. Adding lanes improves throughput, not latency.</p>
+<hr>
+<h2>The Pipe Analogy</h2>
+<p>A water pipe between a reservoir and your tap:</p>
+<ul>
+<li><strong>Latency</strong> = how long from when you open the tap to when water reaches your hand (determined by pipe length and water pressure)</li>
+<li><strong>Throughput</strong> = how many gallons per minute flow through (determined by pipe width)</li>
+</ul>
+<p>A wider pipe moves more water per minute (higher throughput) but the water still takes the same time to travel the length of the pipe (same latency).</p>
+<hr>
+<h2>Precise Definitions</h2>
+<h3>Latency</h3>
+<p>Latency is measured as time: milliseconds, seconds, microseconds.</p>
+<ul>
+<li><strong>p50 latency (median):</strong> 50% of requests complete in this time or faster</li>
+<li><strong>p95 latency:</strong> 95% of requests complete in this time or faster</li>
+<li><strong>p99 latency:</strong> 99% of requests complete in this time or faster</li>
+<li><strong>p99.9 latency:</strong> 99.9% of requests complete in this time or faster</li>
+</ul>
+<p>The p99 is the most commonly discussed in system design. If p99 = 200ms, then 1 in 100 users waits more than 200ms. At 10,000 req/sec, that is 100 users per second experiencing a slow response.</p>
+<p>Never use only the average. Averages hide the long tail. A system with average 10ms latency but p99 of 5000ms is deeply broken for 1% of users.</p>
+<h3>Throughput</h3>
+<p>Throughput is measured as operations per unit of time:</p>
+<ul>
+<li><strong>QPS:</strong> Queries per second (database operations)</li>
+<li><strong>RPS:</strong> Requests per second (HTTP requests)</li>
+<li><strong>TPS:</strong> Transactions per second</li>
+<li><strong>Mbps / Gbps:</strong> Megabits / gigabits per second (network throughput)</li>
+</ul>
+<hr>
+<h2>Numbers You Must Memorize</h2>
+<p>These are the latency numbers that every system designer uses for back-of-envelope calculations:</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Latency</th>
+<th>What it means</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>L1 cache reference</td>
+<td>0.5 ns</td>
+<td>CPU accessing its fastest cache</td>
+</tr>
+<tr>
+<td>L2 cache reference</td>
+<td>7 ns</td>
+<td>Slightly slower CPU cache</td>
+</tr>
+<tr>
+<td>RAM access</td>
+<td>100 ns</td>
+<td>Main memory</td>
+</tr>
+<tr>
+<td>SSD random read</td>
+<td>100 µs (0.1 ms)</td>
+<td>Fast local disk</td>
+</tr>
+<tr>
+<td>HDD random read</td>
+<td>10 ms</td>
+<td>Old spinning disk</td>
+</tr>
+<tr>
+<td>Redis read (same datacenter)</td>
+<td>0.1 ms</td>
+<td>In-memory cache over network</td>
+</tr>
+<tr>
+<td>Database read (same datacenter)</td>
+<td>1–10 ms</td>
+<td>Typical query, warm cache</td>
+</tr>
+<tr>
+<td>Inter-datacenter round trip</td>
+<td>10–100 ms</td>
+<td>Same region, different AZs</td>
+</tr>
+<tr>
+<td>Round trip, US to Europe</td>
+<td>~100 ms</td>
+<td>Cross-Atlantic</td>
+</tr>
+<tr>
+<td>Round trip, US to Asia</td>
+<td>~200 ms</td>
+<td>Cross-Pacific</td>
+</tr>
+</tbody></table>
+<p><strong>Key insight:</strong> Accessing RAM is 1,000x faster than an SSD, which is 100x faster than a disk. A database query is 10,000x slower than a cache read. These differences explain why caching has such an outsized impact on performance.</p>
+<hr>
+<h2>The Relationship Between Latency and Throughput</h2>
+<p>They are often in tension:</p>
+<h3>Batching Increases Throughput, Increases Latency</h3>
+<p>A database write every time an event occurs: low latency, low throughput.
+Collect 1,000 events, write them all at once: higher latency (you wait), higher throughput (batch inserts are faster per record).</p>
+<h3>Parallelism Increases Throughput, Does Not Change Individual Latency</h3>
+<p>Processing requests one at a time: low throughput.
+Processing 100 requests in parallel: 100x throughput. But each individual request still takes the same time.</p>
+<h3>Optimising Latency Can Hurt Throughput</h3>
+<p>Dedicating a full CPU core to each request reduces latency (no waiting). But you can only handle as many requests as you have cores. Sharing a core across many requests reduces latency per-core but increases throughput overall.</p>
+<hr>
+<h2>Little&#39;s Law</h2>
+<p>A fundamental formula from queuing theory:</p>
+<blockquote>
+<p><strong>L = λ × W</strong></p>
+</blockquote>
+<ul>
+<li><strong>L</strong> = average number of requests in the system (queue + being processed)</li>
+<li><strong>λ</strong> (lambda) = arrival rate (requests per second)</li>
+<li><strong>W</strong> = average time a request spends in the system (latency)</li>
+</ul>
+<p>Example: Your API receives 1,000 req/sec (λ = 1,000). Each request takes 50ms to process (W = 0.05s). Therefore the system is handling L = 1,000 × 0.05 = <strong>50 concurrent requests</strong> on average.</p>
+<p>This matters for capacity planning: if you can handle 50 concurrent requests and latency rises to 100ms (double), you can only handle 500 req/sec — half the throughput.</p>
+<hr>
+<h2>Latency Targets by Use Case</h2>
+<p>Different products have different latency requirements:</p>
+<table>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Target p99 latency</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Search results</td>
+<td>&lt; 200ms</td>
+<td>Users bounce after 200ms</td>
+</tr>
+<tr>
+<td>API responses</td>
+<td>&lt; 100ms</td>
+<td>Perceived as instant</td>
+</tr>
+<tr>
+<td>Page loads</td>
+<td>&lt; 1s first content, &lt; 3s fully loaded</td>
+<td>SEO and bounce rate</td>
+</tr>
+<tr>
+<td>Real-time games</td>
+<td>&lt; 50ms</td>
+<td>Player feel input lag above 50ms</td>
+</tr>
+<tr>
+<td>Video calls</td>
+<td>&lt; 150ms</td>
+<td>Conversation feels unnatural above 150ms</td>
+</tr>
+<tr>
+<td>Financial trading</td>
+<td>&lt; 1ms</td>
+<td>Microseconds matter</td>
+</tr>
+<tr>
+<td>Background jobs</td>
+<td>Minutes to hours</td>
+<td>User is not waiting</td>
+</tr>
+<tr>
+<td>Data analytics</td>
+<td>Seconds to minutes</td>
+<td>Acceptable for reports</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>How to Improve Latency</h2>
+<table>
+<thead>
+<tr>
+<th>Technique</th>
+<th>Mechanism</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Add caching</strong></td>
+<td>Avoid slow operations (DB queries, network calls)</td>
+</tr>
+<tr>
+<td><strong>Precompute</strong></td>
+<td>Do expensive work ahead of time (batch jobs)</td>
+</tr>
+<tr>
+<td><strong>CDN</strong></td>
+<td>Move data geographically closer to users</td>
+</tr>
+<tr>
+<td><strong>Connection pooling</strong></td>
+<td>Avoid connection setup overhead</td>
+</tr>
+<tr>
+<td><strong>Async I/O</strong></td>
+<td>Do not block threads waiting for network/disk</td>
+</tr>
+<tr>
+<td><strong>Read replicas</strong></td>
+<td>Move reads away from the primary database</td>
+</tr>
+<tr>
+<td><strong>Horizontal scaling</strong></td>
+<td>Reduce queueing by adding more servers</td>
+</tr>
+<tr>
+<td><strong>Compression</strong></td>
+<td>Reduce data size, reduce transfer time</td>
+</tr>
+</tbody></table>
+<h2>How to Improve Throughput</h2>
+<table>
+<thead>
+<tr>
+<th>Technique</th>
+<th>Mechanism</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Horizontal scaling</strong></td>
+<td>More servers = more parallel processing</td>
+</tr>
+<tr>
+<td><strong>Batching</strong></td>
+<td>Amortize per-request overhead across many requests</td>
+</tr>
+<tr>
+<td><strong>Async processing</strong></td>
+<td>Decouple slow work into a queue</td>
+</tr>
+<tr>
+<td><strong>Pipelining</strong></td>
+<td>Send multiple requests without waiting for each response</td>
+</tr>
+<tr>
+<td><strong>Better algorithms</strong></td>
+<td>O(n log n) beats O(n²)</td>
+</tr>
+<tr>
+<td><strong>Better data structures</strong></td>
+<td>Hash maps beat linear scans</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Latency</th>
+<th>Throughput</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Definition</strong></td>
+<td>Time for one operation</td>
+<td>Operations per second</td>
+</tr>
+<tr>
+<td><strong>Metric</strong></td>
+<td>Milliseconds (p50, p95, p99)</td>
+<td>QPS, RPS, Gbps</td>
+</tr>
+<tr>
+<td><strong>Analogy</strong></td>
+<td>Drive time, city to city</td>
+<td>Cars passing a checkpoint per hour</td>
+</tr>
+<tr>
+<td><strong>Improve with</strong></td>
+<td>Caching, CDN, better algorithms</td>
+<td>Parallelism, batching, horizontal scaling</td>
+</tr>
+<tr>
+<td><strong>Trade-off</strong></td>
+<td>Optimising one often costs the other</td>
+<td></td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./09-cap-theorem.md">Lesson 1.9 — CAP Theorem: The Pizza Shop Example</a></p>
+</blockquote>

@@ -1,0 +1,643 @@
+<h1>Currency, Timezone &amp; Locale Handling</h1>
+<blockquote>
+<p><strong>Lesson 6.3</strong> · Pro · 30 min</p>
+</blockquote>
+<hr>
+<h2>Introduction</h2>
+<p>There is a particular class of bugs that only surfaces in production, usually at the worst possible moment — when a user in Germany can&#39;t check out because the price is formatted wrong, when a scheduled report runs an hour early after Daylight Saving Time shifts, when a bank transfer arrives in the wrong currency because someone stored <code>0.1 + 0.2</code> as a float. These are not exotic edge cases. They are the entirely predictable consequences of building software as though every user lives in your timezone, speaks your language, and transacts in your currency.</p>
+<p>This lesson tears apart three overlapping problem domains — money, time, and locale — and gives you concrete, production-grade patterns for each. We will start with the <strong>Falsehoods Programmers Believe</strong> lists, because the fastest way to appreciate the depth of the problem is to confront assumptions you did not even know you were making.</p>
+<hr>
+<h2>1. Why This Is Harder Than It Looks</h2>
+<h3>The Falsehoods</h3>
+<p>Patrick McKenzie&#39;s &quot;Falsehoods Programmers Believe About Names&quot; spawned an entire genre. A representative sample from each domain relevant to this lesson:</p>
+<p><strong>Currencies:</strong></p>
+<ul>
+<li>&quot;A currency has exactly two decimal places.&quot; — Japanese Yen (JPY) has zero. Kuwaiti Dinar (KWD) has three.</li>
+<li>&quot;The currency symbol always comes before the amount.&quot; — In Sweden, <code>100 kr</code>, not <code>kr100</code>.</li>
+<li>&quot;Exchange rates are stable enough to cache for a day.&quot; — On a volatile day, rates can move several percent per hour.</li>
+<li>&quot;A price can always be represented as a rational number.&quot; — Commodity prices are quoted in fractions of a cent.</li>
+<li>&quot;Every country has one currency.&quot; — Zimbabwe legally accepts multiple foreign currencies after hyperinflation destroyed the ZWD.</li>
+</ul>
+<p><strong>Timezones:</strong></p>
+<ul>
+<li>&quot;A timezone offset is always a whole number of hours.&quot; — India is UTC+5:30. Nepal is UTC+5:45.</li>
+<li>&quot;Timezones change only once a year for DST.&quot; — Countries change their timezone rules with minimal notice. Samoa skipped an entire day in December 2011.</li>
+<li>&quot;UTC doesn&#39;t have DST.&quot; — Correct, but many developers confuse UTC with GMT, and the UK <em>does</em> observe BST (UTC+1 in summer).</li>
+<li>&quot;If I store a timestamp in local time I can recover UTC later.&quot; — Not without also storing which timezone the local time was in, and the exact timezone rules that were in effect at that moment.</li>
+<li>&quot;Two-letter country codes map unambiguously to a timezone.&quot; — The US alone has six IANA timezone entries covering different DST rules.</li>
+</ul>
+<p><strong>Names and Locales:</strong></p>
+<ul>
+<li>&quot;A person&#39;s name fits in 255 characters.&quot; — Probably, but &quot;fits in two fields: first and last&quot; fails for mononyms (Cher, Pelé), patronymics, and Korean order (family name first).</li>
+<li>&quot;Sorting alphabetically is universal.&quot; — Swedish <code>ä</code> sorts <em>after</em> <code>z</code>. German phone-book order puts <code>ü</code> as <code>ue</code>.</li>
+<li>&quot;There is always a comma as the thousands separator.&quot; — Germany: <code>1.234,56</code>. Switzerland: <code>1 234.56</code>.</li>
+</ul>
+<h3>Real Bugs That Cost Real Money</h3>
+<p><strong>The Knight Capital incident (August 2012)</strong> was not a locale bug, but it illustrates how financial software failure can burn $440 million in 45 minutes. Locale and currency bugs tend to be slower and more diffuse, but the examples are plentiful:</p>
+<ul>
+<li>A European e-commerce platform stored prices in floating-point euros. After years of accumulation, rounding errors in aggregate revenue reports were several thousand euros off, discovered only during an audit.</li>
+<li>A subscription billing system stored renewal dates as a local datetime string. After a DST change, the renewal job fired an hour early for some customers, triggering failed card charges and customer support escalations.</li>
+<li>A travel booking site displayed prices in the user&#39;s detected locale without confirming the currency. A Japanese user paying in &quot;dollars&quot; was shown <code>¥</code> because of a locale-currency conflation bug — they were actually charged in USD.</li>
+</ul>
+<p>The theme is consistent: <strong>implicit assumptions, encoded in data models early in the project, that surface as expensive surprises late in the project</strong>.</p>
+<hr>
+<h2>2. Currency Handling</h2>
+<h3>Always Store in Minor Units — Never Floats</h3>
+<p>This is the single most important rule in financial software. <strong>Never store monetary amounts as floating-point numbers.</strong></p>
+<p>IEEE 754 floating point cannot represent most decimal fractions exactly. <code>0.1</code> in binary is a repeating fraction, like <code>1/3</code> in decimal. Small errors compound:</p>
+<pre><code class="language-python">&gt;&gt;&gt; 0.1 + 0.2
+0.30000000000000004
+
+&gt;&gt;&gt; 1.05 * 100
+105.00000000000001
+</code></pre>
+<p>The correct approach is to <strong>store amounts as integers in the currency&#39;s minor unit</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Currency</th>
+<th>Minor unit</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>USD</td>
+<td>cent (1/100)</td>
+<td>$12.99 → store <code>1299</code></td>
+</tr>
+<tr>
+<td>EUR</td>
+<td>cent (1/100)</td>
+<td>€9.50 → store <code>950</code></td>
+</tr>
+<tr>
+<td>JPY</td>
+<td>yen (no subdivision)</td>
+<td>¥500 → store <code>500</code></td>
+</tr>
+<tr>
+<td>KWD</td>
+<td>fils (1/1000)</td>
+<td>KWD 1.500 → store <code>1500</code></td>
+</tr>
+<tr>
+<td>BHD</td>
+<td>fils (1/1000)</td>
+<td>BHD 2.250 → store <code>2250</code></td>
+</tr>
+</tbody></table>
+<p>Store as <code>BIGINT</code> in the database. Use Python&#39;s <code>decimal.Decimal</code> or Java&#39;s <code>BigDecimal</code> for arithmetic. Never round mid-calculation — carry full precision until the final display step.</p>
+<pre><code class="language-python">from decimal import Decimal, ROUND_HALF_UP
+
+def to_minor_units(amount: Decimal, exponent: int) -&gt; int:
+    &quot;&quot;&quot;Convert a decimal amount to integer minor units.&quot;&quot;&quot;
+    factor = Decimal(10) ** exponent
+    return int((amount * factor).quantize(Decimal(&#39;1&#39;), rounding=ROUND_HALF_UP))
+
+# USD: exponent = 2
+to_minor_units(Decimal(&#39;12.99&#39;), 2)  # → 1299
+
+# JPY: exponent = 0
+to_minor_units(Decimal(&#39;500&#39;), 0)    # → 500
+</code></pre>
+<h3>ISO 4217 Currency Codes</h3>
+<p>Always identify currencies by their <strong>ISO 4217 three-letter alphabetic code</strong>, not by symbol. The <code>$</code> symbol is used by at least 20 countries. EUR, USD, JPY, GBP, CNY, INR — these are unambiguous.</p>
+<p>ISO 4217 also defines the <strong>minor unit exponent</strong>: the number of decimal places. Store this in your system so you know how to format and convert:</p>
+<pre><code class="language-sql">CREATE TABLE currencies (
+    code        CHAR(3)     PRIMARY KEY,  -- &#39;USD&#39;, &#39;EUR&#39;, &#39;JPY&#39;
+    name        VARCHAR(64) NOT NULL,
+    minor_exp   SMALLINT    NOT NULL,     -- 2 for USD, 0 for JPY, 3 for KWD
+    symbol      VARCHAR(8),               -- for display only
+    symbol_pos  CHAR(6)     NOT NULL DEFAULT &#39;before&#39;  -- &#39;before&#39; or &#39;after&#39;
+);
+</code></pre>
+<h3>Multi-Currency Storage: One Column vs Separate Table</h3>
+<p>Two common patterns exist for storing multi-currency amounts:</p>
+<p><strong>Pattern A: Two columns on the same row</strong></p>
+<pre><code class="language-sql">-- On the orders table
+amount_minor  BIGINT      NOT NULL,
+currency_code CHAR(3)     NOT NULL REFERENCES currencies(code)
+</code></pre>
+<p>Simple for single-amount rows. Becomes awkward if you need to store both an original amount and a settled amount in potentially different currencies.</p>
+<p><strong>Pattern B: Separate ledger / money table</strong></p>
+<pre><code class="language-sql">CREATE TABLE money_amounts (
+    id            BIGSERIAL    PRIMARY KEY,
+    entity_type   VARCHAR(32)  NOT NULL,  -- &#39;order&#39;, &#39;refund&#39;, &#39;fee&#39;
+    entity_id     BIGINT       NOT NULL,
+    amount_type   VARCHAR(32)  NOT NULL,  -- &#39;charged&#39;, &#39;settled&#39;, &#39;refunded&#39;
+    amount_minor  BIGINT       NOT NULL,
+    currency_code CHAR(3)      NOT NULL REFERENCES currencies(code),
+    recorded_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+</code></pre>
+<p>Pattern B is more normalised and better for audit trails. Pattern A is fine for simpler systems. Either way: <strong>the currency code must always travel with the amount</strong>. A naked integer <code>1299</code> is meaningless without knowing the currency.</p>
+<h3>Exchange Rates: Source, Freshness, and Conversion Discipline</h3>
+<p><strong>Where to get rates:</strong></p>
+<ul>
+<li><strong>European Central Bank (ECB):</strong> Free daily rates for ~30 currencies against EUR. Good for EUR-denominated businesses.</li>
+<li><strong>Open Exchange Rates / Fixer.io:</strong> Commercial, hourly or real-time updates, 170+ currencies.</li>
+<li><strong>Wise (TransferWise) API:</strong> Mid-market rates, well regarded.</li>
+<li><strong>Central bank APIs</strong> for specific corridors (RBI for INR, PBOC for CNY via authorised sources).</li>
+</ul>
+<p><strong>How often to refresh:</strong> For display purposes, hourly is usually fine. For billing or settlement, use the rate at the time of the transaction and <strong>freeze it</strong>. Never retroactively recalculate historical amounts with today&#39;s rates.</p>
+<pre><code class="language-sql">CREATE TABLE exchange_rates (
+    id              BIGSERIAL   PRIMARY KEY,
+    from_currency   CHAR(3)     NOT NULL,
+    to_currency     CHAR(3)     NOT NULL,
+    rate            NUMERIC(20, 10) NOT NULL,  -- NOT a float
+    source          VARCHAR(32) NOT NULL,
+    valid_from      TIMESTAMPTZ NOT NULL,
+    valid_to        TIMESTAMPTZ,
+    UNIQUE (from_currency, to_currency, valid_from)
+);
+</code></pre>
+<p><strong>Display time vs storage time conversion:</strong></p>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                    Conversion Discipline                        │
+│                                                                 │
+│  WRONG approach:                                                │
+│  Store converted amount  ──►  Rate changes  ──►  Data is wrong │
+│                                                                 │
+│  RIGHT approach:                                                │
+│  Store original amount + original currency                      │
+│  Store exchange rate snapshot at transaction time               │
+│  Convert to display currency at read time                       │
+│  Never mutate historical monetary records                       │
+└─────────────────────────────────────────────────────────────────┘
+</code></pre>
+<h3>Displaying Currency: Locale-Aware Formatting</h3>
+<p>The same amount must be formatted differently depending on the user&#39;s locale:</p>
+<table>
+<thead>
+<tr>
+<th>Locale</th>
+<th>Amount (USD 1234.56)</th>
+<th>Amount (EUR 1234.56)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>en-US</td>
+<td>$1,234.56</td>
+<td>€1,234.56</td>
+</tr>
+<tr>
+<td>de-DE</td>
+<td>1.234,56 $</td>
+<td>1.234,56 €</td>
+</tr>
+<tr>
+<td>fr-FR</td>
+<td>1 234,56 $</td>
+<td>1 234,56 €</td>
+</tr>
+<tr>
+<td>ja-JP</td>
+<td>$1,234.56</td>
+<td>€1,234.56</td>
+</tr>
+<tr>
+<td>hi-IN</td>
+<td>$1,234.56</td>
+<td>₹1,23,456.00 (for INR)</td>
+</tr>
+</tbody></table>
+<p>In JavaScript, the <strong>Intl.NumberFormat</strong> API handles this correctly:</p>
+<pre><code class="language-javascript">const formatCurrency = (minorUnits, currencyCode, locale) =&gt; {
+  const exp = getCurrencyExponent(currencyCode); // lookup from your DB
+  const amount = minorUnits / Math.pow(10, exp);
+  return new Intl.NumberFormat(locale, {
+    style: &#39;currency&#39;,
+    currency: currencyCode,
+    minimumFractionDigits: exp,
+    maximumFractionDigits: exp,
+  }).format(amount);
+};
+
+formatCurrency(123456, &#39;USD&#39;, &#39;en-US&#39;);  // &quot;$1,234.56&quot;
+formatCurrency(123456, &#39;USD&#39;, &#39;de-DE&#39;);  // &quot;1.234,56 $&quot;
+formatCurrency(500,    &#39;JPY&#39;, &#39;ja-JP&#39;);  // &quot;¥500&quot;
+</code></pre>
+<p>In Python, use the <code>babel</code> library:</p>
+<pre><code class="language-python">from babel.numbers import format_currency
+from decimal import Decimal
+
+def display_amount(minor_units: int, currency_code: str, locale: str) -&gt; str:
+    exp = get_currency_exponent(currency_code)
+    amount = Decimal(minor_units) / Decimal(10 ** exp)
+    return format_currency(amount, currency_code, locale=locale)
+
+display_amount(123456, &#39;USD&#39;, &#39;en_US&#39;)  # &#39;$1,234.56&#39;
+display_amount(123456, &#39;USD&#39;, &#39;de_DE&#39;)  # &#39;1.234,56\xa0$&#39;
+</code></pre>
+<hr>
+<h2>3. Timezone Handling</h2>
+<h3>The Golden Rule: Store UTC, Display Local</h3>
+<p>Every timestamp stored in your database must be in <strong>UTC</strong>. No exceptions. Your database server&#39;s local time does not matter. The application server&#39;s timezone does not matter. UTC is the canonical reference, and you convert to the user&#39;s local time only at the moment of display.</p>
+<pre><code>                    ┌──────────────────────────────────────────┐
+                    │             Timeline of a Timestamp       │
+                    │                                          │
+  User action       │   App Server       │   Database          │
+  (Paris, CEST)     │                    │                     │
+  ─────────────     │   ─────────────    │   ─────────────     │
+  14:30 CEST  ──►   │   Convert to UTC   │   Store UTC         │
+  (UTC+2)           │   12:30 UTC    ──► │   12:30 UTC         │
+                    │                    │                     │
+  User reads back   │   Read UTC         │   Return UTC        │
+  (same user)       │   12:30 UTC    ◄── │   12:30 UTC         │
+  14:30 CEST  ◄──   │   Convert to CEST  │                     │
+                    │   (user&#39;s tz)      │                     │
+                    └──────────────────────────────────────────┘
+</code></pre>
+<h3>The Problem with &quot;User&#39;s Local Time&quot;</h3>
+<p><strong>Daylight Saving Time (DST) transitions</strong> create ambiguous and skipped local times. On the night clocks spring forward in the US Eastern timezone, 2:30 AM does not exist. On the night they fall back, 1:30 AM occurs twice. If you store &quot;1:30 AM on November 3, 2024 (Eastern)&quot; without the UTC equivalent, you cannot tell which occurrence you mean.</p>
+<p>The 2011 Samoa DST example is the most dramatic: Samoa shifted from UTC-11 to UTC+13, skipping Friday 30 December 2011 entirely. Any system that stored local Samoan dates as strings lost a day from its timeline.</p>
+<p><strong>Timezone rules change.</strong> Political decisions, court rulings, and administrative changes alter timezone rules with minimal notice. Egypt cancelled DST permanently in 2011. Russia moved to permanent summer time in 2011, then reversed it in 2014. Your application must use a regularly updated <strong>IANA timezone database</strong> (also called the tz database or zoneinfo) — not a static offset.</p>
+<h3>Recurring Events Need IANA Timezone Names, Not Offsets</h3>
+<p>This is a subtle but critical distinction. Consider a weekly meeting &quot;every Monday at 10:00 AM London time&quot;:</p>
+<pre><code>WRONG: Store as &quot;every Monday at 10:00 UTC+0&quot;
+  → In summer, London is UTC+1 (BST), so the meeting fires at 11:00 BST. Wrong.
+
+RIGHT: Store as &quot;every Monday at 10:00 Europe/London&quot;
+  → The system consults the IANA database, resolves Europe/London to the
+     correct offset for that specific Monday, and fires at the right time.
+</code></pre>
+<p>IANA timezone names look like: <code>America/New_York</code>, <code>Europe/London</code>, <code>Asia/Kolkata</code>, <code>Pacific/Auckland</code>. Always use these names — never raw offsets — for user-facing timezone selection and for recurring event storage.</p>
+<h3>Database Column Types</h3>
+<table>
+<thead>
+<tr>
+<th>Column type</th>
+<th>What it stores</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>TIMESTAMP</code> (PostgreSQL)</td>
+<td>Local time, no timezone info</td>
+<td>Avoid for new code</td>
+</tr>
+<tr>
+<td><code>TIMESTAMPTZ</code> (PostgreSQL)</td>
+<td>UTC, displays in session TZ</td>
+<td>Use this for almost everything</td>
+</tr>
+<tr>
+<td><code>DATETIME</code> (MySQL)</td>
+<td>Local time, no timezone info</td>
+<td>Avoid for new code</td>
+</tr>
+<tr>
+<td><code>TIMESTAMP</code> (MySQL)</td>
+<td>Stored as UTC, returned in session TZ</td>
+<td>Acceptable, but watch session TZ settings</td>
+</tr>
+<tr>
+<td>epoch milliseconds <code>BIGINT</code></td>
+<td>ms since Unix epoch, always UTC</td>
+<td>Cross-platform safe; requires manual formatting</td>
+</tr>
+</tbody></table>
+<p><strong>Recommendation:</strong> Use <code>TIMESTAMPTZ</code> in PostgreSQL or store epoch milliseconds as <code>BIGINT</code>. Never rely on your database server&#39;s timezone setting to do UTC conversion for you — make the conversion explicit in application code.</p>
+<pre><code class="language-sql">-- PostgreSQL: explicit UTC storage
+CREATE TABLE events (
+    id           BIGSERIAL    PRIMARY KEY,
+    title        TEXT         NOT NULL,
+    starts_at    TIMESTAMPTZ  NOT NULL,  -- always UTC
+    iana_tz      TEXT         NOT NULL   -- &#39;America/New_York&#39; for display
+);
+
+-- Insert: application sends UTC
+INSERT INTO events (title, starts_at, iana_tz)
+VALUES (&#39;Weekly standup&#39;, &#39;2025-01-06 15:00:00+00&#39;, &#39;America/New_York&#39;);
+
+-- Read: database returns UTC; application converts to user&#39;s tz
+SELECT starts_at AT TIME ZONE iana_tz AS local_time FROM events;
+</code></pre>
+<h3>Libraries</h3>
+<p><strong>Java:</strong> Use <code>java.time</code> (introduced in Java 8, part of JSR-310). Never use <code>java.util.Date</code> or <code>Calendar</code> for new code — they are famously broken. Key classes:</p>
+<ul>
+<li><code>Instant</code> — a point in time (essentially epoch seconds + nanos). Use this for storage.</li>
+<li><code>ZonedDateTime</code> — an Instant with an IANA timezone. Use this for display.</li>
+<li><code>ZoneId.of(&quot;America/New_York&quot;)</code> — always use IANA names.</li>
+</ul>
+<pre><code class="language-java">ZonedDateTime nyTime = ZonedDateTime.now(ZoneId.of(&quot;America/New_York&quot;));
+Instant utc = nyTime.toInstant();  // for DB storage
+ZonedDateTime londonTime = utc.atZone(ZoneId.of(&quot;Europe/London&quot;));  // for display
+</code></pre>
+<p><strong>Python:</strong> The standard library <code>datetime</code> module is usable but error-prone (naive vs aware datetime objects). <strong>Pendulum</strong> is the preferred library — it defaults to UTC-aware, wraps the IANA database, and has excellent DST handling:</p>
+<pre><code class="language-python">import pendulum
+
+# Always timezone-aware
+now_utc = pendulum.now(&#39;UTC&#39;)
+now_ny  = now_utc.in_timezone(&#39;America/New_York&#39;)
+
+# Arithmetic across DST boundaries is correct
+next_week = now_utc.add(weeks=1)
+
+# Parse with timezone
+dt = pendulum.parse(&#39;2025-03-09T02:30:00&#39;, tz=&#39;America/New_York&#39;)
+# pendulum correctly handles the DST gap here
+</code></pre>
+<p><strong>JavaScript/TypeScript:</strong> The built-in <code>Date</code> object is notoriously limited. The <strong>Temporal API</strong> (TC39 Stage 3 as of 2025, available via polyfill) is the modern replacement:</p>
+<pre><code class="language-javascript">import { Temporal } from &#39;@js-temporal/polyfill&#39;;
+
+const now   = Temporal.Now.instant();                    // UTC Instant
+const nyNow = now.toZonedDateTimeISO(&#39;America/New_York&#39;); // ZonedDateTime
+const formatted = nyNow.toLocaleString(&#39;en-US&#39;, {
+  timeZone: &#39;America/New_York&#39;,
+  dateStyle: &#39;full&#39;,
+  timeStyle: &#39;short&#39;,
+});
+</code></pre>
+<p>Until Temporal is widely available natively, <strong>Luxon</strong> (the successor to Moment.js) is a solid production choice.</p>
+<hr>
+<h2>4. Locale &amp; Internationalisation (i18n)</h2>
+<h3>Locale String Format</h3>
+<p>A <strong>locale</strong> is a combination of language, optional script, and optional region, written as a BCP 47 language tag:</p>
+<pre><code>en          → English (no region preference)
+en-US       → English as used in the United States
+en-GB       → English as used in the United Kingdom
+zh-Hans-CN  → Chinese, Simplified script, as used in mainland China
+zh-Hant-TW  → Chinese, Traditional script, as used in Taiwan
+sr-Cyrl-RS  → Serbian, Cyrillic script, Serbia
+ar-SA       → Arabic, Saudi Arabia
+pt-BR       → Portuguese, Brazil
+</code></pre>
+<p>The locale drives number formatting, date formatting, collation (sort order), and which plural rules apply. Store the user&#39;s locale preference in their profile and propagate it through every layer of the stack.</p>
+<h3>Number Formatting, Date Formatting, Collation</h3>
+<p><strong>Numbers and dates</strong> vary significantly across locales:</p>
+<pre><code>Number 1234567.89:
+  en-US    →  1,234,567.89
+  de-DE    →  1.234.567,89
+  fr-FR    →  1 234 567,89
+  hi-IN    →  12,34,567.89   (Indian numbering system)
+  ar-SA    →  ١٬٢٣٤٬٥٦٧٫٨٩  (Eastern Arabic numerals)
+
+Date 2025-07-15:
+  en-US    →  July 15, 2025
+  en-GB    →  15 July 2025
+  de-DE    →  15. Juli 2025
+  ja-JP    →  2025年7月15日
+  zh-CN    →  2025年7月15日
+</code></pre>
+<p>Use platform ICU or <code>Intl</code> APIs — do not hand-roll these. Hand-rolled date formatting is where &quot;January 1st, 2025&quot; becomes &quot;1/1/25&quot; in one locale and &quot;01/01/25&quot; in another, with no way to tell month from day.</p>
+<p><strong>Collation (sort order)</strong> is non-trivial. In standard Unicode order, uppercase letters sort before lowercase. In Swedish, <code>ä</code> comes after <code>z</code>. In Spanish (traditional), <code>ch</code> is treated as a single letter. For database sorting of localised strings, use ICU collation:</p>
+<pre><code class="language-sql">-- PostgreSQL with ICU collation
+CREATE TABLE products (
+    name TEXT COLLATE &quot;sv-x-icu&quot;  -- Swedish collation
+);
+
+SELECT name FROM products ORDER BY name COLLATE &quot;sv-x-icu&quot;;
+</code></pre>
+<h3>Right-to-Left (RTL) Layout</h3>
+<p>Arabic and Hebrew are written right-to-left. Your UI layout must mirror: navigation that was on the left moves to the right, text alignment flips, icons that indicate direction (arrows, chevrons) must be mirrored.</p>
+<p><strong>CSS logical properties</strong> make this manageable without duplicating styles:</p>
+<pre><code class="language-css">/* Physical properties (old way — breaks in RTL) */
+.card {
+  margin-left: 16px;
+  padding-right: 24px;
+  border-left: 2px solid blue;
+  text-align: left;
+}
+
+/* Logical properties (correct way — adapts to writing direction) */
+.card {
+  margin-inline-start: 16px;   /* left in LTR, right in RTL */
+  padding-inline-end: 24px;    /* right in LTR, left in RTL */
+  border-inline-start: 2px solid blue;
+  text-align: start;           /* left in LTR, right in RTL */
+}
+</code></pre>
+<p>Set the <code>dir</code> attribute at the HTML root based on the locale:</p>
+<pre><code class="language-html">&lt;html lang=&quot;ar&quot; dir=&quot;rtl&quot;&gt;
+</code></pre>
+<p>React frameworks and design systems like Material UI have built-in RTL support via a direction theme context.</p>
+<h3>Plural Forms</h3>
+<p>English has two plural forms: singular (<code>1 item</code>) and plural (<code>0 items</code>, <code>2 items</code>). This feels universal until you look further:</p>
+<table>
+<thead>
+<tr>
+<th>Language</th>
+<th>Forms</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Chinese, Japanese</td>
+<td>1</td>
+<td>1件, 2件, 100件 (same form)</td>
+</tr>
+<tr>
+<td>English</td>
+<td>2</td>
+<td><code>1 item</code>, <code>2 items</code></td>
+</tr>
+<tr>
+<td>French</td>
+<td>2</td>
+<td>zero treated as singular: <code>0 résultat</code></td>
+</tr>
+<tr>
+<td>Russian</td>
+<td>3</td>
+<td>1 файл, 2 файла, 5 файлов</td>
+</tr>
+<tr>
+<td>Polish</td>
+<td>4</td>
+<td>1 plik, 2 pliki, 5 plików, 1.5 pliku</td>
+</tr>
+<tr>
+<td>Arabic</td>
+<td>6</td>
+<td>zero, one, two, few, many, other</td>
+</tr>
+</tbody></table>
+<p><strong>Never build plural strings with a ternary:</strong></p>
+<pre><code class="language-javascript">// WRONG — breaks for every language except English
+const msg = `${count} item${count === 1 ? &#39;&#39; : &#39;s&#39;}`;
+
+// RIGHT — use ICU MessageFormat
+import { MessageFormat } from &#39;@messageformat/core&#39;;
+const mf = new MessageFormat(&#39;en&#39;);
+const msg = mf.compile(&#39;{count, plural, one {# item} other {# items}}&#39;);
+msg({ count: 1 });   // &quot;1 item&quot;
+msg({ count: 5 });   // &quot;5 items&quot;
+</code></pre>
+<p>In Python, <code>babel</code> handles plural forms:</p>
+<pre><code class="language-python">from babel.core import Locale
+locale = Locale.parse(&#39;ru_RU&#39;)
+# Use babel&#39;s plural rule engine to select the correct plural category
+</code></pre>
+<h3>String Externalisation</h3>
+<p>All user-visible strings must live outside the code in <strong>message files</strong>, keyed by a message ID. The two dominant systems:</p>
+<p><strong>gettext (.po/.mo files):</strong> The traditional Unix/GNU approach, widely used in Python (Django, Flask-Babel) and PHP:</p>
+<pre><code># messages.po (English)
+msgid &quot;checkout.items_in_cart&quot;
+msgstr &quot;{count, plural, one {# item in your cart} other {# items in your cart}}&quot;
+
+# messages.po (German)
+msgid &quot;checkout.items_in_cart&quot;
+msgstr &quot;{count, plural, one {# Artikel in Ihrem Warenkorb} other {# Artikel in Ihrem Warenkorb}}&quot;
+</code></pre>
+<p><strong>ICU MessageFormat:</strong> More powerful, handles plural, select (gender), and nested conditions. Used by <code>react-intl</code>, Angular&#39;s <code>@angular/localize</code>, and the JavaScript <code>Intl.MessageFormat</code> proposal:</p>
+<pre><code class="language-javascript">// en.json
+{
+  &quot;greeting&quot;: &quot;Hello, {name}!&quot;,
+  &quot;cart&quot;:     &quot;{count, plural, =0 {Your cart is empty} one {# item} other {# items}}&quot;,
+  &quot;role&quot;:     &quot;{role, select, admin {Admin panel} user {Dashboard} other {Home}}&quot;
+}
+</code></pre>
+<p>Key rules for string externalisation:</p>
+<ul>
+<li><strong>Never concatenate translated strings.</strong> <code>&quot;You have &quot; + count + &quot; messages&quot;</code> breaks because word order varies by language.</li>
+<li><strong>Use named placeholders</strong>, not positional (<code>{name}</code> not <code>%s</code>), so translators can reorder.</li>
+<li><strong>Provide context comments</strong> for translators — &quot;This is a button label, max 10 chars.&quot;</li>
+</ul>
+<hr>
+<h2>5. Character Encoding</h2>
+<h3>Always UTF-8</h3>
+<p>There is one correct encoding for modern software: <strong>UTF-8</strong>. It is backward-compatible with ASCII, supports every Unicode character including emoji, and is self-synchronising (you can always find character boundaries). Do not use Latin-1, Windows-1252, or any other encoding for new systems. When you receive data in another encoding (legacy files, some EDI systems), transcode to UTF-8 at the boundary before storing.</p>
+<h3>Emoji Are Multi-Byte</h3>
+<p>A Python <code>str</code> is a sequence of Unicode code points, not bytes. But some code points are represented as two UTF-16 code units (surrogate pairs), and string length functions in some languages/contexts return byte counts rather than character counts:</p>
+<pre><code class="language-python">emoji = &quot;👍&quot;
+len(emoji)          # 1  (correct — one code point)
+len(emoji.encode()) # 4  (UTF-8 bytes: F0 9F 91 8D)
+
+# Be careful with slicing if you&#39;re also thinking about display width
+# &quot;👍&quot; displays as double-width in many terminals
+</code></pre>
+<p>In JavaScript:</p>
+<pre><code class="language-javascript">&quot;👍&quot;.length        // 2 — JavaScript uses UTF-16, this emoji is a surrogate pair
+[...&quot;👍&quot;].length   // 1 — spread operator iterates code points correctly
+</code></pre>
+<h3>MySQL&#39;s utf8 Is Not Real UTF-8</h3>
+<p>This is a notorious historical trap. MySQL&#39;s <code>utf8</code> charset only supports up to 3-byte UTF-8 sequences, which excludes emoji and some rare CJK characters (which require 4 bytes). The correct charset in MySQL/MariaDB is <strong><code>utf8mb4</code></strong> (4-byte UTF-8):</p>
+<pre><code class="language-sql">-- WRONG: emoji will silently fail or corrupt
+CREATE TABLE posts (body TEXT CHARACTER SET utf8);
+
+-- RIGHT
+CREATE TABLE posts (body TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci);
+
+-- And set the connection charset:
+SET NAMES utf8mb4;
+
+-- Or in your DSN:
+-- mysql://user:pass@host/db?charset=utf8mb4
+</code></pre>
+<p>If you are migrating an existing MySQL database from <code>utf8</code> to <code>utf8mb4</code>, run <code>ALTER TABLE ... CONVERT TO CHARACTER SET utf8mb4</code> on each table, and update all connection strings and ORM configuration. This affects index sizes (consult MySQL documentation on <code>innodb_large_prefix</code>).</p>
+<hr>
+<h2>6. A Practical Internationalisation Checklist</h2>
+<p>Use this table when auditing a system for i18n readiness. Each item should have a definitive answer before launch in a new market.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Category</th>
+<th>Check</th>
+<th>Pass Criteria</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Currency</td>
+<td>Monetary amounts stored as integers in minor units</td>
+<td>No <code>FLOAT</code> or <code>DOUBLE</code> columns for money</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Currency</td>
+<td>Currency code travels with every monetary amount</td>
+<td>No naked numeric columns without a currency code sibling</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Currency</td>
+<td>Exchange rates stored with source and validity window</td>
+<td>Historical transactions reference a frozen rate</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Currency</td>
+<td>Display formatting uses locale-aware library</td>
+<td><code>Intl.NumberFormat</code> or <code>babel.format_currency</code>, not hand-rolled</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Timezone</td>
+<td>All timestamps stored as UTC</td>
+<td><code>TIMESTAMPTZ</code> or epoch BIGINT; no session-dependent <code>DATETIME</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td>Timezone</td>
+<td>Recurring events store IANA timezone name</td>
+<td><code>America/New_York</code>, not <code>UTC-5</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td>Timezone</td>
+<td>DST transition tested</td>
+<td>Unit test covers spring-forward and fall-back</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Locale</td>
+<td>User locale/language preference stored in profile</td>
+<td>BCP 47 tag, e.g. <code>de-DE</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td>Locale</td>
+<td>All UI strings externalised</td>
+<td>Zero hardcoded user-visible strings in templates/components</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Locale</td>
+<td>Plural forms handled via ICU or gettext</td>
+<td>No <code>count === 1 ? &#39;item&#39; : &#39;items&#39;</code> in i18n-scoped code</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Locale</td>
+<td>RTL layout tested for Arabic and Hebrew</td>
+<td>No physical CSS properties (<code>margin-left</code>); logical properties used</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Locale</td>
+<td>Sort order uses locale-aware collation</td>
+<td>No <code>ORDER BY name</code> without explicit collation for multilingual data</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Encoding</td>
+<td>Database charset is <code>utf8mb4</code> (MySQL) or <code>UTF8</code> (PostgreSQL)</td>
+<td>Emoji round-trip correctly</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Encoding</td>
+<td>All HTTP responses declare <code>Content-Type: text/html; charset=utf-8</code></td>
+<td>No implicit charset negotiation</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Encoding</td>
+<td>Legacy data imports transcode at boundary</td>
+<td>No mixed-encoding strings in the database</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Summary</h2>
+<p>The core disciplines collapse into a small set of invariants:</p>
+<ul>
+<li><strong>Money:</strong> integer minor units + ISO 4217 code, always together, never floats, frozen rate at transaction time.</li>
+<li><strong>Time:</strong> UTC at rest, IANA timezone name for context, library-managed conversion at display.</li>
+<li><strong>Locale:</strong> BCP 47 tag drives all formatting; ICU handles plurals and selection; logical CSS handles RTL.</li>
+<li><strong>Encoding:</strong> UTF-8 everywhere; <code>utf8mb4</code> in MySQL; code-point-aware string operations.</li>
+</ul>
+<p>None of these are conceptually difficult. They are disciplines — habits that must be established in the data model and architecture before the first user record is written. Retrofitting them after launch is orders of magnitude more expensive.</p>
+<hr>
+<p><em>Next: Lesson 6.4 — Edge Computing Use Cases</em></p>

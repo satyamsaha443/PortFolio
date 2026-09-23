@@ -1,0 +1,213 @@
+<h1>Mock Interview Script Templates (Beginner &amp; Senior)</h1>
+<blockquote>
+<p><strong>Lesson 5.6</strong> · All levels · 40 min</p>
+</blockquote>
+<hr>
+<p>Reading about system design and doing system design are very different things. This lesson gives you two complete mock interview transcripts — word-for-word, including the interviewer&#39;s redirects and curveballs. Read each script twice: once to absorb the flow, once to annotate what the candidate does well and where they stumble.</p>
+<p>After each script there is a debrief. Read that too. The debrief is where the real learning is.</p>
+<hr>
+<h2>Script A — Beginner (L3/L4): &quot;Design a URL Shortener&quot;</h2>
+<p><strong>Interviewer:</strong> Alex, Senior Engineer<br><strong>Candidate:</strong> Jordan, interviewing for L3/L4</p>
+<hr>
+<p><strong>Alex:</strong> &quot;Hi Jordan, thanks for being here. We have about 45 minutes. Today I&#39;d like you to design a URL shortener — something like bit.ly. Walk me through how you&#39;d approach it.&quot;</p>
+<p><strong>Jordan:</strong> &quot;Great, I appreciate the question. Before I start drawing anything, I&#39;d like to ask a few clarifying questions to make sure I&#39;m designing the right thing.&quot;</p>
+<p><strong>Alex:</strong> &quot;Of course, go ahead.&quot;</p>
+<p><strong>Jordan:</strong> &quot;First — what&#39;s the primary use case? Is this a public-facing service where anyone can submit a URL, or is it internal, like for employees to share links inside a company?&quot;</p>
+<p><strong>Alex:</strong> &quot;Public-facing. Anyone can use it.&quot;</p>
+<p><strong>Jordan:</strong> &quot;Okay. And do users need accounts, or is link creation anonymous?&quot;</p>
+<p><strong>Alex:</strong> &quot;Let&#39;s say anonymous creation is fine, but users can optionally sign up to track click statistics.&quot;</p>
+<p><strong>Jordan:</strong> &quot;Got it. What about scale — do you have a rough target for how many URLs are being shortened per day, and how many redirects?&quot;</p>
+<p><strong>Alex:</strong> &quot;Let&#39;s say 1 million new URLs per day, and maybe 100 million redirects per day.&quot;</p>
+<p><strong>Jordan:</strong> &quot;That&#39;s about a 100:1 read-to-write ratio, which tells me this is heavily read-optimised. One more: how long do URLs stay alive? Forever, or do they expire?&quot;</p>
+<p><strong>Alex:</strong> &quot;Good question. Let&#39;s say 5 years by default, with optional custom expiry.&quot;</p>
+<p><strong>Jordan:</strong> &quot;Perfect. Let me make sure I have the scope right. I&#39;m designing a public URL shortener. Core features: shorten a long URL into a short code, redirect from the short URL to the original, and optionally track click stats for registered users. Non-anonymisation is out of scope. Scale is 1M writes and 100M reads per day. Short codes live for about 5 years. Does that sound right?&quot;</p>
+<p><strong>Alex:</strong> &quot;That&#39;s exactly right. Go ahead.&quot;</p>
+<p><strong>Jordan:</strong> &quot;Let me start with a high-level design and then drill down. The two main operations are: POST /shorten — takes a long URL, returns a short code — and GET /:code — takes a short code, returns an HTTP 301 redirect to the original URL.&quot;</p>
+<p><strong>Jordan:</strong> &quot;At the high level, I&#39;m thinking: client talks to a load balancer, which routes to a stateless app tier, which reads from a database. The read path is the critical one since it&#39;s 100:1 reads to writes, so I want a cache in front of the database for the redirect lookups. Let me sketch that.&quot;</p>
+<pre><code>Client
+  |
+  | HTTPS
+  v
+Load Balancer
+  |
+  v
+App Servers (stateless, horizontally scalable)
+  |              |
+  | Cache miss   | Write (new URL)
+  v              v
+Redis Cache &lt;-- Postgres DB
+(short code     (source of
+ → long URL)     truth)
+</code></pre>
+<p><strong>Jordan:</strong> &quot;For the short code generation — the most important design decision — I&#39;m thinking a 7-character alphanumeric string. That gives us 62^7 = about 3.5 trillion possible codes, which is more than enough.&quot;</p>
+<p><strong>Alex:</strong> &quot;How would you actually generate those codes?&quot;</p>
+<p><strong>Jordan:</strong> &quot;A few options. One is to hash the long URL with MD5 or SHA-256, then take the first 7 characters of the hex output. Simple, but collisions are possible — two different long URLs could produce the same short code. I&#39;d need a collision-check loop, which adds latency.&quot;</p>
+<p><strong>Jordan:</strong> &quot;A second option is a counter-based approach: an auto-incrementing integer in the database, base62-encoded into the short code. Guaranteed uniqueness, no collision risk. The downside is the counter becomes a single write bottleneck at high scale.&quot;</p>
+<p><strong>Jordan:</strong> &quot;A third option is to pre-generate a pool of random codes and store them in a &#39;available codes&#39; table. Workers pop from that table and assign codes. Scales well and avoids real-time generation latency.&quot;</p>
+<p><strong>Jordan:</strong> &quot;For this scale — 1M writes per day, which is about 12 per second — the counter approach is fine. I&#39;d go with that.&quot;</p>
+<p><strong>Alex:</strong> &quot;Let&#39;s talk about the redirect. You said HTTP 301 — is that a deliberate choice?&quot;</p>
+<p><strong>Jordan:</strong> &quot;Good catch. 301 is a permanent redirect — the browser caches it forever, so subsequent clicks on the same URL skip the server entirely. That&#39;s great for reducing load, but it breaks click tracking because the browser never phones home again. If click analytics matters, I should use 302, which is temporary and forces the browser to check back every time. Since the spec says optional click tracking, I&#39;d use 302 by default to preserve analytics capability, with a note that we could switch to 301 for links where tracking is disabled.&quot;</p>
+<p><strong>Alex:</strong> &quot;Nice. Shifting gears — I actually want to spend a bit more time on the database schema. Can you talk me through what the tables look like?&quot;</p>
+<p><strong>Jordan:</strong> &quot;Sure. Main table is <code>urls</code>:&quot;</p>
+<pre><code class="language-sql">CREATE TABLE urls (
+    id          BIGSERIAL PRIMARY KEY,
+    short_code  VARCHAR(8)   NOT NULL UNIQUE,
+    long_url    TEXT         NOT NULL,
+    user_id     BIGINT       REFERENCES users(id),  -- NULL if anonymous
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ,
+    is_active   BOOLEAN      NOT NULL DEFAULT true
+);
+
+CREATE INDEX idx_urls_short_code ON urls(short_code);
+</code></pre>
+<p><strong>Jordan:</strong> &quot;For click tracking, a separate table so it doesn&#39;t bloat the hot <code>urls</code> table:&quot;</p>
+<pre><code class="language-sql">CREATE TABLE clicks (
+    id          BIGSERIAL PRIMARY KEY,
+    url_id      BIGINT       NOT NULL REFERENCES urls(id),
+    clicked_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    referrer    TEXT,
+    user_agent  TEXT,
+    ip_hash     CHAR(64)     -- hashed for privacy
+);
+</code></pre>
+<p><strong>Alex:</strong> &quot;Good. Let&#39;s say we&#39;ve been running for two years and the database is getting large. How would you scale it?&quot;</p>
+<p><strong>Jordan:</strong> &quot;At 1M URLs per day times 365 times 2 years, that&#39;s about 730 million rows. Each row is maybe 200 bytes — that&#39;s around 150GB of raw data, which is manageable on a single Postgres instance with SSDs.&quot;</p>
+<p><strong>Jordan:</strong> &quot;But if I&#39;m concerned about write throughput or the single-primary bottleneck: I&#39;d add read replicas for analytics queries, since those can tolerate slight staleness. For the redirect path, Redis should be absorbing most of the reads anyway. If the database really becomes a bottleneck, I&#39;d shard by the first character of the short code — 62 possible shards gives me good distribution.&quot;</p>
+<p><strong>Alex:</strong> &quot;Last question: what if Redis goes down?&quot;</p>
+<p><strong>Jordan:</strong> &quot;The system degrades gracefully. Cache misses fall through to Postgres. At 100M redirects per day — about 1,150 per second — Postgres can handle that, but latency goes up from a sub-millisecond cache hit to maybe 5–10ms database read. I&#39;d alert on Redis availability and have an auto-recovery mechanism. I&#39;d also make sure the app never writes to Redis as the only store — Postgres is always the source of truth.&quot;</p>
+<p><strong>Alex:</strong> &quot;Great work, Jordan. Let me stop you there — we&#39;re at time. Nice discussion.&quot;</p>
+<hr>
+<h3>Debrief: Script A</h3>
+<p><strong>What Jordan did well:</strong></p>
+<ul>
+<li><strong>Requirements first, every time.</strong> Four focused questions before drawing a single component. Clarified scale, read/write ratio, user model, and data lifetime. This immediately set a tone of structured thinking.</li>
+<li><strong>Scope summary.</strong> Before beginning the design, Jordan verbally confirmed the scope back to Alex. This is a technique that earns trust and protects against scope drift mid-interview.</li>
+<li><strong>301 vs 302 reasoning.</strong> This is a classic URL shortener gotcha. Jordan named the trade-off correctly and landed on the pragmatic answer without being prompted.</li>
+<li><strong>Schema was clean.</strong> Separating <code>clicks</code> from <code>urls</code> is a good instinct. The privacy note on <code>ip_hash</code> shows real-world awareness.</li>
+<li><strong>Failure mode answered crisply.</strong> &quot;Degrades gracefully&quot; is the right frame. Postgres handles load, system stays up, latency increases — that&#39;s a correct and complete answer.</li>
+</ul>
+<p><strong>What could be improved:</strong></p>
+<ul>
+<li><strong>The scaling math was a bit slow.</strong> Jordan did the arithmetic but could have snapped to it faster with a memorised formula (rows/day * bytes/row * years = GB). Practicing back-of-envelope calculations out loud speeds this up.</li>
+<li><strong>NFRs were implicit.</strong> Latency and availability requirements were never explicitly named. Jordan should have said: &quot;I&#39;ll assume we need sub-50ms p99 for redirects and 99.9% availability — does that sound right?&quot; — even if the answer is obvious.</li>
+<li><strong>Didn&#39;t proactively mention monitoring.</strong> A brief mention of &quot;I&#39;d alert on Redis latency and Postgres connection pool saturation&quot; would have strengthened the answer at this level.</li>
+</ul>
+<p><strong>Three key takeaways:</strong></p>
+<ol>
+<li>Read/write ratio is the most important number to establish early — it determines your entire caching and scaling strategy.</li>
+<li>Redirect HTTP status codes (301 vs 302) are a legitimate trade-off, not trivia. Know why you choose each.</li>
+<li>When the interviewer redirects you (&quot;let&#39;s talk about the schema&quot;), follow them immediately and treat it as a gift — they are showing you where they want depth.</li>
+</ol>
+<hr>
+<hr>
+<h2>Script B — Senior (L5/L6): &quot;Design a Real-Time Chat System at Scale&quot;</h2>
+<p><strong>Interviewer:</strong> Maria, Staff Engineer<br><strong>Candidate:</strong> Sam, interviewing for L5/L6</p>
+<hr>
+<p><strong>Maria:</strong> &quot;Hi Sam. Today I&#39;d like you to design a real-time chat system — think Slack or WhatsApp. You have 45 minutes.&quot;</p>
+<p><strong>Sam:</strong> &quot;Thanks. A few quick questions to bound the scope — then I&#39;ll jump in.&quot;</p>
+<p><strong>Sam:</strong> &quot;First: is this 1:1 only, or group channels too? And if group channels, what&#39;s the ceiling on group size?&quot;</p>
+<p><strong>Maria:</strong> &quot;Both. Groups up to 1,000 members.&quot;</p>
+<p><strong>Sam:</strong> &quot;Scale target?&quot;</p>
+<p><strong>Maria:</strong> &quot;50 million DAU, roughly 100 billion messages stored total.&quot;</p>
+<p><strong>Sam:</strong> &quot;Message delivery model — does unread state need to be exactly right, or is eventual consistency acceptable? And do we need end-to-end encryption?&quot;</p>
+<p><strong>Maria:</strong> &quot;Eventual consistency on read receipts is fine. No E2E encryption for now.&quot;</p>
+<p><strong>Sam:</strong> &quot;Last one: data residency — are we single-region or do we have global users with any data locality requirements?&quot;</p>
+<p><strong>Maria:</strong> &quot;Global users. We&#39;ll come back to that.&quot;</p>
+<p><strong>Sam:</strong> &quot;Okay. Core scope: send message (1:1 and group up to 1K), real-time delivery to online clients, persistent message history, read/unread state eventually consistent. I&#39;ll assume 99.99% availability for message delivery since this is business-critical comms. Let me walk the architecture.&quot;</p>
+<p><strong>Sam:</strong> &quot;The first fundamental decision is the real-time transport layer. HTTP polling is obviously out — latency would be terrible. WebSockets are the standard choice: persistent bidirectional connection per client, server can push messages without a client request. Long-polling is a fallback for environments where WebSockets are blocked.&quot;</p>
+<pre><code>Clients (mobile/web)
+  |
+  | WebSocket connections
+  v
+Chat Gateway Tier (stateful WebSocket servers)
+  |
+  | Internal RPC / message bus
+  v
+Message Service ──── Message Store (Cassandra)
+  |
+  v
+Presence Service ──── Presence Store (Redis)
+  |
+  v
+Notification Service (push for offline users)
+</code></pre>
+<p><strong>Sam:</strong> &quot;The gateway tier is stateful — each server holds N open WebSocket connections. That&#39;s important: to send a message to User B, I need to find which gateway server User B is connected to. I&#39;ll use a Presence Service backed by Redis to store a mapping of user_id → gateway_server_id. When User B connects, the gateway registers them; when they disconnect, the gateway deregisters.&quot;</p>
+<p><strong>Maria:</strong> &quot;What happens if a gateway server crashes?&quot;</p>
+<p><strong>Sam:</strong> &quot;Clients detect the connection drop — WebSockets will get a close event — and immediately reconnect to any available gateway server via load balancer. The new gateway re-registers presence for that user. There&#39;s a brief window where messages sent during reconnection could be missed, so I handle that at the message layer: each message has a monotonically increasing sequence number per conversation. When a client reconnects, it sends its last seen sequence number and requests a catch-up batch. That&#39;s the standard approach WhatsApp and Slack both use.&quot;</p>
+<p><strong>Maria:</strong> &quot;Good. Talk me through message storage.&quot;</p>
+<p><strong>Sam:</strong> &quot;Message patterns are heavily append-dominant — almost all writes are new messages, almost all reads are recent history. That profile points to Cassandra. The partition key needs to be chosen carefully to avoid hot partitions.&quot;</p>
+<pre><code>Table: messages
+
+Partition key:  (channel_id, bucket)
+                -- bucket = YYYYMM to cap partition size
+Clustering key: (message_id DESC)
+                -- newest first within partition
+
+Columns:
+  message_id    UUID (time-based, sortable)
+  sender_id     UUID
+  content       TEXT
+  type          ENUM (text, image, file, system)
+  ts            TIMESTAMPTZ
+  deleted_at    TIMESTAMPTZ  -- soft delete
+</code></pre>
+<p><strong>Sam:</strong> &quot;Bucketing by year-month prevents a single channel from growing a partition indefinitely. For a busy Slack channel with 10,000 messages a day, an unbounded partition would grow 3.6 million rows per year — eventually impacting read performance. Monthly buckets keep partitions manageable.&quot;</p>
+<p><strong>Sam:</strong> &quot;For 100 billion messages at roughly 500 bytes each, that&#39;s about 50TB of raw storage. With Cassandra&#39;s default replication factor of 3, that&#39;s 150TB across the cluster — about 20–25 servers at 6–8TB effective storage each.&quot;</p>
+<p><strong>Maria:</strong> &quot;How do you handle group messages? If a message goes to a 1,000-member group, how does delivery work?&quot;</p>
+<p><strong>Sam:</strong> &quot;Two models. Fan-out on write: when a message is sent, immediately write a copy to each member&#39;s inbox. Fast reads, but at 1,000 members per message and a large active group, the write amplification is severe — one message generates 1,000 writes. Fan-out on read: store the message once, each member queries the channel&#39;s message store. Cheaper writes, but read latency grows with group size.&quot;</p>
+<p><strong>Sam:</strong> &quot;For this system I&#39;d use a hybrid. For groups under ~100 members: fan-out on write into each member&#39;s unread queue in Redis. For groups over 100, which are more like broadcast channels: fan-out on read. The threshold is tunable. This is similar to how Twitter handled celebrity tweets vs regular accounts.&quot;</p>
+<p><strong>Maria:</strong> &quot;Okay. You asked about data residency at the start. Let me throw you a curveball: GDPR requires that EU users&#39; message data must stay within the EU. How does that change the architecture?&quot;</p>
+<p><strong>Sam:</strong> &quot;This is a real operational concern and it significantly complicates the design. The simplest model is regional isolation: deploy separate Cassandra clusters per regulatory region — EU, US, APAC. Each user is assigned a home region at registration. Their messages are always written to and read from their home region cluster.&quot;</p>
+<p><strong>Sam:</strong> &quot;The challenge is cross-region conversations — a US user messaging an EU user. The message content lives in both regions by definition, which creates a conflict with data residency. One way to handle it: the message is stored in the sender&#39;s home region, and a pointer (message ID only, no content) is stored in the recipient&#39;s region. When the EU user reads the conversation, their client fetches the pointer from the EU cluster, then requests message content from the sending region if the sender is non-EU. This exposes the fact that cross-region data transfer happened, which has its own GDPR implications around data transfer agreements.&quot;</p>
+<p><strong>Sam:</strong> &quot;A cleaner but more expensive solution: EU-to-EU messages stay fully in the EU cluster. Any conversation that involves even one EU participant stores a full copy in the EU cluster. The non-EU cluster stores a reference. This is a compliance choice as much as an architecture choice — I&#39;d need a lawyer in the room to finalise it. What I&#39;d make sure of on the engineering side: user home region is in a dedicated metadata store consulted on every write, and the cluster routing logic is tested with contract tests so it cannot silently fail to a wrong region.&quot;</p>
+<p><strong>Maria:</strong> &quot;Good. What does your monitoring setup look like for this system?&quot;</p>
+<p><strong>Sam:</strong> &quot;Critical signals I&#39;d instrument from day one:&quot;</p>
+<pre><code>Metric                          Alert threshold
+--------------------------      ------------------------------------
+WebSocket connection count      Drop &gt; 10% vs 5-min rolling avg
+Message delivery latency p99    &gt; 500ms sustained for 3+ min
+Gateway reconnect rate          &gt; 5% of active connections / min
+Cassandra write latency p99     &gt; 20ms
+Cassandra partition size        &gt; 100MB (bucketing enforcement)
+Redis presence key count        Drift from active connection count
+Dead letter queue depth         &gt; 0 (any undelivered messages)
+Push notification failure rate  &gt; 2%
+</code></pre>
+<p><strong>Sam:</strong> &quot;On the on-call side: message delivery failures are SEV-1 — production incident, immediate page. Elevated reconnect rates are SEV-2 — acknowledge within 15 minutes. I&#39;d also want a synthetic canary: a bot account that sends a message to itself every 60 seconds and measures round-trip delivery time. If that canary fails, the alert fires before any user reports a problem.&quot;</p>
+<p><strong>Maria:</strong> &quot;Great. We&#39;re coming up on time — can you summarise?&quot;</p>
+<p><strong>Sam:</strong> &quot;Sure. We built a real-time chat system for 50M DAU supporting 1:1 and group conversations up to 1,000 members. Key decisions:&quot;</p>
+<p><strong>Sam:</strong> &quot;Transport: WebSocket connections into a stateful gateway tier, with Presence Service in Redis to route messages to the right gateway. Reconnection uses sequence-number catch-up to handle gateway failures.&quot;</p>
+<p><strong>Sam:</strong> &quot;Storage: Cassandra partitioned by channel + month bucket, giving us append-optimised writes and bounded partition size across 150TB of replicated storage.&quot;</p>
+<p><strong>Sam:</strong> &quot;Fan-out: Hybrid — write-fan-out for small groups via Redis queues, read-fan-out for large groups via channel partitions.&quot;</p>
+<p><strong>Sam:</strong> &quot;Data residency: Regional Cassandra clusters per regulatory zone, with EU-participant conversations pinned to the EU cluster. Cross-region conversations are the hard compliance case; I called out that it needs legal input.&quot;</p>
+<p><strong>Sam:</strong> &quot;Open thread: I didn&#39;t design message search — that would be an Elasticsearch index built from a Kafka stream of new messages. That would be my next deep dive.&quot;</p>
+<p><strong>Maria:</strong> &quot;Really nice work, Sam. We&#39;ll stop there.&quot;</p>
+<hr>
+<h3>Debrief: Script B</h3>
+<p><strong>What Sam did well:</strong></p>
+<ul>
+<li><strong>Drove immediately with a framework.</strong> Sam asked five crisp questions and began designing. There was no hesitation or meta-commentary about &quot;how I&#39;ll approach this.&quot; Senior candidates own the room from the first minute.</li>
+<li><strong>Pre-empted the gateway crash question.</strong> Sam mentioned WebSocket statefulness and the reconnection problem unprompted, before Maria could ask. Raising the failure mode before being asked is a strong senior signal.</li>
+<li><strong>Quantified everything.</strong> Storage math (100B messages × 500B = 50TB, × 3 replication = 150TB, ÷ 6TB per node = 25 nodes) was done in the flow of conversation, not as a separate &quot;math exercise.&quot; Numbers give the interviewer confidence in your judgments.</li>
+<li><strong>The fan-out hybrid answer was excellent.</strong> Named both options, explained the trade-off, gave a concrete threshold (100 members), cited a real-world precedent (Twitter celebrities). That is the structure of a textbook senior answer.</li>
+<li><strong>GDPR curveball was handled without panic.</strong> Sam acknowledged the legal dimension without hiding behind it, proposed a concrete architecture, identified the hard case (cross-region), and stated what engineering could and could not resolve on its own. Intellectual honesty about scope boundaries is a senior trait.</li>
+<li><strong>Monitoring and on-call were volunteered.</strong> Most candidates forget this entirely. Naming a synthetic canary with a 60-second probe is the kind of operational detail that signals someone who has been on-call.</li>
+<li><strong>Summary was tight.</strong> Four bullet points: transport, storage, fan-out, data residency. Open thread named cleanly. Left nothing dangling silently.</li>
+</ul>
+<p><strong>What could be improved:</strong></p>
+<ul>
+<li><strong>API design was skipped.</strong> Sam never described the REST or WebSocket API surface — what events clients send, what events servers push. At L5/L6 this is table stakes; Maria may have let it pass but a stricter interviewer would probe.</li>
+<li><strong>Message ordering guarantee was implied but not stated.</strong> Cassandra&#39;s <code>message_id DESC</code> clustering handles ordering within a partition, but Sam never explicitly addressed the guarantee for concurrent messages from different senders. A mention of &quot;Cassandra&#39;s eventual consistency means two concurrent writers could see different orderings transiently — for chat that&#39;s acceptable, but it&#39;s worth naming&quot; would have been sharper.</li>
+<li><strong>Rate limiting and abuse prevention were absent.</strong> Public chat systems get spammed and DDoS&#39;d. A brief mention — &quot;I&#39;d add per-user rate limits at the gateway, and a spam classifier async on the message stream&quot; — rounds out the production-readiness picture.</li>
+</ul>
+<p><strong>Three key takeaways:</strong></p>
+<ol>
+<li>Senior candidates name failure modes before being asked. If you built it, you should know how it breaks.</li>
+<li>The fan-out problem (small group vs large group, write-fan-out vs read-fan-out) appears in nearly every feed, chat, and notification design. Know both options and the hybrid deeply.</li>
+<li>Operational concerns — monitoring, on-call runbooks, synthetic canaries — are architecture decisions, not afterthoughts. Mentioning them unprompted separates senior candidates from candidates who have only read about systems.</li>
+</ol>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./07-cheat-sheet-numbers.md">Lesson 5.7 — Cheat Sheet: Latency, Throughput &amp; Cost Numbers</a></p>
+</blockquote>

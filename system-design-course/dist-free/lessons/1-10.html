@@ -1,0 +1,234 @@
+<h1>ACID vs BASE — The Banking Example</h1>
+<blockquote>
+<p><strong>Lesson 1.10</strong> · Beginner + Pro + Senior · 25 min</p>
+</blockquote>
+<hr>
+<h2>The Problem: Money in Motion</h2>
+<p>Alice has $1,000. She transfers $200 to Bob.</p>
+<p>Two things must happen:</p>
+<ol>
+<li>Debit Alice&#39;s account by $200</li>
+<li>Credit Bob&#39;s account by $200</li>
+</ol>
+<p>What if the server crashes between step 1 and step 2? Alice loses $200 and Bob gets nothing. The money vanishes.</p>
+<p>This is the core problem that <strong>transactions</strong> solve.</p>
+<hr>
+<h2>What Is a Transaction?</h2>
+<p>A <strong>transaction</strong> is a group of database operations that execute as a single unit. Either all of them happen, or none of them happen.</p>
+<pre><code class="language-sql">BEGIN;
+
+UPDATE accounts SET balance = balance - 200 WHERE user_id = &#39;alice&#39;;
+UPDATE accounts SET balance = balance + 200 WHERE user_id = &#39;bob&#39;;
+
+COMMIT;  -- both updates are now permanent
+-- (if the server crashes before COMMIT, both updates are rolled back)
+</code></pre>
+<p>Transactions in relational databases satisfy four properties, collectively known as <strong>ACID</strong>.</p>
+<hr>
+<h2>ACID</h2>
+<h3>A — Atomicity</h3>
+<p><strong>&quot;All or nothing.&quot;</strong></p>
+<p>A transaction either completes fully or has no effect at all. If any operation in the transaction fails, the entire transaction is rolled back.</p>
+<p><strong>Banking example:</strong></p>
+<ul>
+<li>Debit Alice -$200</li>
+<li>Server crashes</li>
+<li>On recovery: the debit is rolled back. Alice still has $1,000. Bob still has his original balance.</li>
+</ul>
+<p>There is no partial state. The money does not vanish.</p>
+<h3>C — Consistency</h3>
+<p><strong>&quot;The database moves from one valid state to another.&quot;</strong></p>
+<p>The database has rules (constraints): balances cannot go negative, foreign keys must exist, unique constraints must hold. A transaction must not violate any of these rules.</p>
+<p><strong>Banking example:</strong></p>
+<ul>
+<li>Alice has $1,000. Bob has $500.</li>
+<li>Transfer $200: Alice has $800, Bob has $700. Total = $1,500. Total is unchanged.</li>
+<li>No money created. No money destroyed. The constraint &quot;total balance unchanged&quot; is maintained.</li>
+</ul>
+<p>If a transaction would violate a constraint, the database rejects it and rolls back.</p>
+<h3>I — Isolation</h3>
+<p><strong>&quot;Concurrent transactions do not interfere with each other.&quot;</strong></p>
+<p>Thousands of transactions run simultaneously. Isolation means each transaction behaves as if it runs alone — it cannot see the intermediate, uncommitted state of other transactions.</p>
+<p><strong>Banking example:</strong></p>
+<ul>
+<li>Alice&#39;s $200 transfer begins</li>
+<li>Before COMMIT, Bob&#39;s balance is being read by another query</li>
+<li>Without isolation: the query might see Bob&#39;s balance mid-update (a &quot;dirty read&quot;)</li>
+<li>With isolation: the query sees either Bob&#39;s balance before the transfer or after, never during</li>
+</ul>
+<p><strong>Isolation levels</strong> (weakest to strongest):</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Dirty Read</th>
+<th>Non-repeatable Read</th>
+<th>Phantom Read</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Read Uncommitted</td>
+<td>Possible</td>
+<td>Possible</td>
+<td>Possible</td>
+</tr>
+<tr>
+<td>Read Committed</td>
+<td>Prevented</td>
+<td>Possible</td>
+<td>Possible</td>
+</tr>
+<tr>
+<td>Repeatable Read</td>
+<td>Prevented</td>
+<td>Prevented</td>
+<td>Possible</td>
+</tr>
+<tr>
+<td>Serializable</td>
+<td>Prevented</td>
+<td>Prevented</td>
+<td>Prevented</td>
+</tr>
+</tbody></table>
+<p><strong>Serializable</strong> is full isolation — transactions behave exactly as if they ran serially, one after another. Most expensive (lots of locking). Most databases default to <strong>Read Committed</strong>.</p>
+<h3>D — Durability</h3>
+<p><strong>&quot;Committed transactions survive failures.&quot;</strong></p>
+<p>Once the database says <code>COMMIT</code>, that data is permanent. A crash, power failure, or hardware fault cannot undo it.</p>
+<p>Databases achieve durability using a <strong>Write-Ahead Log (WAL)</strong> — every change is written to a sequential log on disk before being applied. On recovery, the database replays the log to restore the committed state.</p>
+<p><strong>Banking example:</strong></p>
+<ul>
+<li>Transfer completes. COMMIT. Power goes out 1 millisecond later.</li>
+<li>On restart: the WAL is replayed. Both Alice and Bob see their correct balances.</li>
+</ul>
+<hr>
+<h2>The Cost of ACID</h2>
+<p>ACID is not free. Enforcement requires:</p>
+<ul>
+<li><strong>Locking:</strong> Rows are locked during transactions to prevent concurrent modification. This serializes work and reduces throughput.</li>
+<li><strong>Two-phase commit (2PC):</strong> For distributed transactions across multiple databases, coordination is required. 2PC is slow and can block indefinitely.</li>
+<li><strong>Disk writes:</strong> WAL must be flushed to disk before COMMIT returns. SSDs are fast but not instant.</li>
+</ul>
+<p>At extreme scale, the overhead of strict ACID becomes a bottleneck. This is where BASE comes in.</p>
+<hr>
+<h2>BASE</h2>
+<p><strong>BASE</strong> is the consistency model most NoSQL databases use. It trades strict consistency for availability and performance.</p>
+<p>BASE stands for:</p>
+<ul>
+<li><strong>Basically Available</strong></li>
+<li><strong>Soft state</strong></li>
+<li><strong>Eventually consistent</strong></li>
+</ul>
+<h3>Basically Available</h3>
+<p>The system guarantees a response to every request — but the response might reflect stale data. The system does not guarantee the latest state; it guarantees it is operational.</p>
+<h3>Soft State</h3>
+<p>The system&#39;s state may change over time, even without new input. This is because replication happens asynchronously — nodes update themselves in the background.</p>
+<h3>Eventually Consistent</h3>
+<p>Given enough time without new writes, all replicas will converge to the same value. Reads during the convergence window may see stale data.</p>
+<hr>
+<h2>BASE: The Social Media Example</h2>
+<p>Alice posts &quot;Just got a promotion!&quot; on a social network:</p>
+<ol>
+<li>The write is saved to Datacenter A (US East)</li>
+<li>Alice&#39;s friend Bob (US East) refreshes — he sees the post immediately</li>
+<li>Alice&#39;s friend Carlos (Europe) refreshes — he does not see it yet (replication in progress)</li>
+<li>2 seconds later: replication completes. Carlos refreshes again. He sees the post.</li>
+</ol>
+<p>The system was <strong>basically available</strong> (both Bob and Carlos got responses). The state was <strong>soft</strong> (Carlos saw a different version than Bob for 2 seconds). It was <strong>eventually consistent</strong> (after 2 seconds, everyone agreed).</p>
+<p>This is perfectly acceptable for social media. A brief delay in seeing a post has no real-world consequence.</p>
+<hr>
+<h2>ACID vs BASE: The Comparison</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>ACID</th>
+<th>BASE</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Consistency</strong></td>
+<td>Strong (always consistent)</td>
+<td>Eventual (converges over time)</td>
+</tr>
+<tr>
+<td><strong>Availability</strong></td>
+<td>May refuse requests to maintain consistency</td>
+<td>Always available</td>
+</tr>
+<tr>
+<td><strong>Performance</strong></td>
+<td>Lower (locking overhead)</td>
+<td>Higher (no locking)</td>
+</tr>
+<tr>
+<td><strong>Scalability</strong></td>
+<td>Harder (locking limits horizontal scale)</td>
+<td>Easier (no coordination needed)</td>
+</tr>
+<tr>
+<td><strong>Failure behaviour</strong></td>
+<td>Rolls back; no partial state</td>
+<td>May have partial state briefly</td>
+</tr>
+<tr>
+<td><strong>Data model</strong></td>
+<td>Relational databases</td>
+<td>Most NoSQL databases</td>
+</tr>
+<tr>
+<td><strong>Examples</strong></td>
+<td>PostgreSQL, MySQL, Oracle</td>
+<td>Cassandra, DynamoDB, MongoDB</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>When to Use Which</h2>
+<p>Use <strong>ACID</strong> when:</p>
+<ul>
+<li><strong>Financial systems:</strong> Bank transfers, payments, billing. You cannot have partial transactions.</li>
+<li><strong>Inventory management:</strong> Cannot oversell.</li>
+<li><strong>Booking systems:</strong> Two users must not book the same seat.</li>
+<li><strong>User authentication:</strong> Creating an account + sending a welcome email should be atomic.</li>
+<li><strong>Order processing:</strong> An order and its line items must be created together.</li>
+</ul>
+<p>Use <strong>BASE</strong> when:</p>
+<ul>
+<li><strong>Social feeds:</strong> Likes, comments, view counts. Approximate is fine.</li>
+<li><strong>Metrics and analytics:</strong> Counting events — eventual totals are acceptable.</li>
+<li><strong>User activity logs:</strong> Losing one event out of a million is not critical.</li>
+<li><strong>Product recommendations:</strong> &quot;Customers also bought&quot; can be slightly stale.</li>
+<li><strong>High write throughput:</strong> IoT sensors writing thousands of events per second.</li>
+</ul>
+<hr>
+<h2>Mixing Both in One System</h2>
+<p>Most real systems use both. The pattern:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│  PostgreSQL (ACID)                                          │
+│  → Users, accounts, orders, payments (strong consistency)  │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ events stream (Kafka)
+         ┌────────────────┼─────────────────┐
+         ▼                ▼                 ▼
+   ┌──────────┐    ┌──────────┐    ┌──────────────┐
+   │  Redis   │    │Cassandra │    │Elasticsearch │
+   │  (cache) │    │(analytics│    │(search, logs)│
+   │  BASE    │    │ events)  │    │    BASE      │
+   │          │    │  BASE    │    │              │
+   └──────────┘    └──────────┘    └──────────────┘
+</code></pre>
+<p>The source of truth (money, orders) lives in an ACID database. The derivative data (caches, analytics, search indexes) lives in BASE stores. Events flow from the source of truth to the derived stores asynchronously.</p>
+<hr>
+<h2>Key Takeaway</h2>
+<p>ACID and BASE are not better or worse than each other. They are different tools for different problems:</p>
+<blockquote>
+<p><strong>ACID:</strong> &quot;The operation completed correctly, even if it was slow.&quot;</p>
+<p><strong>BASE:</strong> &quot;The operation completed immediately, and it will be correct soon.&quot;</p>
+</blockquote>
+<p>The question to ask in a system design interview is: <strong>&quot;What is the cost of showing stale or incorrect data to the user?&quot;</strong></p>
+<p>If the cost is high (money, safety, legal compliance) → ACID.
+If the cost is low (social counts, caches, analytics) → BASE is fine.</p>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="../module-2-building-blocks/01-load-balancers.md">Module 2 — Core Building Blocks</a></p>
+</blockquote>

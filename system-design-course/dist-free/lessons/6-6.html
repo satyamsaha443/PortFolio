@@ -1,0 +1,295 @@
+<h1>Case Study: Taking an App from 1 Country to 50 Countries</h1>
+<blockquote>
+<p><strong>Lesson 6.6</strong> · Pro + Senior · 40 min</p>
+</blockquote>
+<hr>
+<p>Theory gets you to the whiteboard. Case studies get you to production. This lesson follows <strong>PayFlow</strong>, a fictional B2C payments app, from its launch in the United States to its operation in 50 countries across three phases of expansion. Each phase introduces real architectural decisions, real failures, and real trade-offs. The names are fictional; the problems are not.</p>
+<hr>
+<h2>Phase 1: US Only — 0 to 1 Million Users</h2>
+<p>PayFlow launched in 2019 as a peer-to-peer payment app: send money to friends, split bills, pay merchants via QR code. The team was six engineers. The architecture reflected that.</p>
+<h3>The Starting Architecture</h3>
+<pre><code>  Mobile App (iOS + Android)
+          |
+          ▼
+    API Gateway (NGINX)
+          |
+          ▼
+   Monolith (Node.js)
+     ┌────┴────┐
+     │         │
+  Auth      Payments
+  Users     Ledger
+  Notifs    Fraud
+          |
+          ▼
+    PostgreSQL (RDS)
+    us-east-1, single AZ
+</code></pre>
+<p>One database. One region. One currency (USD). One language (English). One payment rail (Stripe). This is the correct architecture for phase 1 — not because it will scale forever, but because it moves fast, is easy to debug, and does not need to be correct forever. The team can hold the entire system in their heads.</p>
+<p><strong>What worked well:</strong></p>
+<ul>
+<li>Stripe handled all payment complexity: card processing, fraud scoring, PCI compliance, refunds. The team did not think about payments infrastructure; they thought about product.</li>
+<li>PostgreSQL&#39;s ACID guarantees meant the ledger was always correct. Every credit and debit happened inside a transaction. Idempotency keys on payment requests prevented double-charges on retried API calls.</li>
+<li>Single-timezone operation (US Eastern for settlement runs) meant no scheduling bugs. The daily settlement job ran at 2am ET and always completed before markets opened.</li>
+</ul>
+<p><strong>What was silently accumulating technical debt:</strong></p>
+<ul>
+<li>Amounts were stored as <code>FLOAT</code> in the database. This is a classic and catastrophic mistake — floating-point arithmetic on money means $10.10 + $0.10 sometimes equals $10.199999999999999. The team would discover this at scale.</li>
+<li>All datetime values were stored without timezone information. The column type was <code>TIMESTAMP</code>, not <code>TIMESTAMPTZ</code>. As long as everything ran in UTC, it worked. The day a server&#39;s timezone configuration drifted, or a new market ran on a different offset, it would silently corrupt timestamps.</li>
+<li>User content (names, transaction descriptions) was stored in a <code>VARCHAR(255)</code> column with no charset declaration. ASCII-range characters worked fine. Unicode would require a migration.</li>
+</ul>
+<p>PayFlow reached 1M users by end of 2020. Series A closed. Time to grow.</p>
+<hr>
+<h2>Phase 2: English-Speaking Expansion — 1 Million to 10 Million Users</h2>
+<p><strong>Markets: UK, Australia, Canada</strong></p>
+<p>The product team&#39;s reasoning was sound: same language, similar regulatory environments (relatively), Stripe supports all three natively, existing customer support agents can cover all three without hiring. What could go wrong?</p>
+<p>A surprising amount.</p>
+<h3>Multi-Currency: The Painful ALTER TABLE</h3>
+<p>The first engineering project was adding GBP, AUD, and CAD support. The payment processing side was easy — Stripe handles multi-currency natively. The storage side was not.</p>
+<p>The existing schema stored balances and transaction amounts as a single <code>FLOAT amount</code> column, implicitly USD. To support multiple currencies, you need both a value and a currency code. The correct schema is:</p>
+<pre><code class="language-sql">-- Wrong (original):
+amount FLOAT
+
+-- Wrong (first attempt at fixing):
+amount FLOAT,
+currency VARCHAR(3)
+
+-- Correct (what they should have done from day 1):
+amount_minor_units BIGINT,  -- store in smallest unit: cents, pence, sen
+currency_code CHAR(3)        -- ISO 4217: USD, GBP, AUD, CAD
+</code></pre>
+<p>Storing amounts as <strong>minor units in an integer</strong> eliminates floating-point error entirely. $10.99 is stored as <code>1099</code>. The presentation layer handles formatting. This migration required:</p>
+<ol>
+<li>Adding the new columns</li>
+<li>Converting all 47 million existing rows (USD amounts multiplied by 100, <code>currency_code = &#39;USD&#39;</code>)</li>
+<li>Updating every query, every API response formatter, every statement template</li>
+<li>A 4-hour maintenance window that the team had to fight for because the CEO had promised &quot;zero downtime&quot;</li>
+</ol>
+<p>The migration completed. The float-to-integer conversion uncovered 12,000 transactions where floating-point rounding had accumulated errors of more than one cent. They were manually reconciled. It took a week.</p>
+<h3>Timezone Bugs Surface Immediately</h3>
+<p>Australia runs UTC+10 to UTC+11. The UK runs UTC+0 to UTC+1. The daily settlement job — which had always run &quot;at 2am&quot; with no explicit timezone — was configured on a server whose system timezone was US Eastern (UTC-5). For UK merchants, settlement was running at 7am London time: fine. For Australian merchants, settlement was running at 12pm Sydney time — right in the middle of the business day — and occasionally conflicting with real-time transactions.</p>
+<p>The fix: convert <em>every</em> scheduled job to an explicit UTC cron expression and store the user&#39;s preferred reporting timezone separately for presentation purposes. Settlement logic was rebuilt to be timezone-agnostic: it settled based on a cutoff UTC timestamp, not a &quot;local midnight.&quot;</p>
+<p><strong>Rule:</strong> Never store business-logic time references without UTC. Never schedule jobs with an implicit timezone. This is the most common internationalisation bug and it is almost always invisible in single-timezone operation.</p>
+<h3>GDPR and the UK/EU Boundary</h3>
+<p>Post-Brexit, the UK maintained its own version of GDPR (UK GDPR) which is substantively similar to EU GDPR but separately enforced. Expanding to the UK triggered the first compliance work:</p>
+<ul>
+<li><strong>Right to erasure</strong>: the system had no user deletion capability. Users could close their account but their data remained in the database. Implementing true erasure required a deletion pipeline that anonymised records while preserving the ledger audit trail (you cannot delete transaction records, but you can replace personal identifiers with pseudonymous IDs).</li>
+<li><strong>Data processing agreements</strong>: every third-party service (Stripe, Datadog, Mixpanel, Intercom) required a DPA review.</li>
+<li><strong>Cookie consent</strong>: the UK web interface required a compliant consent banner. This sounds trivial and took three weeks.</li>
+</ul>
+<p>A CDN (Cloudflare) was added at this stage, with a second AWS region (eu-west-1, Ireland) to serve EU/UK users from closer PoPs and to support data residency requirements that were about to get much more serious.</p>
+<p>By the end of Phase 2, PayFlow had 10M users, 4 currencies, 3 international markets, and a meaningful compliance posture. The monolith was showing strain — not from compute load, but from organisational complexity. Ten engineers could not coordinate changes to a single codebase without stepping on each other.</p>
+<hr>
+<h2>Phase 3: Emerging and Regulated Markets — 10 Million to 50 Million+ Users</h2>
+<p><strong>Markets: India, Brazil, Indonesia, Germany, Japan</strong></p>
+<p>Phase 3 was where the architecture had to grow up. Each new market introduced at least one constraint that required a new system, not just a configuration change.</p>
+<h3>India: UPI, Data Localisation, and 2FA</h3>
+<p><strong>Unified Payments Interface (UPI)</strong> is India&#39;s real-time payment rail, operated by NPCI (National Payments Corporation of India). It processes over 10 billion transactions per month. Every Indian consumer expects it. Stripe does not provide UPI in the same turnkey way it provides card processing — PayFlow had to integrate directly with a banking partner (a &quot;payment aggregator&quot; in RBI terminology) and implement the UPI flow natively. Timeline: 14 weeks from kickoff to first live transaction.</p>
+<p><strong>RBI data localisation mandate</strong>: The Reserve Bank of India requires that all payment transaction data involving Indian users be stored on servers physically located within India. Not replicated to India — <em>stored</em> in India as the primary. This forced a new AWS region: ap-south-1 (Mumbai). More significantly, it forced a rethink of the data architecture: PayFlow could no longer have a single global PostgreSQL cluster as the system of record. Indian payment data had to live in India.</p>
+<pre><code>Before Phase 3:
+  All data → us-east-1 (primary) ←→ eu-west-1 (replica)
+
+After Phase 3 (simplified):
+  Indian payments → ap-south-1 (primary)   ← RBI mandate
+  EU/UK payments  → eu-west-1 (primary)    ← GDPR preference
+  US payments     → us-east-1 (primary)
+  
+  Global user profiles → us-east-1 with replicas everywhere
+  (personal data with appropriate consent mechanisms)
+</code></pre>
+<p><strong>2FA requirements</strong>: RBI mandates two-factor authentication for all digital payments above INR 5,000. PayFlow already had optional 2FA; making it mandatory for specific transaction types, with Indian-number-specific OTP delivery via local SMS providers (international SMS delivery to Indian numbers was unreliable), was a month of work.</p>
+<h3>Brazil: PIX and LGPD</h3>
+<p>Brazil&#39;s <strong>PIX</strong> is the most successful real-time payment system in the Western Hemisphere — 150 million registered users within two years of launch in 2020. Like UPI, it is a national rail operated by Banco Central do Brasil. Integration required a local banking partner and compliance with PIX&#39;s specific transaction metadata requirements (structured payment descriptions, sender/receiver registration with CPF or CNPJ numbers).</p>
+<p><strong>LGPD (Lei Geral de Proteção de Dados)</strong> is Brazil&#39;s data protection law, closely modelled on GDPR but with some differences in consent mechanisms and breach notification timelines. The compliance work mirrored what had been done for GDPR — but the PayFlow team had learned from Phase 2 and had by now built a <strong>compliance configuration layer</strong>: a set of per-market configuration flags that controlled data retention periods, consent flows, user deletion behaviour, and data transfer restrictions. Adding Brazil&#39;s LGPD profile took two weeks rather than two months.</p>
+<h3>Indonesia: Local Payment Methods and Localisation</h3>
+<p>Indonesia&#39;s payments market is dominated not by card networks but by <strong>e-wallet apps</strong>: GoPay (integrated with Gojek) and OVO are the two largest, with DANA and ShopeePay close behind. Accepting a payment in Indonesia without integrating at least GoPay and OVO means losing a significant fraction of potential users.</p>
+<p>Integration required partnerships with Gojek and Grab (OVO&#39;s parent company), each with their own API specs, sandbox environments, and QA processes. Neither had English documentation as thorough as Stripe&#39;s.</p>
+<p><strong>Bahasa Indonesia localisation</strong> surfaced a technical issue: the existing i18n implementation used string interpolation with hardcoded English word order. Indonesian sentence structure differs enough that direct string substitution produced grammatically incorrect phrases. The i18n library had to be replaced with one supporting ICU MessageFormat, which handles pluralisation, gender agreement, and variable placement per locale. This work blocked the Indonesia launch by three weeks.</p>
+<h3>Germany: Consumer Protection and SEPA</h3>
+<p>Germany has the strictest consumer protection laws in the EU. The <strong>SEPA</strong> (Single Euro Payments Area) credit transfer and direct debit scheme is the standard for EUR bank transfers. IBAN validation is non-trivial — German IBANs use a specific checksum algorithm, and the consequences of sending a payment to an incorrect IBAN are operationally painful to unwind.</p>
+<p>German users also have heightened sensitivity to data handling — privacy policy language that satisfied UK users generated formal complaints from German users. Legal review of German-market terms required a Berlin-based counsel, not a US firm with a European practice.</p>
+<h3>Japan: Konbini, Character Encoding, and Vertical Text</h3>
+<p>Japan&#39;s <strong>konbini payment</strong> system allows users to generate a payment slip and pay it in cash at any of Japan&#39;s 55,000+ convenience stores (7-Eleven, Lawson, FamilyMart). It is a critical payment method for users who are unbanked or prefer cash. Integration requires a local payment processor (Paygent or Komoju are common choices for foreign entrants) and a backend that can generate, track, and reconcile konbini payment slips with a 3–7 day payment window.</p>
+<p><strong>Character encoding</strong>: Japanese content uses CJK (Chinese-Japanese-Korean) character sets. The database charset was <code>utf8</code> (MySQL&#39;s misleading legacy encoding that only handles up to 3 bytes per character and cannot store 4-byte Unicode characters, including certain emoji). Full Unicode requires <code>utf8mb4</code>. This required a schema migration on every text column.</p>
+<p><strong>Vertical text and layout</strong>: While right-to-left layout was not required, PayFlow&#39;s UI team discovered that certain product description fields in the Japan market conventionally use vertical text layout in printed receipts and formal documents. The mobile app&#39;s PDF receipt generator had to support vertical Japanese text rendering — a non-trivial typography problem.</p>
+<h3>The Architecture at Phase 3</h3>
+<pre><code>                    ┌─────────────────────────────┐
+                    │       Global Load Balancer   │
+                    │       (CloudFront + Route53) │
+                    └──────────────┬──────────────┘
+                                   │
+          ┌────────────────────────┼────────────────────────┐
+          │                        │                        │
+   ┌──────▼──────┐          ┌──────▼──────┐          ┌──────▼──────┐
+   │  us-east-1  │          │  eu-west-1  │          │ ap-south-1  │
+   │  (primary)  │          │  (primary   │          │  (India,    │
+   │  US, Canada │          │  EU, UK)    │          │  primary)   │
+   └──────┬──────┘          └──────┬──────┘          └──────┬──────┘
+          │                        │                        │
+   ┌──────▼──────┐          ┌──────▼──────┐          ┌──────▼──────┐
+   │  ap-seast-1 │          │  sa-east-1  │          │  ap-neast-1 │
+   │ (Indonesia) │          │  (Brazil)   │          │  (Japan)    │
+   └─────────────┘          └─────────────┘          └─────────────┘
+
+Each region runs:
+  - API services (microservices by domain: auth, payments, ledger, notifications)
+  - Regional PostgreSQL (data residency compliance)
+  - Redis (session cache, rate limiting)
+  - Payment gateway adapters (region-specific)
+
+Cross-region:
+  - Global identity service (us-east-1 primary, replicas everywhere)
+  - Compliance configuration service (rules-as-data, per market)
+  - Event bus (SNS/SQS, cross-region fan-out for notifications)
+</code></pre>
+<hr>
+<h2>Lessons Learned</h2>
+<h3>1. Internationalise from Day 1</h3>
+<p>The cost of retrofitting internationalisation is 10x the cost of building it in from the start. Store amounts as minor-unit integers. Store datetimes as UTC with timezone. Use <code>utf8mb4</code>. Wrap every user-facing string in an i18n function from your first commit. These decisions cost almost nothing at the beginning and save weeks of painful migration later.</p>
+<h3>2. Payment Rails Are the Hardest Part</h3>
+<p>Every new market&#39;s payment rail is a 2–4 month project: partnership negotiation, API integration, compliance certification, sandbox testing, and a phased rollout. Budget accordingly. Stripe and similar aggregators cover 40–60 countries but not all of them and not all local methods within those countries. For markets with dominant local rails (India/UPI, Brazil/PIX, Indonesia/GoPay), you will integrate directly. Plan for it.</p>
+<h3>3. Build Compliance-as-Config</h3>
+<p>Compliance requirements are country-specific, change with regulation updates, and are enforced differently by different regulators. Hard-coding compliance behaviour into application logic means a regulatory change in Brazil requires a code deploy. A <strong>compliance-as-config</strong> layer — where each market&#39;s rules (data retention days, mandatory consent fields, deletion timelines, transfer restrictions) are stored as configuration and enforced by a shared policy engine — lets you update compliance posture without redeploying services. This architectural pattern paid for itself the first time Germany&#39;s data handling requirements changed.</p>
+<h3>4. Data Residency Will Force Architectural Decisions</h3>
+<p>India&#39;s RBI mandate, GDPR&#39;s data transfer restrictions, and Brazil&#39;s LGPD all have implications for where data physically lives. These constraints will force you away from a single-region data architecture whether you like it or not. The earlier you design for multi-region data with explicit residency tagging (every row knows its jurisdiction), the less painful the forced migrations will be.</p>
+<h3>5. Test With Real Devices and Real Connections</h3>
+<p>A Japan-market QA pass run from a San Francisco office on a MacBook with a US VPN will miss: Japanese font rendering bugs, konbini payment slip formatting, Japanese IME keyboard interaction issues, and the latency characteristics of routing through ap-northeast-1 from a US IP. Hire local QA contractors in each new market for at least two weeks before launch. It will find more bugs than a month of automated testing.</p>
+<hr>
+<h2>Globalisation Readiness Checklist</h2>
+<p>Use this table as a pre-launch gate for each new market:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Area</th>
+<th>Check</th>
+<th>Pass Criteria</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Infrastructure</td>
+<td>Regional deployment</td>
+<td>App served from a region with &lt; 100ms latency to target market</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Infrastructure</td>
+<td>CDN coverage</td>
+<td>CDN PoPs in target region configured</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Infrastructure</td>
+<td>Failover</td>
+<td>Regional failover tested; RTO documented</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Infrastructure</td>
+<td>Data residency</td>
+<td>Residency requirements identified; compliant storage confirmed</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Compliance</td>
+<td>Data protection law</td>
+<td>Applicable law identified (GDPR/LGPD/PDPA/etc.); legal review complete</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Compliance</td>
+<td>Consent mechanisms</td>
+<td>Consent flows implemented per local requirements</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Compliance</td>
+<td>Right to erasure</td>
+<td>User deletion pipeline implemented and tested</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Compliance</td>
+<td>Breach notification</td>
+<td>Incident response plan updated with local notification timelines</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Payments</td>
+<td>Local payment rails</td>
+<td>Dominant local payment methods integrated (not just card)</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Payments</td>
+<td>Currency handling</td>
+<td>Amounts stored as minor-unit integers; currency code stored with every amount</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Payments</td>
+<td>Settlement timezone</td>
+<td>Settlement logic uses UTC cutoffs, not implicit local time</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Payments</td>
+<td>Fraud rules</td>
+<td>Fraud models calibrated for local transaction patterns</td>
+</tr>
+<tr>
+<td>13</td>
+<td>i18n</td>
+<td>Locale support</td>
+<td>Locale file complete; ICU MessageFormat used for variable interpolation</td>
+</tr>
+<tr>
+<td>14</td>
+<td>i18n</td>
+<td>Date/time formatting</td>
+<td>Dates formatted per locale convention (DD/MM/YYYY vs MM/DD/YYYY etc.)</td>
+</tr>
+<tr>
+<td>15</td>
+<td>i18n</td>
+<td>Number formatting</td>
+<td>Decimal and thousands separators correct (1,234.56 vs 1.234,56)</td>
+</tr>
+<tr>
+<td>16</td>
+<td>i18n</td>
+<td>Character encoding</td>
+<td>Database and API layer use utf8mb4; no truncation of multi-byte characters</td>
+</tr>
+<tr>
+<td>17</td>
+<td>i18n</td>
+<td>RTL support</td>
+<td>If applicable: layout mirrors correctly, bidirectional text renders correctly</td>
+</tr>
+<tr>
+<td>18</td>
+<td>i18n</td>
+<td>Local QA</td>
+<td>QA performed by a native speaker on a local device with a local SIM</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Support</td>
+<td>Language coverage</td>
+<td>Customer support available in local language (at minimum async/email)</td>
+</tr>
+<tr>
+<td>20</td>
+<td>Support</td>
+<td>Local contact</td>
+<td>Legal entity or local representative available for regulatory correspondence</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Closing Thought</h2>
+<p>PayFlow&#39;s journey from a six-engineer US startup to a 50-country platform took four years. The technical challenges were real but tractable. The harder challenges were organisational: knowing when to build vs. buy (payment rails), when to accept one-time migration pain vs. building flexibility in (compliance-as-config), and when to treat a market as &quot;similar enough&quot; and discover that it is not.</p>
+<p>The engineers who built Phase 1 made defensible decisions for Phase 1. What made Phase 3 possible was not avoiding Phase 1 mistakes — it was knowing, when Phase 1 was working well, that the architecture had an expiry date and planning ahead for the migration. That discipline — building for the current scale while documenting the breaking points — is what separates systems that grow gracefully from systems that get replaced.</p>
+<hr>
+<p><strong>End of Module 6: Globalisation</strong></p>

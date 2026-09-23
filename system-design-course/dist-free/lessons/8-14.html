@@ -1,0 +1,137 @@
+<h1>Design Google Docs</h1>
+<blockquote>
+<p><strong>Lesson 8.14</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem statement</h2>
+<p>Design a collaborative document editor: many people open the same document and type into it at once, every keystroke shows up for the others within a moment, and everyone&#39;s screen converges to the identical text with no edit ever silently lost.</p>
+<p>In scope: concurrent text editing, real-time propagation of edits, presence (cursors and selections), and reconnecting after being offline. Rich formatting beyond plain text, sharing permissions, and peer-to-peer editing without a server are variants, covered briefly at the end.</p>
+<h2>Clarifying questions</h2>
+<p>Each answer fixes an assumption the design leans on.</p>
+<p>One shared document edited concurrently, or file storage? The hard part is many cursors in one document at once, not storing bytes.</p>
+<p>How many concurrent editors per document? A handful of active typists is the norm, not thousands.</p>
+<p>Rich text and media, or plain text? Model plain-text insert and delete as the core; rich formatting is a variant.</p>
+<p>Offline editing? Yes — a client may edit while disconnected and reconcile on reconnect.</p>
+<p>Permissions and sharing? Access-control lists gate who can open a document, but that&#39;s orthogonal to this design.</p>
+<p>How strong must convergence be? Non-negotiable — every editor must end at the identical document, with no lost keystroke.</p>
+<h2>What makes this problem distinctive</h2>
+<p>Two people type into the same document at the same instant. If each edit is a whole-document write, the second one clobbers the first — a lost update, where the row every write contends on is the entire document, and the two writers are people watching their own screen in real time.</p>
+<p>The core of the problem is convergence, not storage or scale: making concurrent edits converge is the mechanism every other requirement builds on. Live propagation, presence, and offline reconciliation all assume that two people typing at the same moment each keep their intent and both end up looking at the identical text.</p>
+<p>Key idea. Convergence — every editor ending at the identical text with no lost keystroke — is not one requirement among several here; it is the entire design problem, and everything else builds on the mechanism that guarantees it.</p>
+<h2>Key concepts</h2>
+<p>This section covers the concepts needed to solve this problem — prerequisites for the design work that follows.</p>
+<h3>Edits as operations, not document snapshots</h3>
+<p>Instead of treating a save as &quot;here is the whole new text,&quot; each edit is a small operation — insert(position, text) or delete(position, length) — describing exactly what changed. Two people editing at once can both have their operations recorded and reasoned about individually, which is impossible once an edit collapses into &quot;replace the whole document with this.&quot;</p>
+<h3>Operational Transformation (OT)</h3>
+<p>An operation is authored against the document state its author last saw. If other operations commit in between, applying the original operation as-written can target the wrong position — the classic case is a delete meant to remove one character ending up removing its neighbor instead, because an intervening insert shifted everything after it. Operational Transformation is a family of functions, one per pair of operation types, that rewrite an incoming operation to account for what changed underneath it, so it still expresses its author&#39;s original intent when applied to the current state. That</p>
+<h3>The op log as source of truth</h3>
+<p>The authoritative record of a document is not its visible text — it&#39;s an ordered log of every committed operation, and the text is a materialized view produced by replaying that log from the start. A snapshot is a periodic checkpoint of that replay, so opening a document or recovering from a crash only has to replay operations after the most recent snapshot, not the whole history.</p>
+<h3>Ephemeral presence versus durable edits</h3>
+<p>A cursor position or a text selection needs to reach other editors fast, but losing one costs nothing — the next update replaces it. An edit can never be lost. This is the same durable-versus-ephemeral split a real-time chat system makes: presence rides the live connection and is never written to the durable log; edits are persisted before they&#39;re ever acknowledged.</p>
+<p>Key idea. Operations, not snapshots, are what gets recorded and reasoned about; Operational Transformation rewrites an operation so it keeps its author&#39;s intent after concurrent changes; the visible document is a replay of an ordered op log, not a stored value; and presence is ephemeral where edits are durable.</p>
+<h2>1. Requirements</h2>
+<p>Before reading on. Name three functional and three non-functional requirements, then name the one property you would never compromise.</p>
+<h3>1.1 Functional requirements</h3>
+<p>Open and join a document — load its current text and start receiving others&#39; edits live.</p>
+<p>Edit concurrently — many people insert and delete in the same document at once.</p>
+<p>Converge — all editors&#39; screens end at the identical text, regardless of edit order or timing.</p>
+<p>Presence — see who else is here, and where their cursors and selections are.</p>
+<h3>1.2 Non-functional requirements</h3>
+<p>Convergence with no lost update. The non-negotiable property: no keystroke is silently dropped, and every editor ends identical.</p>
+<p>Low-latency propagation. Others see a keystroke within tens of milliseconds; typing must feel local.</p>
+<p>Durability. An acknowledged edit survives a server crash — the op log is persisted before the edit is confirmed.</p>
+<p>Availability. Editing continues through component failure; a reconnecting client resyncs.</p>
+<p>Scale. Many concurrent editing sessions across a large number of documents; the load is live connections and edit fan-out, and bytes are cheap.</p>
+<h3>1.3 The constraint versus the property</h3>
+<p>The property never to compromise is convergence: every editor ends at the identical text, with no keystroke silently lost. The constraint that drives the design is doing this within tens of milliseconds, for concurrent edits arriving in any order — which is why the design centers on a mechanism (Operational Transformation) that reconciles intent after the fact, rather than trying to prevent concurrent edits from happening at all.</p>
+<p>Key idea. Convergence is the property that can&#39;t bend; reconciling concurrent edits fast enough to feel instant is the constraint the rest of the design answers.</p>
+<h2>2. Back-of-the-envelope estimation</h2>
+<h3>2.1 Connections, not storage, set the gateway count</h3>
+<p>Assume roughly 10 million concurrent editors, each holding a persistent connection, and about 100,000 connections per gateway server: 10,000,000 ÷ 100,000 = 100 gateway servers.</p>
+<h3>2.2 Ops entering the system</h3>
+<p>Assume roughly 1 million live documents, each seeing about 5 operations a second: 1,000,000 × 5 = 5,000,000 operations a second entering the system.</p>
+<h3>2.3 Fan-out multiplies it</h3>
+<p>Each operation is delivered to every other editor of that document — say 3 on average: 5,000,000 × 3 = 15,000,000 op-deliveries a second. Op log writes run at roughly 50 bytes an operation, about 250 MB/second. The append rate tracks the edit rate and can&#39;t be reduced, but periodic snapshots bound what has to be retained: once a snapshot covers a prefix of the log, older segments can be compacted away, and replay after a crash starts from the snapshot instead of the beginning.</p>
+<p>Key idea. Bytes are cheap here — an operation is a position and a character. Live connections and op fan-out are what actually have to scale.</p>
+<h2>3. API design</h2>
+<h3>3.1 Open a document</h3>
+<h3>3.2 Submit an operation</h3>
+<p>base_revision names the state this operation was authored against — the input the server&#39;s Operational Transformation step needs.</p>
+<h3>3.3 Receive committed operations and presence</h3>
+<p>Both ride the same persistent connection; only broadcast ever touches the durable op log.</p>
+<p>Key idea. There is no &quot;save the document&quot; call — only operations against a known revision — and base_revision is exactly what makes server-side transformation possible.</p>
+<h2>4. Data model</h2>
+<h3>4.1 Document</h3>
+<p>The obvious starting entity — and the one whose text field turns out to be the wrong idea.</p>
+<p>Storing the current text as a single mutable field is exactly what a whole-document write would clobber under concurrent edits — which is what forces the next entity.</p>
+<h3>4.2 Op-log entry</h3>
+<p>The record of one committed edit, in order.</p>
+<p>revision is the total order for the document — the single sequence every client replays to reconstruct the text.</p>
+<h3>4.3 Snapshot</h3>
+<p>A checkpoint that bounds how much of the log ever needs replaying.</p>
+<h3>4.4 Where each entity lives, and what&#39;s the source of truth</h3>
+<p>Document metadata is a small, rarely-changing row. OpLogEntry is the actual source of truth — the visible text is always a materialized view of replaying this log. Snapshot exists purely to bound replay cost; it can be regenerated from the log at any time and is never authoritative on its own.</p>
+<p>Key idea. The document&#39;s text is never authoritative as a stored value — the ordered op log is the source of truth, and a snapshot is a disposable, regeneratable checkpoint that bounds how far back a client ever has to replay.</p>
+<h2>5. High-level design</h2>
+<p>Before reading on. You already have operations, Operational Transformation, the op log, and the durable/ephemeral presence split from Key concepts. Predict the services: who orders and transforms concurrent edits, who pushes a committed edit to the other editors, and what survives a crash?</p>
+<p>Reading the diagrams. Each step marks the components newly added at that step with a dashed outline and a NEW badge, so you can see what changed from the step before.</p>
+<h3>5.1 One server, apply edits as they arrive</h3>
+<p>Start naive: a single server holds the document in memory and applies each incoming edit in the order it happens to arrive.</p>
+<p>Four things break this.</p>
+<p>Two edits authored against the same base text, applied in arrival order with no reconciliation, diverge — each editor&#39;s intent gets corrupted by the other&#39;s concurrent change.</p>
+<p>Showing another editor&#39;s keystroke within tens of milliseconds needs a live push channel, not request-response.</p>
+<p>The in-memory document vanishes entirely if the server crashes.</p>
+<p>Global ordering needs one server per document, but a single global server can&#39;t hold every document in the world.</p>
+<h3>5.2 Fix 1: a per-document serializer with transformation</h3>
+<p>Route every operation for a document through one serializer, which assigns the next monotonic revision and applies Operational Transformation against anything committed since the operation&#39;s base_revision.</p>
+<p>Concurrent edits now converge correctly. Editors still aren&#39;t notified within tens of milliseconds, and a crash still loses everything.</p>
+<h3>5.3 Fix 2: a persistent broadcast channel</h3>
+<p>A gateway fleet holds a persistent WebSocket connection per editor; the serializer broadcasts each committed operation down every connected editor&#39;s socket the moment it&#39;s committed.</p>
+<p>Propagation is fast. The document still lives only in memory, and one global serializer still can&#39;t scale.</p>
+<h3>5.4 Fix 3: a durable op log with snapshots</h3>
+<p>Before acknowledging any edit, the serializer appends it to a durable, per-document op log. A periodic snapshot captures the full text at a given revision, bounding how much of the log ever needs replaying.</p>
+<h3>5.5 Fix 4: route each document to one session server</h3>
+<p>All editors of a document route to one session server, chosen by consistent hashing of document_id. Hashing only places the document; a lease — a time-bounded ownership claim that expires unless the owning server keeps renewing it — is what guarantees a single active owner during failures and rebalances (covered in the deep dive). Different documents live on different servers, so the system scales horizontally across independent sessions even though each individual document is still serialized through one owner.</p>
+<h3>5.6 The composed design</h3>
+<p>Each fix answers one failure of the naive version: the per-document serializer with OT fixes divergence, the broadcast channel fixes propagation speed, the durable log with snapshots fixes crash recovery, and routing by document_id fixes global scale despite each document needing one owner.</p>
+<p>Key idea. Every component traces to one concrete failure — divergence, slow propagation, volatile state, and a single global bottleneck — not a pre-known architecture diagram.</p>
+<h2>6. Deep dives</h2>
+<h3>6.1 Convergence: Operational Transformation versus CRDTs</h3>
+<p>Before reading on. A document reads &quot;abc&quot;. Editor A inserts &quot;x&quot; at position 0, intending &quot;xabc&quot;. At the same instant, Editor B issues delete(2), intending to remove the &quot;c&quot;. Applied naively in sequence, what goes wrong, and how does the server fix it?</p>
+<p>Applying both operations exactly as their authors wrote them corrupts intent. The server commits A&#39;s insert first, producing &quot;xabc&quot;. B&#39;s operation, delete(2), is then applied as-written — but position 2 in &quot;xabc&quot; is now b, not c, because A&#39;s insertion shifted everything after it. The result is &quot;xac&quot;: B&#39;s intent (remove the c) never happened, and something B never touched (the b) is gone instead.</p>
+<p>Operational Transformation fixes this by rewriting B&#39;s operation against what changed underneath it before applying it. Since A&#39;s insertion landed at position 0 — before B&#39;s target position — every position from 2 onward shifts right by one, so delete(2) transforms into delete(3). Applied to &quot;xabc&quot;, delete(3) removes index 3, which is the c, giving &quot;xab&quot; — exactly what both editors intended. The mechanism generalizes to a set of transform functions, one for each pair of operation types (insert-vs-insert, insert-vs-delete, and so on), each rewriting one operation to account for a concurrent ope</p>
+<p>Relying on a single serializer per document is what keeps this tractable: each client only ever transforms an incoming operation against the linear sequence the server hands it, not against every other client&#39;s independent view. Decentralized OT — no central authority, every replica transforming against every other — needs far stronger guarantees that are hard to implement correctly in practice.</p>
+<p>CRDTs (Conflict-free Replicated Data Types) take a different approach entirely: instead of numeric positions, every character gets a stable, globally unique identifier assigned once when it&#39;s inserted and never reused. Replay the same &quot;abc&quot; example with ids: say a is id1, b is id2, c is id3. A&#39;s operation is &quot;insert x before id1&quot;; B&#39;s operation is &quot;delete id3&quot; — not &quot;delete position 2.&quot; Applying A&#39;s insert first gives x,id1,id2,id3 (text &quot;xabc&quot;), and B&#39;s operation still says &quot;delete id3,&quot; which is still unambiguously the character c no matter what got inserted elsewhere. Applying B&#39;s delete fi</p>
+<p>This design chooses server-authoritative OT, because a central session server per document is already needed for the op log, presence fan-out, and routing — the serializer OT depends on comes for free, and OT keeps the wire format tiny (just a position and a character). CRDTs earn their cost specifically where no serializer is available at all: peer-to-peer or offline-first editing, where convergence must hold without anyone imposing a central order.</p>
+<h3>6.2 The document session: ordering, the log, and failure</h3>
+<p>Before reading on. The session server owning a hot document crashes with dozens of editors connected. What&#39;s lost, what&#39;s recovered, and from where?</p>
+<p>All edits for a document funnel through its one session server, which stamps each with the next revision — exactly one orderer per document, so ordering itself never needs cross-node agreement in the steady state. Coordination doesn&#39;t disappear entirely, though: guaranteeing there is only ever one active owner across crashes and rebalances still needs a lease or leader-election mechanism, and the durable op log is itself typically a replicated store. The single orderer removes consensus from the per-edit hot path, not from the system. Durability comes from persist-before-ack: an operation is a</p>
+<p>When the session server crashes, the durable log is untouched: a new server is assigned the document, loads the latest snapshot, replays only the operations committed after it, and connected editors reconnect and resync from their last known revision. The blast radius is exactly that one document&#39;s editors, for however many seconds reassignment and replay take — every other document is entirely unaffected. Snapshot cadence is a real tradeoff: snapshotting more often means faster reopen and recovery, at the cost of more write volume; snapshotting every N operations or every few minutes is the u</p>
+<p>The one hard ceiling this creates: a single document is a single serializer, so a document with an unusually large number of simultaneous editors can&#39;t be spread across multiple servers the way normal horizontal scaling would. Server-side coalescing of rapid keystrokes into fewer broadcasts, and capping interactive editors while routing the rest to a read-only, slightly-delayed view, are the practical relief valves.</p>
+<h3>6.3 Presence, cursors, and offline edits</h3>
+<p>Before reading on. Two things ride the same connection as edits but must be handled oppositely: a cursor blinking as someone moves it, and a batch of edits made on a plane with no wifi. Which is disposable, and which must converge like any other edit?</p>
+<p>A cursor position is disposable — broadcast it over the socket, hold it in memory, and never write it to the op log; losing one costs nothing because the next update replaces it. But a cursor still has to stay visually anchored to the right spot in the text as other edits land, which means cursor positions get transformed against incoming operations using the exact same machinery that transforms edit positions — without that, everyone&#39;s cursor silently drifts to the wrong place the instant text changes above it.</p>
+<p>Offline edits are the opposite case: they must converge like any other edit, just after a longer gap. A disconnected client keeps accumulating operations against its last-seen base_revision; on reconnect, the server transforms each of them against everything committed during the absence and applies them in order — the identical transform used for two people typing concurrently online, just stretched over a longer interval. A very long offline gap is exactly where this strains: the transform backlog against a large volume of intervening changes grows heavy, which is where a CRDT&#39;s commutative m</p>
+<p>Key idea. The insert-versus-delete transform is the mechanism that makes concurrent edits converge without losing intent; persist-before-ack plus snapshots make a session-server crash a bounded, recoverable event rather than data loss; and presence stays ephemeral while offline edits reconcile through the same transform used for ordinary concurrency, just over a longer gap.</p>
+<h2>7. Variants</h2>
+<h3>10× scale</h3>
+<p>More editors and more documents grow the gateway fleet and session servers roughly linearly, since documents are independent and shard cleanly by document_id. The real pressure point isn&#39;t total scale — it&#39;s a single hot document, since one serializer per document caps how many simultaneous editors it can absorb no matter how many other servers exist. Server-side operation coalescing, a read-only delayed tier beyond some interactive editor cap, and moving snapshotting off the hot path are the levers that push that ceiling higher.</p>
+<h3>Rich text and formatting</h3>
+<p>Bold, links, and other styling become additional operation types — format(range, attribute) alongside insert and delete — transformed by the same machinery with a larger transform matrix (more operation-type pairs to handle), not a different mechanism. Large embedded media is stored as blobs referenced by id, kept out of the op log entirely, the same content-versus-metadata split any large-object system makes.</p>
+<h3>Peer-to-peer / offline-first</h3>
+<p>Drop the central serializer, and the design has to shift to CRDTs — with no authority left to impose a single order, convergence can only come from commutative, id-based operations that merge correctly regardless of arrival order. The tradeoff is explicit: per-character id metadata and tombstones, in exchange for correctness with no central owner at all.</p>
+<p>Key idea. The architecture holds at 10× scale because documents shard independently; rich formatting is just more operation types through the same transform; and removing the central serializer entirely (peer-to-peer) is what actually forces a switch to CRDTs.</p>
+<h2>8. The transferable pattern</h2>
+<p>Collaborative editing is a durable, ordered operation log per document with a real-time transform layer on top — the same durable-log-plus-live-push shape a real-time chat system uses, with a convergence mechanism added because every write here targets the same shared item. The document is never a value you overwrite; it&#39;s a materialized view of replaying an ordered log. The same shape reappears anywhere multiple actors must converge on one shared mutable object in real time and no edit can be silently lost — shared whiteboards, live spreadsheets, and multiplayer editing of any kind.</p>
+<h2>Review: the 30-second answer</h2>
+<p>Never store the whole document as one overwritable value — model every edit as an insert or delete operation instead.</p>
+<p>Operational Transformation rewrites a concurrent operation so it keeps its author&#39;s intent after the fact, rather than preventing concurrency from happening.</p>
+<p>The op log is the source of truth; the visible text is a replay of it, and snapshots just bound how far back that replay has to go.</p>
+<p>Edits push over a persistent connection and are persisted before being acknowledged; presence rides the same connection but is purely ephemeral.</p>
+<p>One session server per document makes ordering and OT tractable; CRDTs are the answer specifically when no such central server exists.</p>
+<h2>Quiz</h2>
+<h2>Sources and further reading</h2>
+<p>Concurrency control in groupware systems — Ellis &amp; Gibbs, SIGMOD 1989 — the original paper introducing Operational Transformation for reconciling concurrent edits.</p>
+<p>A comprehensive study of Convergent and Commutative Replicated Data Types — Shapiro, Preguiça, Baquero, Zawirski, INRIA 2011 — the formal treatment of CRDTs and the commutativity property that lets replicas converge without a central coordinator.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

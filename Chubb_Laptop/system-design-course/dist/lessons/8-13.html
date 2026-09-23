@@ -1,0 +1,36 @@
+<h1>Design Dropbox</h1>
+<blockquote>
+<p><strong>Lesson 8.13</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem statement</h2>
+<p>Design a file-sync service like Dropbox: a folder of files lives on many devices, and when a user edits a file on one device, the change appears on every other device within seconds.</p>
+<p>In scope: syncing changes across devices, uploading and downloading files efficiently, transferring only what changed, and resolving conflicting edits. Real-time character-by-character collaborative editing, full-text search over file contents, and sharing permissions are out of scope.</p>
+<h2>Clarifying questions</h2>
+<p>Each answer fixes an assumption the design leans on.</p>
+<p>Sync across devices, or just backup? The interesting problem is multi-device sync — many devices holding the same folder, converging within seconds of each edit.</p>
+<p>Whole files, or real-time collaborative editing? Whole-file sync: a save produces a new file version. Real-time, keystroke-level editing is a different problem, covered in Google Docs.</p>
+<p>Sharing and permissions? Assume a namespace (a personal or shared folder) as the unit of sync; access control is deferred.</p>
+<p>Full-text search over file contents? A separate indexing problem, deferred.</p>
+<p>How fast must changes propagate? Seconds, not minutes — polling fast enough to meet that is expensive at scale, which pushes the design toward push notification.</p>
+<h2>What makes this problem distinctive</h2>
+<p>A user edits one paragraph of a large document and hits save; two seconds later, another device shows the update. What actually crossed the network? If the answer is &quot;the whole file got re-uploaded,&quot; or &quot;the other device keeps asking &#39;changed yet?&#39;,&quot; that&#39;s only the easy half of the problem. The bytes are large but static once written — storage itself is the secondary concern.</p>
+<p>The hard half is the sync engine: detecting exactly what changed, moving only that delta, and keeping every device converged on the same current version even when edits happen concurrently and offline. This is a sync problem before it is a storage problem, and the two halves have almost opposite characters — the bytes are huge and rarely change once written, while the metadata describing what changed is small, mutable, and sits on every single save.</p>
+<p>Key idea. This is a sync problem, not a storage problem — the bytes are the large, easy half; detecting the delta, propagating it fast, and reconciling concurrent edits is the hard half.</p>
+<h2>Key concepts</h2>
+<p>This section covers the concepts needed to solve this problem — prerequisites for the design work that follows.</p>
+<h3>Content-addressed blocks</h3>
+<p>A file is split into blocks, each named by a hash of its own bytes rather than its position in the file. Two blocks with identical content always get the same hash, anywhere, which makes an upload check trivial: send the hashes you have, and the server tells you which ones it&#39;s missing. This is the mechanism behind both delta sync (only upload blocks the server doesn&#39;t already have) and deduplication (two users&#39; identical blocks are stored once), the same content-addressing idea covered in object storage. Cross-user dedup assumes blocks are not encrypted with per-user keys — encrypted that way</p>
+<h3>The metadata service as authority</h3>
+<p>While block bytes are immutable and can live anywhere, something has to own the single question &quot;what is the current version of this file?&quot; — and answer it the same way for every device, every time. A metadata service is that authority: it tracks each file&#39;s version history and commits a new version atomically; because every device asks this one authority rather than a stale copy, &quot;current&quot; never means two different things to two devices at once.</p>
+<h3>Versions, not overwrites</h3>
+<p>Each save produces a new version — an ordered list of block hashes plus a pointer to the version it was edited from (its parent_version) — rather than mutating a file in place. Keeping that lineage is what makes it possible to detect, later, whether two devices edited from the same starting point or from two different ones.</p>
+<h3>Push notification with a poll fallback</h3>
+<p>A device that just committed a change needs every other device watching that folder to find out within seconds, not by asking on a timer. A lightweight, payload-free notification — &quot;namespace N changed&quot; — pushed over a persistent connection is enough to trigger a device to go pull the actual delta. Because the notification carries no data and the metadata service remains the authority regardless, a dropped notification is not a correctness problem: a periodic background poll catches anything a missed push didn&#39;t, so a failure makes sync slower, never wrong.</p>
+<p>Key idea. Content-addressed blocks make delta sync and dedup the same mechanism; the metadata service is the single authority on &quot;current version,&quot; never the block store; versions form a lineage a conflict check can reason about; and push notification is a fast, best-effort trigger sitting on top of a poll fallback that&#39;s always correct.</p>
+<h2>Grasping the building blocks (&quot;the lego pieces&quot;)</h2>
+<p>This part of the guide will focus on the various components that are often used to construct a system (the building blocks), and the design templates that provide a framework for structuring these blocks.</p>
+<h2>Working through problems and building solutions using the building blocks</h2>
+<p>Finally, we have a series of practical problems for you to work through. You can find the problem in /problems. This hands-on practice will not only help you apply the principles learned but will also enhance your understanding of how to use the building blocks to construct effective solutions. The list of questions grow. We are actively adding more questions to the list.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

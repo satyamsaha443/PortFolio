@@ -1,0 +1,2001 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - navigation [ref=e5]:
+          - generic [ref=e6]:
+            - link "System Design School Logo System Design School" [ref=e7] [cursor=pointer]:
+              - /url: /
+              - img "System Design School Logo" [ref=e8]
+              - generic [ref=e9]: System Design School
+            - button "Toggle navigation" [ref=e10] [cursor=pointer]
+        - generic [ref=e13]:
+          - link "50% off annual plans View offer" [ref=e14] [cursor=pointer]:
+            - /url: /pricing
+            - generic [ref=e15]:
+              - generic [ref=e16]: 50% off annual plans
+              - strong [ref=e17]: View offer
+          - button "Dismiss promotion" [ref=e19] [cursor=pointer]
+      - generic [ref=e20]:
+        - progressbar "Reading progress"
+        - generic [ref=e25]:
+          - complementary [ref=e26]:
+            - generic [ref=e27]:
+              - button "System Design Primer 12" [ref=e28] [cursor=pointer]:
+                - generic [ref=e29]: System Design Primer
+                - generic [ref=e30]: "12"
+              - generic [ref=e33]:
+                - link "01 Introduction" [ref=e34] [cursor=pointer]:
+                  - /url: /primer#introduction
+                  - generic [ref=e35]: "01"
+                  - strong [ref=e36]: Introduction
+                - link "02 What Is System Design?" [ref=e37] [cursor=pointer]:
+                  - /url: /primer#what-is-system-design
+                  - generic [ref=e38]: "02"
+                  - strong [ref=e39]: What Is System Design?
+                - link "03 What Are System Design Interviews?" [ref=e40] [cursor=pointer]:
+                  - /url: /primer#what-are-system-design-interviews
+                  - generic [ref=e41]: "03"
+                  - strong [ref=e42]: What Are System Design Interviews?
+                - link "04 Level Expectations" [ref=e43] [cursor=pointer]:
+                  - /url: /primer#level-expectations
+                  - generic [ref=e44]: "04"
+                  - strong [ref=e45]: Level Expectations
+              - button "Show all 12 →" [ref=e46] [cursor=pointer]
+            - generic [ref=e47]:
+              - button "Design Solutions 34" [ref=e48] [cursor=pointer]:
+                - generic [ref=e49]: Design Solutions
+                - generic [ref=e50]: "34"
+              - generic [ref=e53]:
+                - link "🎫 TicketMaster" [ref=e54] [cursor=pointer]:
+                  - /url: /problems/ticketmaster/solution
+                  - generic [ref=e55]: 🎫
+                  - strong [ref=e56]: TicketMaster
+                - link "🚗 Uber" [ref=e57] [cursor=pointer]:
+                  - /url: /problems/uber/solution
+                  - generic [ref=e58]: 🚗
+                  - strong [ref=e59]: Uber
+                - link "💬 WhatsApp" [ref=e60] [cursor=pointer]:
+                  - /url: /problems/chatapp/solution
+                  - generic [ref=e61]: 💬
+                  - strong [ref=e62]: WhatsApp
+                - link "▶️ YouTube" [ref=e63] [cursor=pointer]:
+                  - /url: /problems/youtube/solution
+                  - generic [ref=e64]: ▶️
+                  - strong [ref=e65]: YouTube
+                - link "📜 News Feed" [ref=e66] [cursor=pointer]:
+                  - /url: /problems/news-feed/solution
+                  - generic [ref=e67]: 📜
+                  - strong [ref=e68]: News Feed
+              - button "Show all 34 →" [ref=e69] [cursor=pointer]
+            - generic [ref=e70]:
+              - button "Patterns 4" [ref=e71] [cursor=pointer]:
+                - generic [ref=e72]: Patterns
+                - generic [ref=e73]: "4"
+              - generic [ref=e76]:
+                - link "01 Scaling Reads & Writes" [ref=e77] [cursor=pointer]:
+                  - /url: /patterns/scaling-reads-and-writes
+                  - generic [ref=e78]: "01"
+                  - strong [ref=e79]: Scaling Reads & Writes
+                - link "02 Asynchronous Jobs" [ref=e80] [cursor=pointer]:
+                  - /url: /patterns/asynchronous-jobs
+                  - generic [ref=e81]: "02"
+                  - strong [ref=e82]: Asynchronous Jobs
+                - link "03 Real-Time Transport" [ref=e83] [cursor=pointer]:
+                  - /url: /patterns/real-time-transport
+                  - generic [ref=e84]: "03"
+                  - strong [ref=e85]: Real-Time Transport
+                - link "04 Handling Large Files" [ref=e86] [cursor=pointer]:
+                  - /url: /patterns/handling-large-files
+                  - generic [ref=e87]: "04"
+                  - strong [ref=e88]: Handling Large Files
+              - button "Show all 4 →" [ref=e89] [cursor=pointer]
+            - generic [ref=e90]:
+              - button "Key Technologies 5" [ref=e91] [cursor=pointer]:
+                - generic [ref=e92]: Key Technologies
+                - generic [ref=e93]: "5"
+              - generic [ref=e96]:
+                - link "01 Networking Essentials" [ref=e97] [cursor=pointer]:
+                  - /url: /technologies/networking-essentials
+                  - generic [ref=e98]: "01"
+                  - strong [ref=e99]: Networking Essentials
+                - link "02 Technology Choices" [ref=e100] [cursor=pointer]:
+                  - /url: /technologies/technology-choices
+                  - generic [ref=e101]: "02"
+                  - strong [ref=e102]: Technology Choices
+                - link "03 Redis" [ref=e103] [cursor=pointer]:
+                  - /url: /technologies/redis
+                  - generic [ref=e104]: "03"
+                  - strong [ref=e105]: Redis
+                - link "04 Tries & Prefix Search" [ref=e106] [cursor=pointer]:
+                  - /url: /technologies/tries-and-prefix-search
+                  - generic [ref=e107]: "04"
+                  - strong [ref=e108]: Tries & Prefix Search
+              - button "Show all 5 →" [ref=e109] [cursor=pointer]
+          - main [ref=e110]:
+            - generic [ref=e112]:
+              - heading "System Design Primer" [level=1] [ref=e114]
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - heading "Introduction" [level=2] [ref=e118]
+                  - paragraph [ref=e119]: System design knowledge matters for two reasons. First, companies test it in interviews, especially at senior levels. Second, it separates competent engineers from exceptional ones. Writing code is table stakes. Designing robust, scalable systems requires deeper expertise.
+                - generic [ref=e120]:
+                  - heading "What Is System Design?" [level=2] [ref=e121]
+                  - paragraph [ref=e122]:
+                    - text: System design is the process of defining the architecture, components, modules, interfaces, and data for a system to satisfy specified
+                    - strong [ref=e123]: requirements
+                    - text: . It is essentially creating a blueprint for a complex software system to ensure it is efficient, reliable, and scalable.
+                  - paragraph [ref=e124]:
+                    - text: System design is the art of making technical trade-offs to turn a vague problem into a scalable solution. It is not just about connecting boxes; it is about justifying why you connected them that way based on
+                    - strong [ref=e125]: constraints
+                    - text: .
+                  - heading "System Design vs Object-Oriented Design" [level=3] [ref=e126]
+                  - paragraph [ref=e127]: System design interviews differ fundamentally from object-oriented design.
+                  - table [ref=e128]:
+                    - rowgroup [ref=e129]:
+                      - row [ref=e130]:
+                        - columnheader "Aspect" [ref=e131]
+                        - columnheader "Object-Oriented Design" [ref=e132]
+                        - columnheader "System Design" [ref=e133]
+                    - rowgroup [ref=e134]:
+                      - row [ref=e135]:
+                        - cell [ref=e136]:
+                          - strong [ref=e137]: Example Problems
+                        - cell "Design a parking lot, elevator controller, chess game, vending machine" [ref=e138]
+                        - cell "Design Twitter, YouTube, Uber, Netflix" [ref=e139]
+                      - row [ref=e140]:
+                        - cell [ref=e141]:
+                          - strong [ref=e142]: Scale
+                        - cell "Single machine" [ref=e143]
+                        - cell "Large scale, millions of users, petabytes of data, multiple data centers" [ref=e144]
+                      - row [ref=e145]:
+                        - cell [ref=e146]:
+                          - strong [ref=e147]: Focus
+                        - cell "Code structure, class relationships, design patterns" [ref=e148]
+                        - cell "Architecture, distributed systems, scalability" [ref=e149]
+                      - row [ref=e150]:
+                        - cell [ref=e151]:
+                          - strong [ref=e152]: Skills Tested
+                        - cell "Class design, inheritance, interfaces, SOLID principles" [ref=e153]
+                        - cell "Component selection, data flow, partitioning, replication, trade-offs" [ref=e154]
+                      - row [ref=e155]:
+                        - cell [ref=e156]:
+                          - strong [ref=e157]: Output
+                        - cell "UML diagrams, code implementation, class hierarchies" [ref=e158]
+                        - cell "Architecture diagrams, capacity estimates, API design, database schemas" [ref=e159]
+                      - row [ref=e160]:
+                        - cell [ref=e161]:
+                          - strong [ref=e162]: Execution
+                        - cell "Code runs on single process" [ref=e163]
+                        - cell "Services span multiple servers and regions" [ref=e164]
+                  - paragraph [ref=e165]: The skills overlap but the emphasis differs. Object-oriented design emphasizes clean code and maintainability. System design emphasizes performance, reliability, and cost at scale.
+                - generic [ref=e166]:
+                  - heading "What Are System Design Interviews?" [level=2] [ref=e167]
+                  - paragraph [ref=e168]: Writing code becomes less central as careers progress. Companies need engineers who design systems that handle high traffic, make decisions balancing cost and performance, and lead technical discussions. System design interviews assess these capabilities.
+                  - paragraph [ref=e169]: These interviews appear at mid-level and becomes central to senior positions. At senior levels, engineers contribute to application architecture and make design choices affecting entire systems. Interviews simulate real-world scenarios involving scalability, fault tolerance, and performance.
+                  - paragraph [ref=e170]: System design takes years to master. Real systems require thousands of hours of work. Demonstrating competence in 45 minutes presents a unique challenge.
+                  - heading "What System Design Interviews Test" [level=3] [ref=e171]
+                  - paragraph [ref=e172]: System design interviews test soft skills more than raw knowledge. Can you break down vague, open-ended problems into solvable parts? Do you understand how components interact? Can you design scalable, reliable, maintainable systems?
+                  - paragraph [ref=e173]: Every design decision has trade-offs. Explain why you chose one approach over another. Communication matters as much as technical depth. Clear explanations are essential for collaborating with teams and stakeholders in real settings. System design rarely follows a straight path. Adjust your approach based on new constraints or feedback.
+                - generic [ref=e174]:
+                  - heading "Level Expectations" [level=2] [ref=e175]
+                  - paragraph [ref=e176]: Interview expectations change dramatically with seniority. Understanding what your level requires prevents wasted preparation.
+                  - paragraph [ref=e177]: The single biggest difference between levels is the ability to handle ambiguity. Junior engineers receive well-defined problems with clear requirements. Senior engineers face deliberately vague problems requiring clarification and decomposition. Staff engineers navigate extreme ambiguity, defining the problem space itself.
+                  - paragraph [ref=e178]: "This manifests in problem complexity. L4 problems have simple contracts: given input A, return output B. L5 problems combine 2-3 concepts with some flexibility. L6 problems either combine 4-5 subsystems or present abstract requirements needing significant clarification before design begins."
+                  - paragraph [ref=e179]: Expectations differ sharply by level and by company. Explore both below — pick a level to see its scope, depth, and what a deep dive looks like there, or switch to compare how companies name and pace their levels.
+                  - generic [ref=e180]:
+                    - generic [ref=e181]:
+                      - button "By level" [ref=e182] [cursor=pointer]
+                      - button "By company" [ref=e183] [cursor=pointer]
+                    - generic [ref=e184]:
+                      - generic [ref=e185]:
+                        - button "L4 · Mid" [ref=e186] [cursor=pointer]
+                        - button "L5 · Senior" [ref=e187] [cursor=pointer]
+                        - button "L6 · Staff" [ref=e188] [cursor=pointer]
+                      - generic [ref=e189]:
+                        - generic [ref=e190]:
+                          - generic [ref=e191]:
+                            - generic [ref=e192]: Problem scope
+                            - generic [ref=e193]: Well-defined problems with guidance
+                          - generic [ref=e194]:
+                            - generic [ref=e195]: Depth expected
+                            - generic [ref=e196]: Surface-level understanding
+                          - generic [ref=e197]:
+                            - generic [ref=e198]: Common topics
+                            - generic [ref=e199]: Cache, database, load balancer, API design
+                          - generic [ref=e200]:
+                            - generic [ref=e201]: Interview focus
+                            - generic [ref=e202]: Template execution, component knowledge, basic trade-offs
+                        - generic [ref=e203]:
+                          - paragraph [ref=e204]: L4 problems have simple contracts. TinyURL takes a long URL and returns a short one. A YouTube view counter takes a video ID and returns a count. These are solved problems with standard solutions.
+                          - paragraph [ref=e205]: "The interview is mechanical: clarify requirements, design APIs, draw the architecture, then a light deep dive. Since the solution is known, interviewers have low tolerance for messy structure. You must own the template."
+                          - paragraph [ref=e206]: "You need the basic building blocks — load balancer, cache, database, message queue — plus when to use SQL versus NoSQL and vertical versus horizontal scaling. Deep dives stay surface-level: \"LRU removes least recently used items\" is enough."
+                          - paragraph [ref=e207]: Most candidates fail from poor time management, not from lacking knowledge. They run out of time or present a disorganized design.
+                        - generic [ref=e208]:
+                          - strong [ref=e209]: "Depth ladder — \"strong consistency\":"
+                          - text: What is strong consistency? — concept awareness
+                - generic [ref=e210]:
+                  - heading "How to Prepare" [level=2] [ref=e211]
+                  - heading "The Memorization Trap" [level=3] [ref=e212]
+                  - paragraph [ref=e213]: "The prevailing approach is: find popular system design problems, watch YouTube videos showing solutions, read blog posts with architectural diagrams, memorize the answers, repeat."
+                  - paragraph [ref=e214]: "This works at first. You watch a video explain how to design Twitter. The solution makes sense: microservices, message queues, Redis cache, Cassandra database. You memorize the architecture. In your interview, you get asked to design Twitter. You draw the diagram from memory."
+                  - paragraph [ref=e215]: The strategy may work but as more and more interviewers recognize the cookie-cutter answers, the strategy fails.
+                  - paragraph [ref=e216]: First, you freeze when facing unfamiliar problems. You memorized 30 solutions. The interviewer asks you to design something you haven't seen. You try adapting your Twitter design to fit. It doesn't work cleanly. You stumble. The interviewer notices.
+                  - paragraph [ref=e217]: Second, interviewers recognize memorized answers. Hundreds of candidates have watched the same videos and read the same blog posts. When your Twitter design matches the popular YouTube solution exactly, the interviewer's instincts activate. They probe deeper. You can't answer because you memorized the what, not the why. For L5+ interviews, the cookie-cutter answers may only be enough talking points for the first 15-20min, the interviewer will probe deeper and deeper until they find the edge of your knowledge.
+                  - paragraph [ref=e218]: Third, the approach completely fails at L6+. Senior interviews require deep understanding. These interviews are mostly about deep dives It would become obvious whether you have actual experience or not. The interviewer asks follow-up questions until they find the edge of your knowledge. Memorized facts crumble quickly under pressure.
+                  - heading "The Better Approach" [level=3] [ref=e219]
+                  - paragraph [ref=e220]: Learn the fundamentals. Understand how things actually work. Build genuine technical depth.
+                  - paragraph [ref=e221]: For L4-L5 engineers with limited time, the hybrid approach works best. Master the common patterns and the templates. Study 10-15 common problems to internalize the template. But for each problem, don't just memorize the solution. Understand why each component exists. Question every design choice. What happens if we remove the cache? Why Cassandra instead of PostgreSQL? Why Redis over Memcached?
+                  - paragraph [ref=e222]: This deeper engagement transforms memorization into understanding. When you face unfamiliar problems, you recognize patterns. You adapt rather than freeze.
+                  - heading "Why System Design School Exists" [level=3] [ref=e223]
+                  - paragraph [ref=e224]: System Design School takes the fundamentals-first approach. You won't find memorizable Twitter solutions. You'll find building blocks for constructing any solution.
+                  - paragraph [ref=e225]: "This primer provides a quick crash course: essential components, interview templates, and the mental models needed to solve common problems. It's designed for rapid learning and last-minute preparation."
+                  - paragraph [ref=e226]: "The full course goes deep. It's organized into two main tracks:"
+                  - paragraph [ref=e227]:
+                    - strong [ref=e228]:
+                      - link "Fundamentals" [ref=e229] [cursor=pointer]:
+                        - /url: /fundamentals/what-is-system-design-interview
+                    - text: "covers the core building blocks that appear in every system design interview:"
+                  - list [ref=e230]:
+                    - listitem [ref=e231]:
+                      - strong [ref=e232]:
+                        - link "Microservices & Communication" [ref=e233] [cursor=pointer]:
+                          - /url: /fundamentals/microservice-communications
+                      - text: ": How services talk to each other. Message queues, Kafka, circuit breakers, service discovery. Why async communication prevents cascading failures."
+                    - listitem [ref=e234]:
+                      - strong [ref=e235]:
+                        - link "Scaling Services" [ref=e236] [cursor=pointer]:
+                          - /url: /fundamentals/evolution-of-computing-environments
+                      - text: ": Load balancing, auto-scaling, caching patterns, CDNs. When to use cache-aside versus write-through. How to handle cache thundering herd."
+                    - listitem [ref=e237]:
+                      - strong [ref=e238]:
+                        - link "Data Storage" [ref=e239] [cursor=pointer]:
+                          - /url: /fundamentals/data-structures-behind-databases
+                      - text: ": B-trees, LSM trees, SQL versus NoSQL. When to use document databases versus key-value stores. OLTP versus OLAP workloads."
+                    - listitem [ref=e240]:
+                      - strong [ref=e241]:
+                        - link "Scaling Data" [ref=e242] [cursor=pointer]:
+                          - /url: /fundamentals/database-scaling
+                      - text: ": Replication (primary-replica, multi-leader), partitioning (consistent hashing, range-based), change data capture. How to handle partition rebalancing."
+                    - listitem [ref=e243]:
+                      - strong [ref=e244]:
+                        - link "Batch & Stream Processing" [ref=e245] [cursor=pointer]:
+                          - /url: /fundamentals/batch-and-stream-processing
+                      - text: ": MapReduce, stream processing, lambda architecture. When to use batch versus stream."
+                    - listitem [ref=e246]:
+                      - strong [ref=e247]:
+                        - link "Patterns" [ref=e248] [cursor=pointer]:
+                          - /url: /fundamentals/database-optimization
+                      - text: ": Rate limiting, unique ID generation, saga pattern, fan-out/fan-in. Reusable solutions to common problems."
+                  - paragraph [ref=e249]:
+                    - strong [ref=e250]:
+                      - link "Domain Knowledge" [ref=e251] [cursor=pointer]:
+                        - /url: /domain-knowledge/database-transaction
+                    - text: "covers specialized topics that appear in specific problem types:"
+                  - list [ref=e252]:
+                    - listitem [ref=e253]:
+                      - strong [ref=e254]:
+                        - link "Transactions" [ref=e255] [cursor=pointer]:
+                          - /url: /domain-knowledge/database-transaction
+                      - text: ": Database isolation levels, pessimistic versus optimistic locking, flash sale inventory patterns. How to prevent double-booking."
+                    - listitem [ref=e256]:
+                      - strong [ref=e257]:
+                        - link "Distributed Systems" [ref=e258] [cursor=pointer]:
+                          - /url: /domain-knowledge/distributed-system-theory
+                      - text: ": CAP theorem, PACELC theorem, consistency models, consensus algorithms (Raft, Paxos), failure handling. The theory behind the practice."
+                    - listitem [ref=e259]:
+                      - strong [ref=e260]:
+                        - link "Geospatial Search" [ref=e261] [cursor=pointer]:
+                          - /url: /domain-knowledge/geospatial-search-introduction
+                      - text: ": Geohash, quadtrees, H3 hexagonal indexing, S2 library. How Uber finds nearby drivers."
+                    - listitem [ref=e262]:
+                      - strong [ref=e263]:
+                        - link "Search Engines" [ref=e264] [cursor=pointer]:
+                          - /url: /domain-knowledge/inverted-index-fundamentals
+                      - text: ": Inverted indexes, TF-IDF, BM25, Elasticsearch architecture. How search actually works."
+                    - listitem [ref=e265]:
+                      - strong [ref=e266]:
+                        - link "Media Systems" [ref=e267] [cursor=pointer]:
+                          - /url: /domain-knowledge/how-video-transcoding-and-playback-work
+                      - text: ": Video transcoding, file chunking, adaptive bitrate streaming. How Netflix delivers video."
+                    - listitem [ref=e268]:
+                      - strong [ref=e269]:
+                        - link "Probabilistic Data Structures" [ref=e270] [cursor=pointer]:
+                          - /url: /domain-knowledge/introduction-to-probabilistic-data-structures
+                      - text: ": Bloom filters, count-min sketch, HyperLogLog. Memory-efficient approximations for massive scale."
+                  - paragraph [ref=e271]: For L4-L5, the primer gets you interview-ready fast. The full course adds depth. For L6+, you need the full course—surface knowledge fails under aggressive probing.
+                  - heading "Where to Start" [level=3] [ref=e272]
+                  - paragraph [ref=e273]: This primer follows a logical progression. First, understand system design concepts. Then learn the interview framework.
+                  - paragraph [ref=e274]:
+                    - text: Interviewing tomorrow? See the
+                    - link "System Design Master Template" [ref=e275] [cursor=pointer]:
+                      - /url: /primer#master-template
+                    - text: for the pattern that solves most problems.
+                  - paragraph [ref=e276]:
+                    - text: Want core concepts quickly? Review
+                    - link "Understanding Core Design Challenges" [ref=e277] [cursor=pointer]:
+                      - /url: /primer#core-design-challenges
+                    - text: and
+                    - link "How to Scale a System" [ref=e278] [cursor=pointer]:
+                      - /url: /primer#designing-for-scale
+                    - text: .
+                  - paragraph [ref=e279]:
+                    - text: New to system design? Start with the
+                    - link "main components section" [ref=e280] [cursor=pointer]:
+                      - /url: /primer#main-components
+                    - text: .
+                  - paragraph [ref=e281]:
+                    - text: Familiar with components but need interview structure? Check the
+                    - link "step-by-step interview walkthrough" [ref=e282] [cursor=pointer]:
+                      - /url: /primer#interview-step-by-step
+                    - text: .
+                  - heading "How This Primer Is Organized" [level=3] [ref=e283]
+                  - paragraph [ref=e284]: The rest of this primer builds four capabilities, in order, and each one builds on the last.
+                  - generic "Click to enlarge" [ref=e285]:
+                    - document [ref=e286]:
+                      - generic [ref=e289]:
+                        - generic [ref=e290]: Foundationsbuild a design
+                        - generic [ref=e296]: Scalinghandle load
+                        - generic [ref=e302]: Consistencystay correct
+                        - generic [ref=e308]: Interview Methodput it together
+                  - paragraph [ref=e314]:
+                    - strong [ref=e315]: Foundations
+                    - text: are the building blocks and the master template that assemble a working system — the components below and the
+                    - link "Master Template" [ref=e316] [cursor=pointer]:
+                      - /url: /primer#master-template
+                    - text: .
+                    - strong [ref=e317]: Scaling
+                    - text: covers the moves that push a design past one machine, in
+                    - link "Core Design Challenges" [ref=e318] [cursor=pointer]:
+                      - /url: /primer#core-design-challenges
+                    - text: and
+                    - link "Designing for Scale" [ref=e319] [cursor=pointer]:
+                      - /url: /primer#designing-for-scale
+                    - text: .
+                    - strong [ref=e320]: Consistency
+                    - text: is how to stay correct when data is replicated and updated concurrently.
+                    - strong [ref=e321]: The Interview Method
+                    - text: turns a vague prompt into a design under time pressure, in the
+                    - link "decomposition framework" [ref=e322] [cursor=pointer]:
+                      - /url: /primer#problem-decomposition-framework
+                    - text: and the
+                    - link "step-by-step walkthrough" [ref=e323] [cursor=pointer]:
+                      - /url: /primer#interview-step-by-step
+                    - text: .
+                  - paragraph [ref=e324]: Interactive widgets throughout let you tweak each idea and watch it respond.
+                - generic [ref=e325]:
+                  - heading "Core Design Challenges" [level=2] [ref=e326]
+                  - paragraph [ref=e327]: Now that we understand how to solve system design problems, examine the most common challenges. Like solutions assembled from reusable building blocks, these challenges have repeatable patterns.
+                  - 'heading "Challenge 1: Too Many Concurrent Users" [level=3] [ref=e328]'
+                  - paragraph [ref=e329]: Large user bases introduce many problems. The most common and intuitive is that single machines or databases have RPS/QPS limits. In all single-server demo apps from web dev tutorials, server performance degenerates fast once limits are exceeded.
+                  - paragraph [ref=e330]: The solution is repetition. Repeat the same assets and assign users randomly to each replication. When replicated assets are server logic, it's called load balancing. When replicated assets are data, it's called database replicas.
+                  - generic "Click to enlarge" [ref=e331]:
+                    - document [ref=e332]:
+                      - generic [ref=e339]:
+                        - generic [ref=e340]: User
+                        - generic [ref=e345]: Single server
+                        - generic [ref=e350]: User
+                        - generic [ref=e355]: User
+                        - generic [ref=e360]: RPS limit exceeded
+                  - generic "Click to enlarge" [ref=e365]:
+                    - document [ref=e366]:
+                      - generic [ref=e374]:
+                        - generic [ref=e375]: User
+                        - generic [ref=e380]: Load balancer
+                        - generic [ref=e385]: User
+                        - generic [ref=e390]: User
+                        - generic [ref=e395]: Server
+                        - generic [ref=e400]: Server
+                        - generic [ref=e405]: Server
+                  - 'heading "Challenge 2: Too Much Data to Move Around" [level=3] [ref=e410]'
+                  - paragraph [ref=e411]: "The twin challenge of too many users is too much data. Data becomes big when it's no longer possible to hold everything on one machine. Examples: Google index, all tweets on Twitter, all Netflix movies."
+                  - paragraph [ref=e412]: "The solution is sharding: partitioning data by logic. Sharding logic groups data together. If we shard by user_id in Twitter, all tweets from one user store on the same machine."
+                  - generic "Click to enlarge" [ref=e413]:
+                    - document [ref=e414]:
+                      - generic [ref=e422]:
+                        - generic [ref=e423]: Writes
+                        - generic [ref=e428]: shard by user_id
+                        - generic [ref=e433]: Shard A–H
+                        - generic [ref=e438]: Shard I–P
+                        - generic [ref=e443]: Shard Q–Z
+                  - 'heading "Challenge 3: The System Should be Fast and Responsive" [level=3] [ref=e448]'
+                  - paragraph [ref=e449]: User-facing apps must be quick. Response time should be under 500ms. Over 1 second creates poor user experiences.
+                  - paragraph [ref=e450]: Reading is usually fast after we have replication. Read requests typically implement as queries to in-memory key-value dictionaries beside HTTP protocols. For many simple apps, latency is mostly network round time.
+                  - paragraph [ref=e451]: "Writing is where the challenge lies. Most typical writing processes involve many data queries and updates, lasting far longer than the 1-second limit. The solution is asynchrony: write requests return immediately after servers receive data and put it in queues. Actual processing continues in backends. After receiving server responses, client-side logic has wiggle room for speedy user experiences. It can show UI before redirecting users to read results. This usually takes 1-2 seconds, enough for backend processing of actual write requests."
+                  - paragraph [ref=e452]: This implements through message queues like Kafka.
+                  - generic "Click to enlarge" [ref=e453]:
+                    - document [ref=e454]:
+                      - generic [ref=e456]:
+                        - generic [ref=e460]:
+                          - generic [ref=e461]: write
+                          - generic [ref=e465]: enqueue then respond
+                        - generic [ref=e469]:
+                          - generic [ref=e470]: Client
+                          - generic [ref=e475]: App server
+                          - generic [ref=e480]: Queue
+                          - generic [ref=e485]: Worker
+                          - generic [ref=e490]: Database
+                  - 'heading "Challenge 4: Inconsistent (outdated) States" [level=3] [ref=e495]'
+                  - paragraph [ref=e496]: "This challenge results from solving Challenge 1 and Challenge 2. With data replication and asynchronous data updates, read requests can easily see inconsistent data. Inconsistency usually means outdated: users won't see random wrong data, but old versions or deleted data."
+                  - paragraph [ref=e497]: The solution is more application-level than system-level. Outdated reads from replication and asynchronous updates eventually disappear when servers catch up. Build user experiences where seeing outdated data briefly is acceptable. This is eventual consistency.
+                  - paragraph [ref=e498]: "Most apps tolerate eventual consistency well, especially compared with alternatives: losing data forever or being very slow. Exceptions are banking or payment-related apps. Any inconsistency is unacceptable, so apps must wait for all processing to finish before returning anything to users. That's why such apps feel much slower than Google Search."
+                  - generic "Click to enlarge" [ref=e499]:
+                    - document [ref=e500]:
+                      - generic [ref=e502]:
+                        - generic [ref=e506]:
+                          - generic [ref=e507]: replication lag
+                          - generic [ref=e511]: stale until caught up
+                        - generic [ref=e515]:
+                          - generic [ref=e516]: Write
+                          - generic [ref=e521]: Primary
+                          - generic [ref=e526]: Replica
+                          - generic [ref=e531]: Read
+                - generic [ref=e536]:
+                  - heading "Designing for Scale" [level=2] [ref=e537]
+                  - paragraph [ref=e538]: Scaling systems effectively is one of the most critical aspects of satisfying non-functional requirements. Scalability is often a top priority. Below are various strategies to achieve scalable system architecture.
+                  - heading "Estimating the Load" [level=3] [ref=e539]
+                  - paragraph [ref=e540]: Before choosing a strategy, put numbers on the problem. Estimation reveals which quantity shapes the design — reads, writes, storage, or peak burst. Derive the numbers from usage rather than asserting them. Move the sliders to see how a few assumptions produce the load.
+                  - generic [ref=e541]:
+                    - generic [ref=e542]:
+                      - generic [ref=e543]: Daily active users
+                      - slider [ref=e544]: "10"
+                      - generic [ref=e545]: 10M
+                    - generic [ref=e546]:
+                      - generic [ref=e547]: Write actions / user / day
+                      - slider [ref=e548]: "20"
+                      - generic [ref=e549]: "20"
+                    - generic [ref=e550]:
+                      - generic [ref=e551]: Reads per write
+                      - slider [ref=e552]: "100"
+                      - generic [ref=e553]: 100:1
+                    - generic [ref=e554]:
+                      - generic [ref=e555]: Peak-to-average factor
+                      - slider [ref=e556]: "3"
+                      - generic [ref=e557]: 3×
+                    - generic [ref=e558]:
+                      - generic [ref=e559]: Stored bytes / write
+                      - slider [ref=e560]: "2"
+                      - generic [ref=e561]: 2 KB
+                    - generic [ref=e562]:
+                      - generic [ref=e563]: Retention
+                      - slider [ref=e564]: "3"
+                      - generic [ref=e565]: 3 yr
+                    - generic [ref=e566]:
+                      - generic [ref=e567]:
+                        - generic [ref=e568]: Writes / sec (avg)
+                        - generic [ref=e569]: 2.3K
+                      - generic [ref=e570]:
+                        - generic [ref=e571]: Reads / sec (avg)
+                        - generic [ref=e572]: 231.5K
+                      - generic [ref=e573]:
+                        - generic [ref=e574]: Reads / sec (peak)
+                        - generic [ref=e575]: 694.4K
+                      - generic [ref=e576]:
+                        - generic [ref=e577]: Storage after 3 yr
+                        - generic [ref=e578]: 448.5 TB
+                    - generic [ref=e579]: writes/s = 10M × 20 ÷ 86,400 = 2.3K/sreads/s (peak) = 2.3K × 100 × 3 = 694.4K/s
+                    - generic [ref=e580]: Round aggressively — these are order-of-magnitude numbers. The point is to find which quantity is large enough to shape the design.
+                  - paragraph [ref=e581]:
+                    - text: The pattern is always the same. Daily actions divided by 86,400 seconds gives an average rate. Multiply by a peak factor for the burst you must survive. Reads usually dwarf writes, so the read path is where caching and replicas go. See
+                    - link "Back-of-the-Envelope Estimation" [ref=e582] [cursor=pointer]:
+                      - /url: /fundamentals/back-of-envelope-calculation
+                    - text: .
+                  - heading "Decomposition" [level=3] [ref=e583]
+                  - paragraph [ref=e584]: Decomposition breaks down requirements into microservices. The key principle is dividing systems into smaller, independent services based on specific business capabilities or requirements. Each microservice should focus on single responsibilities to enhance scalability and maintainability.
+                  - generic "Click to enlarge" [ref=e585]:
+                    - document [ref=e586]:
+                      - generic [ref=e589]:
+                        - generic [ref=e590]:
+                          - generic [ref=e591]: Microservices · deploy independently
+                          - generic [ref=e597]:
+                            - generic [ref=e598]: User
+                            - generic [ref=e603]: Order
+                            - generic [ref=e608]: Payment
+                        - generic [ref=e613]:
+                          - generic [ref=e614]: Monolith · one deploy
+                          - generic [ref=e620]: Catalog + Checkout + Payments + Users
+                  - heading "Vertical Scaling" [level=3] [ref=e626]
+                  - paragraph [ref=e627]: Vertical scaling represents the brute force approach to scaling. Scale up by using more powerful machines. Thanks to cloud computing advancements, this approach has become much more feasible. In the past, organizations waited for new machines to be built and shipped. Today they spin up new instances in seconds.
+                  - generic "Click to enlarge" [ref=e628]:
+                    - document [ref=e629]:
+                      - generic [ref=e631]:
+                        - generic [ref=e632]: scale up
+                        - generic [ref=e637]:
+                          - generic [ref=e638]: Small server2 vCPU · 8 GB
+                          - generic [ref=e644]: Big server64 vCPU · 512 GB
+                  - paragraph [ref=e650]: Modern cloud providers offer impressive vertical scaling options. AWS provides Amazon EC2 High Memory instances with up to 24 TB of memory. Google Cloud offers Tau T2D instances specifically optimized for compute-intensive workloads.
+                  - heading "Horizontal Scaling" [level=3] [ref=e651]
+                  - paragraph [ref=e652]: Horizontal scaling focuses on scaling out by running multiple identical instances of stateless services. The stateless nature of these services enables seamless distribution of requests across instances using load balancers.
+                  - generic "Click to enlarge" [ref=e653]:
+                    - document [ref=e654]:
+                      - generic [ref=e662]:
+                        - generic [ref=e663]: Load balancer
+                        - generic [ref=e668]: Instance
+                        - generic [ref=e673]: Instance
+                        - generic [ref=e678]: Instance
+                        - generic [ref=e683]: Instance
+                  - heading "Partitioning" [level=3] [ref=e688]
+                  - paragraph [ref=e689]: Partitioning splits requests and data into shards and distributes them across services or databases. This can be accomplished by partitioning data based on user ID, geographical location, or another logical key. Many systems implement consistent hashing to ensure balanced partitioning.
+                  - generic "Click to enlarge" [ref=e690]:
+                    - document [ref=e691]:
+                      - generic [ref=e699]:
+                        - generic [ref=e700]: Keys
+                        - generic [ref=e705]: hash(key)
+                        - generic [ref=e710]: Shard 0
+                        - generic [ref=e715]: Shard 1
+                        - generic [ref=e720]: Shard 2
+                  - paragraph [ref=e725]:
+                    - text: "Plain hash-mod-N partitioning has a painful failure mode: change the shard count and almost every key moves."
+                    - strong [ref=e726]: Consistent hashing
+                    - text: fixes this by placing both nodes and keys on a ring, where each key belongs to the next node clockwise. Add or remove a node and only the keys in that one arc move — about 1/N of them. Add and remove nodes below.
+                  - generic [ref=e727]:
+                    - generic [ref=e728]:
+                      - button "+ Add node" [ref=e729] [cursor=pointer]
+                      - button "− Remove node" [ref=e730] [cursor=pointer]
+                      - generic [ref=e731]: 3 nodes · 12 keys
+                    - generic [ref=e732]:
+                      - img [ref=e733]:
+                        - generic [ref=e747]: "1"
+                        - generic [ref=e750]: "3"
+                        - generic [ref=e753]: "5"
+                      - generic [ref=e756]:
+                        - generic [ref=e757]:
+                          - generic [ref=e758]: Keys remapped by the last change
+                          - generic [ref=e759]: —
+                        - generic [ref=e760]: Each key belongs to the next node clockwise on the ring. Add or remove a node and only the keys in that arc move — roughly 1/N of them, not all of them. Plain hash-mod-N would remap nearly every key.
+                  - paragraph [ref=e761]:
+                    - text: See
+                    - link "Database Partitioning" [ref=e762] [cursor=pointer]:
+                      - /url: /concepts/database-partitioning
+                    - text: and
+                    - link "Consistent Hashing" [ref=e763] [cursor=pointer]:
+                      - /url: /fundamentals/consistent-hashing
+                    - text: for details.
+                  - heading "Caching" [level=3] [ref=e764]
+                  - paragraph [ref=e765]: Caching improves query read performance by storing frequently accessed data in faster memory storage, such as in-memory caches. Popular tools like Redis or Memcached effectively store hot data to reduce database load.
+                  - generic "Click to enlarge" [ref=e766]:
+                    - document [ref=e767]:
+                      - generic [ref=e769]:
+                        - generic [ref=e773]:
+                          - generic [ref=e774]: check first
+                          - generic [ref=e778]: hit
+                          - generic [ref=e782]: miss
+                        - generic [ref=e786]:
+                          - generic [ref=e787]: App
+                          - generic [ref=e792]: Cache
+                          - generic [ref=e797]: Database
+                  - paragraph [ref=e802]: "The hit rate is everything. Because origin load equals total load times the miss rate, the last few percent matter most: going from 90% to 99% cuts database traffic by another 10×. Drag the hit rate below and watch how much load reaches the database."
+                  - generic [ref=e803]:
+                    - generic [ref=e804]:
+                      - generic [ref=e805]: Cache hit rate
+                      - slider [ref=e806]: "90"
+                      - generic [ref=e807]: 90%
+                    - generic [ref=e808]:
+                      - generic [ref=e809]: Total read QPS
+                      - slider [ref=e810]: "50000"
+                      - generic [ref=e811]: 50.0K
+                    - generic [ref=e812]:
+                      - button "▶ Play stream" [ref=e813] [cursor=pointer]
+                      - button "Reset" [ref=e814] [cursor=pointer]
+                    - generic [ref=e815]: Press play — each square is a read. Green = cache hit, red = origin miss.
+                    - generic [ref=e817]:
+                      - generic [ref=e818]:
+                        - generic [ref=e819]: Reaches the database
+                        - generic [ref=e820]: 5.0K/s
+                      - generic [ref=e821]:
+                        - generic [ref=e822]: Effective read capacity
+                        - generic [ref=e823]: 10.0×
+                    - generic [ref=e824]:
+                      - text: A 90% hit rate sends only
+                      - generic [ref=e825]: 5.0K/s
+                      - text: "to the database instead of 50.0K/s. The last 10% of hit rate matters most: going 90% → 99% cuts origin load by another 10×."
+                  - paragraph [ref=e826]:
+                    - text: See
+                    - link "Caching" [ref=e827] [cursor=pointer]:
+                      - /url: /fundamentals/caching
+                    - text: for details.
+                  - heading "Buffer with Message Queues" [level=3] [ref=e828]
+                  - paragraph [ref=e829]: High-concurrency scenarios often encounter write-intensive operations. Frequent database writes can overload systems due to disk I/O bottlenecks. Message queues buffer write requests, changing synchronous operations into asynchronous ones, thereby limiting database write requests to manageable levels and preventing system crashes.
+                  - generic "Click to enlarge" [ref=e830]:
+                    - document [ref=e831]:
+                      - generic [ref=e833]:
+                        - generic [ref=e837]:
+                          - generic [ref=e838]: bursty writes
+                          - generic [ref=e842]: steady drain
+                        - generic [ref=e846]:
+                          - generic [ref=e847]: Write service
+                          - generic [ref=e852]: Queue
+                          - generic [ref=e857]: Worker
+                          - generic [ref=e862]: Database
+                  - paragraph [ref=e867]:
+                    - text: Try it below. Start in
+                    - strong [ref=e868]: Direct to server
+                    - text: mode and push incoming traffic above the server's capacity — the single server is overwhelmed and starts dropping requests. Switch to
+                    - strong [ref=e869]: Buffer with a queue
+                    - text: and the same burst piles into the queue instead, draining at the server's steady rate. The queue trades a little latency for zero dropped requests, until a sustained overload eventually fills even the buffer.
+                  - generic [ref=e870]:
+                    - generic [ref=e871]:
+                      - generic [ref=e872]: Incoming traffic
+                      - slider [ref=e873]: "220"
+                      - generic [ref=e874]: 220 req/s
+                    - generic [ref=e875]:
+                      - generic [ref=e876]: Server capacity
+                      - slider [ref=e877]: "100"
+                      - generic [ref=e878]: 100 req/s
+                    - generic [ref=e879]:
+                      - button "Direct to server" [ref=e880] [cursor=pointer]
+                      - button "Buffer with a queue" [ref=e881] [cursor=pointer]
+                      - button "▶ Play" [ref=e882] [cursor=pointer]
+                      - button "Reset" [ref=e883] [cursor=pointer]
+                    - generic [ref=e884]:
+                      - generic [ref=e885]:
+                        - generic [ref=e886]: Producer
+                        - generic [ref=e887]: 220 req/s
+                      - generic [ref=e899]:
+                        - generic [ref=e900]: Server
+                        - generic [ref=e901]: OVERWHELMED
+                    - generic [ref=e902]:
+                      - generic [ref=e903]:
+                        - generic [ref=e904]: Processed
+                        - generic [ref=e905]: "0"
+                      - generic [ref=e906]:
+                        - generic [ref=e907]: Dropped
+                        - generic [ref=e908]: "0"
+                      - generic [ref=e909]:
+                        - generic [ref=e910]: Dropping
+                        - generic [ref=e911]: 120/s
+                    - generic [ref=e912]:
+                      - text: Traffic exceeds capacity, so the single server is overwhelmed and
+                      - generic [ref=e913]: drops 120 req/s
+                      - text: . Raise capacity, lower traffic, or add a queue.
+                  - paragraph [ref=e914]:
+                    - text: See
+                    - link "Message Queues" [ref=e915] [cursor=pointer]:
+                      - /url: /fundamentals/message-queue
+                    - text: for details.
+                  - heading "Separating Read and Write" [level=3] [ref=e916]
+                  - paragraph [ref=e917]: Whether systems are read-heavy or write-heavy depends on business requirements. Social media platforms are read-heavy because users read more than they write. IoT systems are write-heavy because users write more than they read. This is why we separate read and write operations to treat them differently.
+                  - paragraph [ref=e918]: Read and write separation typically involves two main strategies. First, replication implements leader-follower architecture where writes occur on the leader and followers provide read replicas.
+                  - generic "Click to enlarge" [ref=e919]:
+                    - document [ref=e920]:
+                      - generic [ref=e928]:
+                        - generic [ref=e929]: Writes
+                        - generic [ref=e934]: Leader
+                        - generic [ref=e939]: Follower
+                        - generic [ref=e944]: Follower
+                        - generic [ref=e949]: Reads
+                  - paragraph [ref=e954]: "Second, the CQRS (Command Query Responsibility Segregation) pattern takes read-write separation further by using completely different models for reading and writing data. In CQRS, systems split into two parts: the command side (write side) handles all write operations (create, update, delete) using data models optimized for writes, and the query side (read side) handles all read operations using denormalized data models optimized for reads."
+                  - paragraph [ref=e955]: Changes from the command side asynchronously propagate to the query side.
+                  - generic "Click to enlarge" [ref=e956]:
+                    - document [ref=e957]:
+                      - generic [ref=e959]:
+                        - generic [ref=e963]: sync
+                        - generic [ref=e968]:
+                          - generic [ref=e969]: Commands
+                          - generic [ref=e974]: Write model
+                          - generic [ref=e979]: Write store
+                          - generic [ref=e984]: Read store
+                          - generic [ref=e989]: Queries
+                          - generic [ref=e994]: Read model
+                  - paragraph [ref=e999]: For example, systems might use MySQL as source-of-truth databases while employing Elasticsearch for full-text search or analytical queries, and asynchronously sync changes from MySQL to Elasticsearch using MySQL binlog Change Data Capture (CDC).
+                  - heading "Combining Techniques" [level=3] [ref=e1000]
+                  - paragraph [ref=e1001]: Effective scaling usually requires multi-faceted approaches combining several techniques. Start with decomposition to break down monolithic services for independent scaling. Then, partitioning and caching work together to distribute load efficiently while enhancing performance. Read/write separation ensures fast reads and reliable writes through leader-replica setups. Finally, business logic adjustments help design strategies that mitigate operational bottlenecks without compromising user experience.
+                  - paragraph [ref=e1002]: A combined architecture puts each technique against a different pressure — the load balancer spreads traffic, the cache absorbs reads, the queue buffers writes, and the sharded primary-replica database scales storage and reads.
+                  - generic "Click to enlarge" [ref=e1003]:
+                    - document [ref=e1004]:
+                      - generic [ref=e1006]:
+                        - generic [ref=e1017]:
+                          - generic [ref=e1018]: read
+                          - generic [ref=e1022]: write
+                          - generic [ref=e1026]: read
+                        - generic [ref=e1030]:
+                          - generic [ref=e1031]: Client
+                          - generic [ref=e1036]: Load balancer
+                          - generic [ref=e1041]: Service A
+                          - generic [ref=e1046]: Service B
+                          - generic [ref=e1051]: Cache
+                          - generic [ref=e1056]: Queue
+                          - generic [ref=e1061]: Worker
+                          - generic [ref=e1066]: Primary · shard 1
+                          - generic [ref=e1071]: Primary · shard 2
+                          - generic [ref=e1076]: Replica
+                  - heading "Adapting to Changing Business Requirements" [level=3] [ref=e1081]
+                  - paragraph [ref=e1082]: Adapting business requirements offers practical ways to handle large traffic loads. While not strictly technical approaches, understanding these strategies demonstrates valuable experience and critical thinking skills in interview settings.
+                  - paragraph [ref=e1083]: Consider weekly sales event scenarios. Instead of running all sales simultaneously for all users, distribute load by allocating specific days for different product categories for specific regions. Baby products might feature on Day 1, followed by electronics on Day 2. This approach ensures more predictable traffic patterns and enables better resource allocation such as pre-loading cache for upcoming days and scaling out read replicas for specific regions.
+                  - paragraph [ref=e1084]: Another example involves handling consistency challenges during high-stakes events like eBay auctions. By temporarily displaying bid success messages on frontends, systems can provide seamless user experiences while backends resolve consistency issues asynchronously. Users eventually see correct bid status after auctions end.
+                  - paragraph [ref=e1085]: While not technical solutions, bringing these up in interviews demonstrates your ability to think through problems and provide practical solutions.
+                - generic [ref=e1086]:
+                  - heading "Consistency and Tradeoffs" [level=2] [ref=e1087]
+                  - paragraph [ref=e1088]: Replication and asynchronous updates buy scale, but they let readers see stale or conflicting data. Challenge 4 above named this problem; this section is about choosing — deliberately — how correct the system must be, and paying only for what you need. Consistency questions dominate L6 interviews.
+                  - heading "The CAP Theorem" [level=3] [ref=e1089]
+                  - paragraph [ref=e1090]:
+                    - text: "CAP says a distributed store can hold only two of three properties at once:"
+                    - strong [ref=e1091]: Consistency
+                    - text: (every read sees the latest write),
+                    - strong [ref=e1092]: Availability
+                    - text: (every request gets a response), and
+                    - strong [ref=e1093]: Partition tolerance
+                    - text: (it keeps working when the network drops messages between nodes). The diagram shows the three as overlapping circles. Each pairwise overlap is a combination you can actually have, with example databases that live there — highlight a pair to focus it.
+                  - generic [ref=e1094]:
+                    - generic [ref=e1095]:
+                      - button "Highlight CA" [ref=e1096] [cursor=pointer]
+                      - button "Highlight CP" [ref=e1097] [cursor=pointer]
+                      - button "Highlight AP" [ref=e1098] [cursor=pointer]
+                    - img [ref=e1100]:
+                      - generic [ref=e1104]: Consistency
+                      - generic [ref=e1105]: Availability
+                      - generic [ref=e1106]: Partition
+                      - generic [ref=e1107]: tolerance
+                      - generic [ref=e1108]: CA
+                      - generic [ref=e1109]: CP
+                      - generic [ref=e1110]: AP
+                      - generic [ref=e1111]: pick 2
+                    - generic [ref=e1112]:
+                      - generic [ref=e1113]:
+                        - generic [ref=e1114]: CP
+                        - generic [ref=e1115]:
+                          - text: HBase · MongoDB · Redis
+                          - generic [ref=e1116]: — stays consistent, refuses on the cut-off side
+                      - generic [ref=e1117]:
+                        - generic [ref=e1118]: AP
+                        - generic [ref=e1119]:
+                          - text: Cassandra · DynamoDB · Riak
+                          - generic [ref=e1120]: — stays available, may serve stale data
+                      - generic [ref=e1121]:
+                        - generic [ref=e1122]: CA
+                        - generic [ref=e1123]:
+                          - text: single-node SQL
+                          - generic [ref=e1124]: — only possible without partitions
+                    - generic [ref=e1125]: The center — all three at once — is not achievable. Across machines partitions happen, so P is a given, which leaves the real choice as CP versus AP.
+                  - paragraph [ref=e1126]:
+                    - text: In a system that spans machines, partitions will happen, so
+                    - strong [ref=e1127]: P is not optional
+                    - text: ". That collapses the real choice to two edges:"
+                    - strong [ref=e1128]: CP
+                    - text: keeps data correct by refusing requests on the cut-off side, and
+                    - strong [ref=e1129]: AP
+                    - text: stays up by serving possibly stale data. The CA corner exists only for a single node that never partitions.
+                  - paragraph [ref=e1130]:
+                    - text: The widget below makes this concrete. It runs a
+                    - strong [ref=e1131]: leader
+                    - text: and a
+                    - strong [ref=e1132]: replica
+                    - text: that copies from it. Press play to send writes; the replica trails by the lag you set. Hit
+                    - strong [ref=e1133]: Simulate partition
+                    - text: to cut the replica off, then toggle
+                    - strong [ref=e1134]: AP
+                    - text: versus
+                    - strong [ref=e1135]: CP
+                    - text: ": AP keeps answering reads with stale data, CP refuses to answer on the stale side."
+                  - generic [ref=e1136]:
+                    - generic [ref=e1137]:
+                      - button "▶ Play writes" [ref=e1138] [cursor=pointer]
+                      - button "Simulate partition" [ref=e1139] [cursor=pointer]
+                      - button "Reset" [ref=e1140] [cursor=pointer]
+                    - generic [ref=e1141]:
+                      - generic [ref=e1142]: Replica lag
+                      - slider [ref=e1143]: "2"
+                      - generic [ref=e1144]: 2 versions
+                    - generic [ref=e1145]:
+                      - button "AP · read replica, allow stale" [ref=e1146] [cursor=pointer]
+                      - button "CP · require leader" [ref=e1147] [cursor=pointer]
+                    - generic [ref=e1148]:
+                      - generic [ref=e1149]:
+                        - generic [ref=e1150]: Leader (source of truth)
+                        - generic [ref=e1151]: v0
+                      - generic [ref=e1152]:
+                        - generic [ref=e1153]: Replica
+                        - generic [ref=e1154]: v0
+                    - generic [ref=e1155]: A read now returns v0 — fresh.
+                    - generic [ref=e1156]: "Turn on the partition: AP keeps answering with stale data, CP stops answering. That is the choice CAP forces once the network splits."
+                  - paragraph [ref=e1157]:
+                    - text: "Most consumer features pick AP: a slightly stale feed beats an error. Money picks CP: a wrong balance is worse than a spinner. See"
+                    - link "CAP and PACELC Theorem" [ref=e1158] [cursor=pointer]:
+                      - /url: /domain-knowledge/distributed-database-cap-and-pacelc-theorem
+                    - text: .
+                  - heading "Consistency Models" [level=3] [ref=e1159]
+                  - paragraph [ref=e1160]:
+                    - text: Consistency is a spectrum, not a switch.
+                    - strong [ref=e1161]: Strong consistency
+                    - text: means every read sees the latest write.
+                    - strong [ref=e1162]: Eventual consistency
+                    - text: means replicas converge over time, so reads may lag.
+                    - strong [ref=e1163]: Read-your-writes
+                    - text: "is a useful middle ground: you always see your own updates, even if others see them late."
+                  - paragraph [ref=e1164]: These levels differ only in what a read may return in the moments just after a write, while replicas are still catching up. The widget below commits a new value, then shows what two readers — the author who wrote it and another user — see as the replica syncs. Switch the level to compare.
+                  - generic [ref=e1165]:
+                    - generic [ref=e1166]:
+                      - button "Strong" [ref=e1167] [cursor=pointer]
+                      - button "Read-your-writes" [ref=e1168] [cursor=pointer]
+                      - button "Eventual" [ref=e1169] [cursor=pointer]
+                    - generic [ref=e1170]:
+                      - button "▶ Play" [ref=e1171] [cursor=pointer]
+                      - button "Reset" [ref=e1172] [cursor=pointer]
+                      - generic [ref=e1173]:
+                        - text: author writes
+                        - strong [ref=e1174]: v2
+                        - text: at t=0 · replica lag 3 ticks
+                    - generic [ref=e1175]: replica synced
+                    - generic [ref=e1179]:
+                      - generic [ref=e1180]:
+                        - generic [ref=e1181]: You (the author) reads
+                        - generic [ref=e1182]: v2
+                        - generic [ref=e1183]: fresh
+                      - generic [ref=e1184]:
+                        - generic [ref=e1185]: Another user reads
+                        - generic [ref=e1186]: v2
+                        - generic [ref=e1187]: fresh
+                    - generic [ref=e1188]:
+                      - strong [ref=e1189]: Strong.
+                      - text: Every read sees the latest write. Reads go to the leader or wait for replicas, so no one ever sees stale data.
+                  - paragraph [ref=e1190]: Stronger levels send reads to the leader or wait for replicas to confirm, which costs latency and availability; weaker levels read whichever replica is closest and may return stale data. Systems can tune this finely per read and write, but the level is the decision that matters.
+                  - paragraph [ref=e1191]:
+                    - text: Pick the weakest model the feature tolerates. Stronger consistency costs latency and availability. See
+                    - link "Data Consistency Models" [ref=e1192] [cursor=pointer]:
+                      - /url: /domain-knowledge/consistency-models
+                    - text: .
+                  - heading "Contention and Concurrency" [level=3] [ref=e1193]
+                  - paragraph [ref=e1194]: When two clients update the same record at once, a naive read-modify-write loses one update — both read the old value and overwrite each other. Step through the race below, then switch to the optimistic-lock version.
+                  - generic [ref=e1195]:
+                    - generic [ref=e1196]:
+                      - button "Naive read-modify-write" [ref=e1197] [cursor=pointer]
+                      - button "Optimistic lock (version)" [ref=e1198] [cursor=pointer]
+                    - generic [ref=e1199]:
+                      - button "◀" [disabled] [ref=e1200] [cursor=pointer]
+                      - button "▶" [ref=e1201] [cursor=pointer]
+                      - button "Play" [ref=e1202] [cursor=pointer]
+                      - generic [ref=e1203]: two clients both increment the same counter
+                    - generic [ref=e1205]:
+                      - generic [ref=e1206]: Stored count
+                      - generic [ref=e1207]: "10"
+                    - generic [ref=e1209]:
+                      - generic [ref=e1210]: T1
+                      - generic [ref=e1211]: read count → 10
+                  - paragraph [ref=e1212]:
+                    - strong [ref=e1213]: Optimistic locking
+                    - text: adds a version column and writes with
+                    - code [ref=e1214]: UPDATE … WHERE version = N
+                    - text: . If another writer already bumped the version, the update matches zero rows; the loser re-reads and retries. It assumes conflicts are rare and pays only when they happen.
+                    - strong [ref=e1215]: Pessimistic locking
+                    - text: takes a lock up front instead, trading throughput for certainty. See
+                    - link "Database Transactions" [ref=e1216] [cursor=pointer]:
+                      - /url: /domain-knowledge/database-transaction
+                    - text: .
+                  - heading "Multi-Step Workflows and Sagas" [level=3] [ref=e1217]
+                  - paragraph [ref=e1218]:
+                    - text: "A checkout spans several services: reserve inventory, charge payment, create a shipment. There is no single transaction across them. A"
+                    - strong [ref=e1219]: saga
+                    - text: runs the steps in order and, if one fails, runs compensating actions to undo the earlier ones.
+                  - paragraph [ref=e1220]: Choose where the saga fails and step through it. The steps commit in order; when one fails, each already-committed step is undone in reverse by its compensation.
+                  - generic [ref=e1221]:
+                    - generic [ref=e1222]:
+                      - generic [ref=e1223]: "Fail at:"
+                      - button "Reserve inventory" [ref=e1224] [cursor=pointer]
+                      - button "Charge payment" [ref=e1225] [cursor=pointer]
+                      - button "Create shipment" [ref=e1226] [cursor=pointer]
+                      - button "None" [ref=e1227] [cursor=pointer]
+                    - generic [ref=e1228]:
+                      - generic [ref=e1229]:
+                        - generic [ref=e1230]: Reserve inventory
+                        - generic [ref=e1231]: waiting
+                      - generic [ref=e1232]: →
+                      - generic [ref=e1233]:
+                        - generic [ref=e1234]: Charge payment
+                        - generic [ref=e1235]: waiting
+                      - generic [ref=e1236]: →
+                      - generic [ref=e1237]:
+                        - generic [ref=e1238]: Create shipment
+                        - generic [ref=e1239]: waiting
+                    - generic [ref=e1240]:
+                      - button "◀" [disabled] [ref=e1241] [cursor=pointer]
+                      - button "▶" [ref=e1242] [cursor=pointer]
+                      - button "▶ Play" [ref=e1243] [cursor=pointer]
+                      - generic [ref=e1244]: 1 / 5
+                    - generic [ref=e1245]: Saga starts. Each step runs in order.
+                  - paragraph [ref=e1246]:
+                    - text: Compensation is not a rollback; it is a new action that reverses a completed one — refund a charge, release a hold. Each step and each compensation must be idempotent, because retries will repeat them. See
+                    - link "Saga Pattern" [ref=e1247] [cursor=pointer]:
+                      - /url: /fundamentals/saga-pattern
+                    - text: .
+                - generic [ref=e1248]:
+                  - heading "Master Template" [level=2] [ref=e1249]
+                  - paragraph [ref=e1250]: Here is the common template to design scalable services and solve many system design problems.
+                  - paragraph [ref=e1251]: "High-level takeaway: write to message queue and have consumers/workers update database and cache. Read from cache."
+                  - paragraph [ref=e1252]: The template is easier to justify when you build it one box at a time. Step through the build below. Each step names the problem that forces the next component, which is exactly the order to reveal them in an interview.
+                  - generic [ref=e1253]:
+                    - generic [ref=e1254]:
+                      - button "◀ Back" [disabled] [ref=e1255] [cursor=pointer]
+                      - button "Next ▶" [ref=e1256] [cursor=pointer]
+                      - button "▶ Play" [ref=e1257] [cursor=pointer]
+                      - generic [ref=e1258]: Step 1 / 8
+                    - generic [ref=e1259]:
+                      - generic [ref=e1260]:
+                        - generic [ref=e1261]: Client
+                        - generic [ref=e1262]: Client
+                      - generic [ref=e1263]: →
+                      - generic [ref=e1264]:
+                        - generic [ref=e1265]: App server
+                        - generic [ref=e1266]: Service
+                      - generic [ref=e1267]: →
+                      - generic [ref=e1268]:
+                        - generic [ref=e1269]: Database
+                        - generic [ref=e1270]: Storage
+                    - generic [ref=e1271]:
+                      - generic [ref=e1272]: One server, one database
+                      - generic [ref=e1273]: "Start with the smallest thing that works: a client calls one app server, which reads and writes one database."
+                    - generic [ref=e1274]: Reveal one box at a time. In an interview, add each component only when a concrete problem forces it — never all at once.
+                  - paragraph [ref=e1275]: "The composed core is shown next: clients reach stateless app servers through a load balancer, reads come from a cache backed by a primary-replica database, and slow writes flow through a queue to background workers."
+                  - generic "Click to enlarge" [ref=e1276]:
+                    - document [ref=e1277]:
+                      - generic [ref=e1279]:
+                        - generic [ref=e1290]: read
+                        - generic [ref=e1295]:
+                          - generic [ref=e1296]: Client
+                          - generic [ref=e1301]: Load balancer
+                          - generic [ref=e1306]: App server
+                          - generic [ref=e1311]: App server
+                          - generic [ref=e1316]: Cache
+                          - generic [ref=e1321]: Message queue
+                          - generic [ref=e1326]: Worker
+                          - generic [ref=e1331]: Primary DB
+                          - generic [ref=e1336]: Read replica
+                  - heading "Component Breakdown" [level=3] [ref=e1341]
+                  - paragraph [ref=e1342]:
+                    - strong [ref=e1343]: Stateless Services
+                    - text: are scalable and can be expanded by adding new machines and integrating them through load balancers. Write Service receives client requests and forwards them to message queues. Read Service handles read requests from clients by accessing caches.
+                  - paragraph [ref=e1344]:
+                    - strong [ref=e1345]: Databases
+                    - text: serve as cold storage and source of truth. We do not normally read directly from databases since it can be slow when request volume is high.
+                  - paragraph [ref=e1346]:
+                    - strong [ref=e1347]: Message Queues
+                    - text: buffer between writer services and data storage. Producers (comprised of write services) send data changes to queues. Consumers update both databases and caches. Database Updater (asynchronous workers) updates databases by retrieving jobs from message queues. Cache Updater (asynchronous workers) refreshes caches by fetching jobs from message queues.
+                  - paragraph [ref=e1348]:
+                    - strong [ref=e1349]: Caches
+                    - text: facilitate fast and efficient read operations.
+                  - heading "Dataflow Path" [level=3] [ref=e1350]
+                  - paragraph [ref=e1351]: Almost all applications break down into read requests and write requests. Because read and write have completely different implications (read doesn't mutate; write mutates database), we discuss write path and read path separately.
+                  - paragraph [ref=e1352]:
+                    - strong [ref=e1353]: Read path
+                    - text: ": For modern large-scale applications with millions of daily users, we almost always read from cache instead of from databases directly. Databases act as permanent storage solutions. Asynchronous jobs frequently transfer data from databases to caches."
+                  - paragraph [ref=e1354]:
+                    - strong [ref=e1355]: Write path
+                    - text: ": Write requests push into message queues, allowing backend workers to manage writing processes. This approach balances processing speeds of different system components, offering responsive user experiences."
+                  - paragraph [ref=e1356]: The write path accepts the request, enqueues it, and returns immediately; a worker persists to the database and updates the cache asynchronously.
+                  - generic "Click to enlarge" [ref=e1357]:
+                    - document [ref=e1358]:
+                      - generic [ref=e1359]: Cache
+                      - generic [ref=e1362]: Storage
+                      - generic [ref=e1365]: App tier
+                      - generic [ref=e1368]: Client
+                      - generic [ref=e1371]: Client
+                      - generic [ref=e1375]: Write service
+                      - generic [ref=e1379]: Queue
+                      - generic [ref=e1383]: Worker
+                      - generic [ref=e1387]: Database
+                      - generic [ref=e1391]: Cache
+                      - generic [ref=e1395]: write request
+                      - generic [ref=e1396]: enqueue
+                      - generic [ref=e1397]: 202 accepted
+                      - generic [ref=e1398]: deliver
+                      - generic [ref=e1399]: persist
+                      - generic [ref=e1400]: update
+                      - generic [ref=e1401]: Client
+                      - generic [ref=e1404]: Write service
+                      - generic [ref=e1407]: Queue
+                      - generic [ref=e1410]: Worker
+                      - generic [ref=e1413]: Database
+                      - generic [ref=e1416]: Cache
+                  - paragraph [ref=e1419]: The read path answers from the cache and only touches the database on a miss.
+                  - generic "Click to enlarge" [ref=e1420]:
+                    - document [ref=e1421]:
+                      - generic [ref=e1422]: Storage
+                      - generic [ref=e1425]: Cache
+                      - generic [ref=e1428]: Read service
+                      - generic [ref=e1431]: Client
+                      - generic [ref=e1434]: Client
+                      - generic [ref=e1438]: Read service
+                      - generic [ref=e1442]: Cache
+                      - generic [ref=e1446]: Database
+                      - generic [ref=e1450]: read request
+                      - generic [ref=e1451]: get key
+                      - generic [ref=e1452]: value
+                      - generic [ref=e1453]: response
+                      - generic [ref=e1454]: load on miss, then fill
+                      - generic [ref=e1455]: Client
+                      - generic [ref=e1458]: Read service
+                      - generic [ref=e1461]: Cache
+                      - generic [ref=e1464]: Database
+                  - paragraph [ref=e1467]:
+                    - strong [ref=e1468]: Message queues
+                    - text: are essential to scaling out systems to handle write requests. Producers insert messages into queues. Consumers retrieve and process messages asynchronously.
+                  - paragraph [ref=e1469]: The necessity of message queues arises from varying processing rates (producers and consumers handle data at different speeds, necessitating buffers) and fault tolerance (they ensure persistence of messages, preventing data loss during failures).
+                - generic [ref=e1470]:
+                  - heading "Main Components" [level=2] [ref=e1471]
+                  - paragraph [ref=e1472]: Common system design problems have been solved. Engineers developed reusable tools called components. These fit into most systems.
+                  - paragraph [ref=e1473]: System design interviews test your ability to assemble components correctly. Learn how each technology works and when to use it. That's the game.
+                  - paragraph [ref=e1474]: "Each component section follows this structure: first, the problem it solves and when to use it. Second, how it works technically. Third, common implementations with trade-offs."
+                  - heading "Microservices" [level=3] [ref=e1475]
+                  - heading "The Problem" [level=4] [ref=e1476]
+                  - paragraph [ref=e1477]: "A startup builds an e-commerce application. Everything lives in one codebase: product catalog, checkout, payments, user accounts. The application processes 100 orders per day. This monolithic approach works."
+                  - paragraph [ref=e1478]: Two years later, traffic grows to 10,000 orders per day. The checkout service needs more servers. But you can't scale just checkout. You must scale the entire monolith. The payment team wants to deploy fraud detection. They can't. Deploying requires coordinating with every other team. A bug in the catalog crashes the entire application, taking down checkout and payments.
+                  - paragraph [ref=e1479]: "Microservices solve this by splitting applications into independent services, each handling one business function. An e-commerce system splits into separate services: Product Service, Cart Service, User Service, Order Service, Payment Service. Each service deploys independently, scales independently, and fails independently."
+                  - generic "Click to enlarge" [ref=e1480]:
+                    - document [ref=e1481]:
+                      - generic [ref=e1489]:
+                        - generic [ref=e1490]: API gateway
+                        - generic [ref=e1495]: Product service
+                        - generic [ref=e1500]: Cart service
+                        - generic [ref=e1505]: Order service
+                        - generic [ref=e1510]: Payment service
+                        - generic [ref=e1515]: Product DB
+                        - generic [ref=e1520]: Order DB
+                        - generic [ref=e1525]: Payment DB
+                  - heading "How Microservices Work" [level=4] [ref=e1530]
+                  - paragraph [ref=e1531]: Each service runs as a separate process. Services communicate through APIs, typically REST over HTTP or gRPC. The Payment Service calls the Order Service to verify order details. The Order Service calls the Inventory Service to check stock. No service talks directly to another service's database.
+                  - generic "Click to enlarge" [ref=e1532]:
+                    - document [ref=e1533]:
+                      - generic [ref=e1535]:
+                        - generic [ref=e1539]:
+                          - generic [ref=e1540]: REST or gRPC
+                          - generic [ref=e1544]: REST or gRPC
+                        - generic [ref=e1548]:
+                          - generic [ref=e1549]: Payment service
+                          - generic [ref=e1554]: Order service
+                          - generic [ref=e1559]: Inventory service
+                          - generic [ref=e1564]: Order DB
+                          - generic [ref=e1569]: Inventory DB
+                  - paragraph [ref=e1574]: Each service owns its database. The User Service manages the User Database. The Order Service manages the Order Database. This prevents tight coupling. If the User Service changes its database schema, other services don't break.
+                  - paragraph [ref=e1575]:
+                    - text: Services register with a
+                    - strong [ref=e1576]: service registry
+                    - text: (like Consul or Eureka). When the Payment Service starts, it announces its location. When another service needs to call Payment Service, it asks the registry where to find it. This is
+                    - strong [ref=e1577]: service discovery
+                    - text: .
+                  - paragraph [ref=e1578]: Services scale independently. Black Friday hits and checkout traffic spikes. Spin up 10 more Order Service instances. The Product Service continues running with just 2 instances. Different services have different load patterns.
+                  - paragraph [ref=e1579]:
+                    - strong [ref=e1580]: Fault isolation
+                    - text: prevents cascading failures. If the Recommendation Service crashes, checkout still works. Services use circuit breakers to detect failures and stop sending requests to broken services.
+                  - paragraph [ref=e1581]:
+                    - text: For deeper understanding of microservices architecture, communication patterns, and service mesh, see
+                    - link "Microservices and Monolithic Architecture" [ref=e1582] [cursor=pointer]:
+                      - /url: /fundamentals/microservices
+                    - text: .
+                  - heading "Common Implementations" [level=4] [ref=e1583]
+                  - paragraph [ref=e1584]: Spring Boot is the standard for Java microservices. It includes built-in support for REST APIs, service discovery, and distributed tracing. Use it for enterprise systems requiring mature tooling and strong typing.
+                  - paragraph [ref=e1585]: Node.js with Express works well for lightweight microservices. It offers fast development and a large npm ecosystem. Use it for TypeScript microservices or teams preferring JavaScript.
+                  - paragraph [ref=e1586]: Go with frameworks like Gin or Echo delivers high performance with built-in concurrency. Use it for high-throughput services requiring low latency, like real-time bidding or stream processing.
+                  - heading "Relational Databases" [level=3] [ref=e1587]
+                  - heading "The Problem" [level=4] [ref=e1588]
+                  - paragraph [ref=e1589]: A bank processes money transfers. User A sends $100 to User B. The system must subtract $100 from A's account and add $100 to B's account. Both operations must succeed or both must fail. Partial completion is unacceptable. User A loses $100 but User B never receives it.
+                  - paragraph [ref=e1590]:
+                    - text: This requires
+                    - strong [ref=e1591]: consistency
+                    - text: . Data must remain accurate across related records. Relational databases solve this through structured storage and ACID transactions.
+                  - paragraph [ref=e1592]: Relational databases organize data into tables. Each table has rows and columns. A Users table has columns for user_id, name, and email. Each row represents one user. Tables link through relationships. An Orders table references Users through a user_id column.
+                  - paragraph [ref=e1593]: Use relational databases when consistency is critical. Financial transactions, inventory management, and user account systems require accurate, structured data. NoSQL offers flexibility. Relational databases offer guarantees.
+                  - heading "How Relational Databases Work" [level=4] [ref=e1594]
+                  - paragraph [ref=e1595]: "Tables store structured data. Each table represents an entity: Users, Orders, Products. Columns define the schema: data types and constraints. Rows contain actual records."
+                  - generic "Click to enlarge" [ref=e1596]:
+                    - document [ref=e1597]:
+                      - generic [ref=e1599]:
+                        - generic [ref=e1600]:
+                          - generic [ref=e1601]: "1"
+                          - generic [ref=e1605]: "*"
+                        - generic [ref=e1608]:
+                          - generic [ref=e1611]:
+                            - generic [ref=e1612]: Users
+                            - generic [ref=e1614]: +user_id PK
+                            - generic [ref=e1616]: +name
+                            - generic [ref=e1618]: +email
+                          - generic [ref=e1622]:
+                            - generic [ref=e1623]: Orders
+                            - generic [ref=e1625]: +order_id PK
+                            - generic [ref=e1627]: +user_id FK
+                            - generic [ref=e1629]: +total
+                  - paragraph [ref=e1631]:
+                    - strong [ref=e1632]: Primary keys
+                    - text: uniquely identify each row. The Users table has user_id as its primary key. No two users share the same user_id.
+                    - strong [ref=e1633]: Foreign keys
+                    - text: create relationships between tables. The Orders table has a user_id column referencing the Users table. This links each order to a specific user.
+                  - paragraph [ref=e1634]: "Three relationship types exist:"
+                  - list [ref=e1635]:
+                    - listitem [ref=e1636]:
+                      - strong [ref=e1637]: One-to-one
+                      - text: ": each user has exactly one profile"
+                    - listitem [ref=e1638]:
+                      - strong [ref=e1639]: One-to-many
+                      - text: ": one user has many orders"
+                    - listitem [ref=e1640]:
+                      - strong [ref=e1641]: Many-to-many
+                      - text: ": many students enroll in many classes, requiring a junction table storing both student_id and class_id"
+                  - paragraph [ref=e1642]: "ACID properties guarantee data correctness:"
+                  - list [ref=e1643]:
+                    - listitem [ref=e1644]:
+                      - strong [ref=e1645]: Atomic
+                      - text: ": transactions complete fully or not at all"
+                    - listitem [ref=e1646]:
+                      - strong [ref=e1647]: Consistent
+                      - text: ": transactions move the database from one valid state to another"
+                    - listitem [ref=e1648]:
+                      - strong [ref=e1649]: Isolated
+                      - text: ": concurrent transactions don't interfere"
+                    - listitem [ref=e1650]:
+                      - strong [ref=e1651]: Durable
+                      - text: ": committed transactions persist even after crashes"
+                  - paragraph [ref=e1652]: SQL enables powerful queries. Join tables to combine data. Filter with WHERE clauses. Aggregate with GROUP BY. This expressiveness makes relational databases ideal for complex business logic.
+                  - paragraph [ref=e1653]:
+                    - text: For comprehensive coverage of relational databases, indexing strategies, and query optimization, see
+                    - link "Relational Database Fundamentals" [ref=e1654] [cursor=pointer]:
+                      - /url: /fundamentals/sql-database
+                    - text: and
+                    - link "Database Partitioning" [ref=e1655] [cursor=pointer]:
+                      - /url: /fundamentals/database-partitioning
+                    - text: .
+                  - heading "Common Implementations" [level=4] [ref=e1656]
+                  - paragraph [ref=e1657]: PostgreSQL is the most feature-rich open-source relational database. It supports advanced data types (JSON, arrays), full-text search, and custom functions. Use it for applications requiring complex queries or analytical workloads alongside transactional operations.
+                  - paragraph [ref=e1658]: MySQL is the most widely deployed open-source relational database. It offers excellent read performance and straightforward replication. Use it for web applications prioritizing simplicity and broad hosting support.
+                  - paragraph [ref=e1659]: Amazon RDS is a managed relational database service supporting PostgreSQL, MySQL, and others. It handles backups, patches, and scaling automatically. Use it for cloud-based applications avoiding operational overhead.
+                  - heading "NoSQL Databases" [level=3] [ref=e1660]
+                  - heading "The Problem" [level=4] [ref=e1661]
+                  - paragraph [ref=e1662]: Instagram stores user posts. Each post has an image, caption, hashtags, location, timestamp, and comments. Comments contain text, author, and nested replies. Fitting this into relational tables requires many joins. The Posts table joins to Comments, which joins to Users, which joins to Locations. Reading one post requires querying five tables.
+                  - paragraph [ref=e1663]: The schema changes weekly. Product adds "story reactions" one week and "polls" the next. Each schema change requires database migrations coordinating across teams. Development slows.
+                  - paragraph [ref=e1664]: "NoSQL databases solve this by storing flexible, nested data without rigid schemas. One document stores everything: post image, caption, comments array, location object. No joins required. Schema changes don't require migrations."
+                  - paragraph [ref=e1665]: Use NoSQL when data structure varies by record. Use it when you add new fields frequently. Use it when scaling to millions of writes per second across distributed servers. Trade relational guarantees for flexibility and horizontal scalability.
+                  - heading "How NoSQL Databases Work" [level=4] [ref=e1666]
+                  - paragraph [ref=e1667]: NoSQL databases come in four types, each optimized for different access patterns.
+                  - paragraph [ref=e1668]: Click each type to see the concrete shape its data takes.
+                  - generic [ref=e1669]:
+                    - generic [ref=e1670]:
+                      - button "Key-value" [ref=e1671] [cursor=pointer]
+                      - button "Document" [ref=e1672] [cursor=pointer]
+                      - button "Column-family" [ref=e1673] [cursor=pointer]
+                      - button "Graph" [ref=e1674] [cursor=pointer]
+                    - generic [ref=e1676]:
+                      - generic [ref=e1677]:
+                        - generic [ref=e1678]: session:abc123
+                        - generic [ref=e1679]: →
+                        - generic [ref=e1680]: "{ \"user_id\": 456, \"exp\": ... }"
+                      - generic [ref=e1681]:
+                        - generic [ref=e1682]: cart:u456
+                        - generic [ref=e1683]: →
+                        - generic [ref=e1684]: "[\"sku_1\", \"sku_9\"]"
+                      - generic [ref=e1685]:
+                        - generic [ref=e1686]: rate:ip:1.2.3.4
+                        - generic [ref=e1687]: →
+                        - generic [ref=e1688]: "27"
+                      - generic [ref=e1689]: A giant hash map. O(1) lookup by key, no queries across values.
+                    - generic [ref=e1690]:
+                      - generic [ref=e1691]:
+                        - strong [ref=e1692]: "Best for:"
+                        - text: caching, sessions
+                      - generic [ref=e1693]:
+                        - strong [ref=e1694]: "Examples:"
+                        - text: Redis · DynamoDB
+                  - list [ref=e1695]:
+                    - listitem [ref=e1696]:
+                      - strong [ref=e1697]: Key-value stores
+                      - text: work like hash maps. Store session data with key
+                      - code [ref=e1698]: session_abc123
+                      - text: mapping to JSON
+                      - code [ref=e1699]: "{\"user_id\": 456, \"login_time\": \"...\"}"
+                      - text: . Redis and Memcached are examples. Use them for caching and session management.
+                    - listitem [ref=e1700]:
+                      - strong [ref=e1701]: Document databases
+                      - text: store JSON-like documents. Each document is self-contained with nested fields. MongoDB is a document database. Use it for content management where records have varying schemas.
+                    - listitem [ref=e1702]:
+                      - strong [ref=e1703]: Column-family stores
+                      - text: organize data by column instead of row. Cassandra stores time-series data efficiently. Use them for high-write workloads like logs and analytics.
+                    - listitem [ref=e1704]:
+                      - strong [ref=e1705]: Graph databases
+                      - text: store nodes and edges. Neo4j models relationships as first-class citizens. Use them for social networks and recommendation engines.
+                  - paragraph [ref=e1706]:
+                    - text: NoSQL databases sacrifice ACID guarantees for availability and partition tolerance. Most offer
+                    - strong [ref=e1707]: eventual consistency
+                    - text: ": writes propagate to all nodes within seconds. Strong consistency is optional but reduces availability."
+                  - paragraph [ref=e1708]:
+                    - text: For in-depth exploration of NoSQL databases and distributed database concepts, see
+                    - link "NoSQL Database Fundamentals" [ref=e1709] [cursor=pointer]:
+                      - /url: /fundamentals/nosql-database
+                    - text: and
+                    - link "CAP and PACELC Theorem" [ref=e1710] [cursor=pointer]:
+                      - /url: /domain-knowledge/distributed-database-cap-and-pacelc-theorem
+                    - text: .
+                  - heading "Common Implementations" [level=4] [ref=e1711]
+                  - paragraph [ref=e1712]: MongoDB is the most popular document database. It supports rich queries including filters, aggregations, and text search. Use it for applications where documents have varying schemas, like product catalogs or user-generated content.
+                  - paragraph [ref=e1713]: "Redis is an in-memory key-value store delivering sub-millisecond latency. It supports data structures beyond simple values: lists, sets, sorted sets. Use it for caching, real-time leaderboards, and rate limiting."
+                  - paragraph [ref=e1714]: Apache Cassandra is a distributed column-family database with no single point of failure. It handles millions of writes per second by distributing data across nodes. Use it for time-series data, event logging, and high-write applications.
+                  - paragraph [ref=e1715]: Amazon DynamoDB is a fully managed key-value and document database. It auto-scales and offers single-digit millisecond latency at any scale. Use it for serverless applications or unpredictable traffic patterns.
+                  - heading "Object Storage" [level=3] [ref=e1716]
+                  - heading "The Problem" [level=4] [ref=e1717]
+                  - paragraph [ref=e1718]: Netflix stores 100 million video files. Users upload profile pictures. YouTube hosts billions of thumbnails. These files vary in size from kilobytes to gigabytes. Storing them in relational databases is inefficient. Databases optimize for structured queries, not large binary files.
+                  - paragraph [ref=e1719]: File systems work but don't scale. A single server holds limited storage. Adding more servers requires manual partitioning logic. Replication for durability becomes complex. Accessing files requires knowing which server holds them.
+                  - paragraph [ref=e1720]:
+                    - text: Object storage solves this by treating each file as an object with a unique ID. Store a video with key
+                    - code [ref=e1721]: videos/user123/vacation.mp4
+                    - text: . Retrieve it later using that key. The system handles distribution, replication, and scaling automatically.
+                  - paragraph [ref=e1722]: Use object storage for static assets like images and videos. Use it for backups requiring long-term retention. Use it for data lakes storing raw data for analytics. Don't use it for frequently updated files or low-latency operations.
+                  - heading "How Object Storage Works" [level=4] [ref=e1723]
+                  - paragraph [ref=e1724]:
+                    - text: "Objects live in buckets. A bucket is a container holding millions of objects. Each object has three parts: a unique key (like"
+                    - code [ref=e1725]: photos/cat.jpg
+                    - text: ), binary data (the actual file), and metadata (size, content type, custom tags).
+                  - generic "Click to enlarge" [ref=e1726]:
+                    - document [ref=e1727]:
+                      - generic [ref=e1729]:
+                        - generic [ref=e1733]: PUT object
+                        - generic [ref=e1738]:
+                          - generic [ref=e1739]: Client
+                          - generic [ref=e1744]: Bucket
+                          - generic [ref=e1749]: key + bytes + metadata
+                          - generic [ref=e1754]: key + bytes + metadata
+                  - paragraph [ref=e1759]:
+                    - text: There are no folders. Keys look like file paths but the storage is flat. The key
+                    - code [ref=e1760]: images/2024/cat.jpg
+                    - text: is just a string. No
+                    - code [ref=e1761]: /images/
+                    - text: directory exists.
+                  - paragraph [ref=e1762]: Clients interact through RESTful APIs. Upload with PUT requests. Download with GET requests. Delete with DELETE requests. The API abstracts the underlying distributed storage.
+                  - paragraph [ref=e1763]: Object storage replicates data across multiple nodes and regions. Upload a file and the system automatically copies it to 3+ servers. If one server fails, replicas ensure data survives. This achieves high durability.
+                  - paragraph [ref=e1764]:
+                    - strong [ref=e1765]: Versioning
+                    - text: keeps multiple versions of the same object. Overwrite
+                    - code [ref=e1766]: report.pdf
+                    - text: and the old version remains accessible. This protects against accidental deletions.
+                    - strong [ref=e1767]: Lifecycle policies
+                    - text: automatically move old objects to cheaper storage tiers after 90 days or delete them after one year.
+                  - paragraph [ref=e1768]: Consistency models vary. S3 offers strong read-after-write consistency. Upload an object and immediately read it. Eventual consistency is cheaper but reads might return stale data briefly.
+                  - paragraph [ref=e1769]:
+                    - text: For detailed coverage of object storage systems and blob storage patterns, see
+                    - link "Object Storage and Blob Storage" [ref=e1770] [cursor=pointer]:
+                      - /url: /fundamentals/blob-object-storage
+                    - text: .
+                  - heading "Common Implementations" [level=4] [ref=e1771]
+                  - paragraph [ref=e1772]: Amazon S3 is the industry standard. It offers virtually unlimited storage, automatic replication, and integration with AWS services. Use it for most object storage needs, especially in AWS environments.
+                  - paragraph [ref=e1773]: Google Cloud Storage provides multi-regional storage with strong consistency. It integrates tightly with BigQuery for analytics. Use it for Google Cloud applications or when running analytics on stored data.
+                  - paragraph [ref=e1774]: Azure Blob Storage is Microsoft's object storage. It offers hot, cool, and archive tiers for cost optimization. Use it for Azure-based applications or hybrid cloud scenarios.
+                  - heading "Cache" [level=3] [ref=e1775]
+                  - heading "The Problem" [level=4] [ref=e1776]
+                  - paragraph [ref=e1777]: An e-commerce site displays product pages. Each page load queries the database for product details, price, and inventory. The database handles 1,000 requests per second. Most requests fetch the same 100 popular products repeatedly.
+                  - paragraph [ref=e1778]: Database queries take 50ms each. Users experience slow page loads. The database CPU hits 90%. Adding more database servers is expensive. Most queries return identical data from minutes ago.
+                  - paragraph [ref=e1779]: Caching solves this. Store frequently accessed data in fast memory. Serve repeated requests from cache instead of hitting the database. Response time drops from 50ms to 1ms. Database load drops by 80%.
+                  - paragraph [ref=e1780]: Use caching when reads vastly outnumber writes. Use it when staleness is acceptable (product prices can be 5 minutes old). Use it to reduce database load and improve response times.
+                  - heading "How Caches Work" [level=4] [ref=e1781]
+                  - paragraph [ref=e1782]:
+                    - text: The application checks cache before querying the database.
+                    - strong [ref=e1783]: Cache hit
+                    - text: ": data exists in cache, return immediately."
+                    - strong [ref=e1784]: Cache miss
+                    - text: ": data absent, query database, store result in cache, return to user."
+                  - paragraph [ref=e1785]: Step through requests below. Repeated keys are hits; new keys miss, load from the database, and fill the cache — evicting the least recently used key when it is full.
+                  - generic [ref=e1786]:
+                    - generic [ref=e1787]:
+                      - generic [ref=e1788]: Cache size
+                      - slider [ref=e1789]: "3"
+                      - generic [ref=e1790]: 3 slots
+                    - generic [ref=e1791]:
+                      - button "▶ Step" [ref=e1792] [cursor=pointer]
+                      - button "▶ Play" [ref=e1793] [cursor=pointer]
+                      - button "Reset" [ref=e1794] [cursor=pointer]
+                    - generic [ref=e1795]:
+                      - generic [ref=e1796]: Request
+                      - generic [ref=e1797]: —
+                    - generic [ref=e1798]: Cache — most recently used on the left
+                    - generic [ref=e1803]:
+                      - generic [ref=e1804]:
+                        - generic [ref=e1805]: Hits
+                        - generic [ref=e1806]: "0"
+                      - generic [ref=e1807]:
+                        - generic [ref=e1808]: Misses
+                        - generic [ref=e1809]: "0"
+                      - generic [ref=e1810]:
+                        - generic [ref=e1811]: Hit rate
+                        - generic [ref=e1812]: 0%
+                    - generic [ref=e1813]: On a miss the app reads the database, then fills the cache. When the cache is full, the least recently used key is evicted. Repeated keys become hits.
+                  - paragraph [ref=e1814]:
+                    - text: This is
+                    - strong [ref=e1815]: cache-aside
+                    - text: pattern. The application manages cache explicitly. Alternatives include
+                    - strong [ref=e1816]: write-through
+                    - text: (writes update cache and database simultaneously) and
+                    - strong [ref=e1817]: write-behind
+                    - text: (writes update cache first, then asynchronously sync to database).
+                  - paragraph [ref=e1818]:
+                    - text: Caches have limited memory.
+                    - strong [ref=e1819]: Eviction policies
+                    - text: "determine what to remove when full:"
+                  - list [ref=e1820]:
+                    - listitem [ref=e1821]:
+                      - strong [ref=e1822]: LRU (Least Recently Used)
+                      - text: ": removes items not accessed recently"
+                    - listitem [ref=e1823]:
+                      - strong [ref=e1824]: LFU (Least Frequently Used)
+                      - text: ": removes items accessed rarely"
+                    - listitem [ref=e1825]:
+                      - strong [ref=e1826]: TTL (Time To Live)
+                      - text: ": removes items after expiration"
+                  - paragraph [ref=e1827]:
+                    - strong [ref=e1828]: Cache invalidation
+                    - text: keeps data fresh. Set TTL to 5 minutes for product prices. After 5 minutes, cache expires and fetches fresh data. For critical updates, invalidate cache explicitly when data changes. Product price updates? Delete that product's cache entry immediately.
+                  - paragraph [ref=e1829]: Trade-offs exist. Longer TTL means stale data but less database load. Shorter TTL means fresher data but more database hits.
+                  - paragraph [ref=e1830]:
+                    - text: For comprehensive coverage of caching strategies, eviction policies, and cache patterns, see
+                    - link "Caching Fundamentals" [ref=e1831] [cursor=pointer]:
+                      - /url: /fundamentals/caching
+                    - text: .
+                  - heading "Common Implementations" [level=4] [ref=e1832]
+                  - paragraph [ref=e1833]: Redis is an in-memory cache delivering sub-millisecond latency. It supports data structures like strings, lists, sets, and sorted sets. Use it for session storage, leaderboards, and general-purpose caching.
+                  - paragraph [ref=e1834]: Memcached is a simpler in-memory cache optimized for basic key-value storage. It's faster for simple operations but lacks Redis's data structures. Use it for straightforward caching needs prioritizing simplicity.
+                  - paragraph [ref=e1835]: CDNs like Cloudflare act as distributed caches for static assets. They cache images, CSS, and JavaScript files at edge locations worldwide. Use them for content delivery optimization.
+                  - heading "CDN (Content Delivery Network)" [level=3] [ref=e1836]
+                  - heading "The Problem" [level=4] [ref=e1837]
+                  - paragraph [ref=e1838]: A news website hosts videos in a New York data center. A user in Tokyo clicks play. The video request travels 11,000 kilometers to New York and back. Network latency alone is 200ms. The video stutters.
+                  - paragraph [ref=e1839]: Millions of users watch the same viral video. The origin server in New York handles 10,000 requests per second. Bandwidth costs spike. The server struggles. Some requests time out.
+                  - paragraph [ref=e1840]: CDNs solve this by caching static content on edge servers distributed globally. Tokyo users fetch videos from a Tokyo edge server. Latency drops to 5ms. The origin server handles far fewer requests because edge servers absorb most traffic.
+                  - generic "Click to enlarge" [ref=e1841]:
+                    - document [ref=e1842]:
+                      - generic [ref=e1844]:
+                        - generic [ref=e1845]:
+                          - generic [ref=e1846]: 5 ms
+                          - generic [ref=e1850]: miss only
+                        - generic [ref=e1854]:
+                          - generic [ref=e1855]: Tokyo user
+                          - generic [ref=e1860]: Tokyo edge
+                          - generic [ref=e1865]: Origin New York
+                  - paragraph [ref=e1870]: "Use CDNs for static assets: images, videos, CSS, JavaScript files. Use them for high-traffic global applications. Use them to reduce origin server load and improve user experience worldwide."
+                  - heading "How CDNs Work" [level=4] [ref=e1871]
+                  - paragraph [ref=e1872]: "Upload your static files to the CDN provider. The CDN replicates them to hundreds of edge servers across continents. Edge servers sit in major cities: Los Angeles, London, Tokyo, Sydney."
+                  - generic "Click to enlarge" [ref=e1873]:
+                    - document [ref=e1874]:
+                      - generic [ref=e1884]:
+                        - generic [ref=e1885]: Origin
+                        - generic [ref=e1890]: London edge
+                        - generic [ref=e1895]: Tokyo edge
+                        - generic [ref=e1900]: LA edge
+                        - generic [ref=e1905]: EU users
+                        - generic [ref=e1910]: Asia users
+                        - generic [ref=e1915]: US users
+                  - paragraph [ref=e1920]:
+                    - text: A user in London requests
+                    - code [ref=e1921]: https://cdn.example.com/logo.png
+                    - text: . DNS routes the request to the nearest edge server in London.
+                    - strong [ref=e1922]: Cache hit
+                    - text: ": the edge server has the file and serves it instantly (5ms)."
+                    - strong [ref=e1923]: Cache miss
+                    - text: ": the edge server doesn't have it, fetches from origin (200ms), caches locally, then serves it. Subsequent London users get cache hits."
+                  - paragraph [ref=e1924]: The edge hit rate drives how much traffic reaches your origin. Tune it below and watch origin load fall as more requests are absorbed at the edge.
+                  - generic [ref=e1925]:
+                    - generic [ref=e1926]:
+                      - button "Play" [ref=e1927] [cursor=pointer]
+                      - button "Restart" [ref=e1930] [cursor=pointer]
+                      - generic [ref=e1934]: Requests start cold — every cache is empty.
+                    - generic [ref=e1935]:
+                      - generic [ref=e1936]:
+                        - generic [ref=e1937]:
+                          - generic [ref=e1938]: edge · NA
+                          - generic [ref=e1939]: "cached: 0"
+                        - generic [ref=e1940]:
+                          - generic [ref=e1941]: edge · EU
+                          - generic [ref=e1942]: "cached: 0"
+                        - generic [ref=e1943]:
+                          - generic [ref=e1944]: edge · APAC
+                          - generic [ref=e1945]: "cached: 0"
+                      - generic [ref=e1949]:
+                        - generic [ref=e1950]: origin shield
+                        - generic [ref=e1951]: origin storage
+                    - generic [ref=e1952]:
+                      - generic [ref=e1953]:
+                        - generic [ref=e1954]: requests
+                        - generic [ref=e1955]: "0"
+                      - generic [ref=e1956]:
+                        - generic [ref=e1957]: origin reads
+                        - generic [ref=e1958]: "0"
+                      - generic [ref=e1959]:
+                        - generic [ref=e1960]: cache hit rate
+                        - generic [ref=e1961]: 0%
+                  - paragraph [ref=e1963]:
+                    - text: Files cache according to
+                    - strong [ref=e1964]: TTL (Time To Live)
+                    - text: . Set TTL to 24 hours for a logo that rarely changes. Set TTL to 5 minutes for frequently updated content. After TTL expires, the edge server fetches fresh content from origin.
+                  - paragraph [ref=e1965]: CDNs reduce latency through geographic proximity. They reduce origin load by serving cached copies. They improve availability by distributing traffic across many servers.
+                  - paragraph [ref=e1966]:
+                    - text: For detailed exploration of CDN architecture and content delivery optimization, see
+                    - link "Content Delivery Networks" [ref=e1967] [cursor=pointer]:
+                      - /url: /fundamentals/caching#cdn-content-delivery-network
+                    - text: .
+                  - heading "Common Implementations" [level=4] [ref=e1968]
+                  - paragraph [ref=e1969]: Cloudflare offers a global CDN with built-in DDoS protection and web application firewall. It's easy to set up and includes free tiers. Use it for small to mid-sized applications prioritizing security and ease of use.
+                  - paragraph [ref=e1970]: AWS CloudFront integrates tightly with AWS services like S3 and Lambda@Edge. It supports custom cache behaviors and edge computing. Use it for AWS-based applications requiring programmatic cache control.
+                  - paragraph [ref=e1971]: Akamai operates the largest CDN network with the most edge servers. It offers advanced features like image optimization and predictive prefetching. Use it for large enterprises with complex global delivery needs.
+                  - heading "Message Queues" [level=3] [ref=e1972]
+                  - heading "The Problem" [level=4] [ref=e1973]
+                  - paragraph [ref=e1974]: Black Friday. An e-commerce site receives 10,000 orders per minute. The Order Service creates orders and calls the Payment Service. Payment processing takes 2 seconds per order. The Order Service waits for each payment to complete before accepting the next order. Orders pile up. Users see timeout errors.
+                  - paragraph [ref=e1975]: The Payment Service crashes for 30 seconds. During that window, 5,000 orders arrive. All fail. No retry mechanism exists. Revenue is lost.
+                  - paragraph [ref=e1976]: Message queues solve both problems. The Order Service sends order messages to a queue and responds immediately to users. The Payment Service processes messages from the queue at its own pace. If Payment crashes, messages wait in the queue. When it recovers, processing resumes. No orders are lost.
+                  - generic "Click to enlarge" [ref=e1977]:
+                    - document [ref=e1978]:
+                      - generic [ref=e1986]:
+                        - generic [ref=e1987]: Producer
+                        - generic [ref=e1992]: Queue
+                        - generic [ref=e1997]: Producer
+                        - generic [ref=e2002]: Consumer
+                        - generic [ref=e2007]: Consumer
+                  - paragraph [ref=e2012]: Use message queues to decouple services. Use them to buffer traffic spikes. Use them to ensure reliable message delivery despite failures.
+                  - heading "How Message Queues Work" [level=4] [ref=e2013]
+                  - paragraph [ref=e2014]:
+                    - strong [ref=e2015]: Producers
+                    - text: "publish messages to the queue. The Order Service publishes an order message:"
+                    - code [ref=e2016]: "{\"order_id\": 123, \"user_id\": 456, \"total\": 99.99}"
+                    - text: .
+                  - paragraph [ref=e2017]:
+                    - text: The
+                    - strong [ref=e2018]: queue
+                    - text: stores messages durably. If the queue server crashes, messages persist on disk and survive. Messages wait until consumers are ready.
+                  - paragraph [ref=e2019]:
+                    - strong [ref=e2020]: Consumers
+                    - text: pull messages from the queue and process them. The Payment Service pulls the order message and charges the user. After successful processing, the consumer sends an
+                    - strong [ref=e2021]: acknowledgment
+                    - text: to the queue. The queue deletes the acknowledged message.
+                  - paragraph [ref=e2022]: Run it below. With a healthy consumer, messages are delivered, acked, and removed. Flip the consumer to failing and unacked messages are redelivered — then dead-lettered after several attempts instead of blocking the line.
+                  - generic [ref=e2023]:
+                    - generic [ref=e2024]:
+                      - button "▶ Play" [ref=e2025] [cursor=pointer]
+                      - button "Step" [ref=e2026] [cursor=pointer]
+                      - button "+ Enqueue" [ref=e2027] [cursor=pointer]
+                      - 'button "Consumer: healthy" [ref=e2028] [cursor=pointer]'
+                      - button "Reset" [ref=e2029] [cursor=pointer]
+                    - generic [ref=e2030]: Queue (badge = delivery attempts)
+                    - generic [ref=e2031]:
+                      - generic [ref=e2032]: "1"
+                      - generic [ref=e2033]: "2"
+                      - generic [ref=e2034]: "3"
+                    - generic [ref=e2035]:
+                      - generic [ref=e2036]:
+                        - generic [ref=e2037]: Consumer
+                        - text: idle
+                      - generic [ref=e2038]:
+                        - generic [ref=e2039]: Dead-letter queue
+                        - generic [ref=e2040]: empty
+                      - generic [ref=e2042]:
+                        - generic [ref=e2043]: Processed
+                        - generic [ref=e2044]: "0"
+                    - generic [ref=e2045]: Press play. The consumer pulls one message at a time.
+                    - generic [ref=e2046]:
+                      - text: Flip the consumer to
+                      - strong [ref=e2047]: failing
+                      - text: ": unacked messages are redelivered, and after 3 attempts they land in the dead-letter queue instead of blocking the line. At-least-once delivery is why consumers must be idempotent."
+                  - paragraph [ref=e2048]:
+                    - text: If processing fails, the consumer doesn't acknowledge. The queue re-delivers the message to another consumer. This ensures
+                    - strong [ref=e2049]: at-least-once delivery
+                    - text: . Messages are never lost.
+                  - paragraph [ref=e2050]:
+                    - strong [ref=e2051]: Dead letter queues
+                    - text: handle poison messages. If a message fails processing several times, it moves to a dead letter queue for manual inspection (shown in the widget above). This prevents broken messages from blocking the queue forever.
+                  - paragraph [ref=e2052]:
+                    - strong [ref=e2053]: FIFO (First In First Out) queues
+                    - text: guarantee message order. Order messages for the same user process in sequence. Standard queues allow out-of-order processing for higher throughput.
+                  - paragraph [ref=e2054]:
+                    - text: For comprehensive understanding of message queues, event streaming, and asynchronous communication patterns, see
+                    - link "Message Queue Fundamentals" [ref=e2055] [cursor=pointer]:
+                      - /url: /fundamentals/message-queue
+                    - text: .
+                  - heading "Common Implementations" [level=4] [ref=e2056]
+                  - paragraph [ref=e2057]: RabbitMQ is a traditional message broker supporting complex routing. It offers flexible exchange types for routing messages to multiple queues. Use it for systems requiring sophisticated message routing and acknowledgments.
+                  - paragraph [ref=e2058]: Apache Kafka is a distributed event streaming platform designed for high throughput. It handles millions of messages per second and retains them for replay. Use it for event sourcing, real-time analytics, and log aggregation.
+                  - paragraph [ref=e2059]: AWS SQS is a fully managed queue service requiring zero operational overhead. It auto-scales to handle any message volume. Use it for cloud-based applications prioritizing simplicity over advanced features.
+                  - heading "API Gateway" [level=3] [ref=e2060]
+                  - heading "The Problem" [level=4] [ref=e2061]
+                  - paragraph [ref=e2062]: "A mobile app talks to 12 microservices: User Service, Order Service, Payment Service, Inventory Service, Notification Service, and more. Each service has a different authentication method. The mobile app manages 12 API endpoints, 12 authentication schemes, and 12 retry strategies. Code becomes complex."
+                  - paragraph [ref=e2063]: "Loading the home screen requires calling 5 services: Users, Products, Recommendations, Cart, and Notifications. The mobile app makes 5 sequential HTTP requests. Total latency: 500ms. Users experience slow load times."
+                  - paragraph [ref=e2064]: A malicious user sends 10,000 requests per second to the Order Service. No rate limiting exists. The service crashes. Legitimate users can't place orders.
+                  - paragraph [ref=e2065]: API Gateways solve these problems by sitting between clients and microservices. Clients call one endpoint. The gateway routes requests to appropriate services, handles authentication uniformly, enforces rate limits, and aggregates multiple backend calls.
+                  - heading "How API Gateways Work" [level=4] [ref=e2066]
+                  - paragraph [ref=e2067]:
+                    - text: Clients send all requests to the gateway at
+                    - code [ref=e2068]: https://api.example.com
+                    - text: . The gateway inspects the request path and method.
+                    - code [ref=e2069]: GET /users/123
+                    - text: routes to User Service.
+                    - code [ref=e2070]: POST /orders
+                    - text: routes to Order Service.
+                  - generic "Click to enlarge" [ref=e2071]:
+                    - document [ref=e2072]:
+                      - generic [ref=e2074]:
+                        - generic [ref=e2078]: auth then route
+                        - generic [ref=e2083]:
+                          - generic [ref=e2084]: Client
+                          - generic [ref=e2089]: API gateway
+                          - generic [ref=e2094]: User service
+                          - generic [ref=e2099]: Order service
+                          - generic [ref=e2104]: Product service
+                  - paragraph [ref=e2109]: "The gateway enforces cross-cutting concerns:"
+                  - list [ref=e2110]:
+                    - listitem [ref=e2111]:
+                      - strong [ref=e2112]: Authentication
+                      - text: ": verify JWT tokens before forwarding requests"
+                    - listitem [ref=e2113]:
+                      - strong [ref=e2114]: Rate limiting
+                      - text: ": allow 100 requests per minute per user, return 429 if exceeded"
+                    - listitem [ref=e2115]:
+                      - strong [ref=e2116]: Caching
+                      - text: ": cache product details for 5 minutes to reduce backend load"
+                  - paragraph [ref=e2117]:
+                    - strong [ref=e2118]: Request aggregation
+                    - text: combines multiple backend calls. The mobile app requests
+                    - code [ref=e2119]: GET /home
+                    - text: . The gateway calls User Service, Product Service, and Cart Service in parallel. It combines responses into one JSON payload and returns it to the app. One request replaces three.
+                  - paragraph [ref=e2120]:
+                    - strong [ref=e2121]: Load balancing
+                    - text: "distributes requests across multiple instances. Three Order Service instances run. The gateway routes requests round-robin: instance 1, instance 2, instance 3, instance 1..."
+                  - paragraph [ref=e2122]: Centralized logging tracks all API traffic. The gateway records request timestamps, response times, and error rates. This simplifies monitoring and debugging.
+                  - paragraph [ref=e2123]:
+                    - text: For detailed coverage of API gateway patterns, authentication strategies, and rate limiting implementations, see
+                    - link "API Design and Gateway Patterns" [ref=e2124] [cursor=pointer]:
+                      - /url: /fundamentals/api-design
+                    - text: .
+                  - heading "Common Implementations" [level=4] [ref=e2125]
+                  - paragraph [ref=e2126]: AWS API Gateway is fully managed and integrates with Lambda, DynamoDB, and other AWS services. It handles authentication, throttling, and caching automatically. Use it for serverless applications or AWS-centric architectures.
+                  - paragraph [ref=e2127]: Kong is an open-source gateway built on NGINX. It offers a plugin system for custom authentication, rate limiting, and transformations. Use it for self-hosted environments requiring flexibility and extensibility.
+                  - paragraph [ref=e2128]: NGINX Plus combines reverse proxy with API gateway features. It delivers high performance and low latency. Use it for high-throughput applications where you need fine-grained control over routing and caching.
+                - generic [ref=e2129]:
+                  - heading "Problem Decomposition Framework" [level=2] [ref=e2130]
+                  - paragraph [ref=e2131]: "System design problems often arrive as vague statements: \"Design Twitter\" or \"Design Uber.\" The first challenge is decomposing these into concrete technical requirements. Instead of guessing what the interviewer wants, use keywords in the problem statement as anchors."
+                  - paragraph [ref=e2132]: The framework has three steps, each extracting different information from the problem description.
+                  - 'heading "Step 0: Verbs → Use Cases" [level=3] [ref=e2133]'
+                  - paragraph [ref=e2134]: Verbs reveal operations. "Users can post tweets" contains the verb "post." "Users view their feed" contains "view." Extract all verbs to identify use cases.
+                  - paragraph [ref=e2135]: "Common verbs map to CRUD operations: create, read, update, delete, search, notify, process. Each verb becomes a functional requirement."
+                  - paragraph [ref=e2136]: Beyond identifying operations, define what "correct" means for each. Does "post tweet" require deduplication? Should followers see tweets immediately or eventually? Must tweets persist forever? These questions transform vague verbs into precise contracts.
+                  - 'heading "Step 1: Nouns → Entities and Ownership" [level=3] [ref=e2137]'
+                  - paragraph [ref=e2138]: "Nouns reveal data models. \"Users post tweets\" contains two nouns: \"users\" and \"tweets.\" \"Users follow other users\" reveals a relationship entity."
+                  - paragraph [ref=e2139]: List all entities and their relationships. For each entity, identify the source of truth. Who owns user profile data? Where do tweets live? Which service controls the follow relationship?
+                  - paragraph [ref=e2140]: Ownership matters because it determines write authority. Only the User Service updates user profiles. Only the Tweet Service creates tweets. Clear ownership prevents conflicting writes and establishes consistency boundaries.
+                  - 'heading "Step 2: Adjectives → Constraints and Add-ons" [level=3] [ref=e2141]'
+                  - paragraph [ref=e2142]: Adjectives reveal non-functional requirements that force architectural choices. "Instant notifications" contains "instant"—this requires real-time push mechanisms or precomputation. "Highly available feed" contains "highly available"—this requires replication and stateless services.
+                  - paragraph [ref=e2143]: "Common adjectives and their implications:"
+                  - paragraph [ref=e2144]:
+                    - strong [ref=e2145]: instant/realtime
+                    - text: → push notifications, WebSockets, caching, precomputation
+                  - paragraph [ref=e2146]:
+                    - strong [ref=e2147]: reliable
+                    - text: → retries, idempotency, dead letter queues, write-ahead logs
+                  - paragraph [ref=e2148]:
+                    - strong [ref=e2149]: highly available
+                    - text: → replication, stateless services, health checks
+                  - paragraph [ref=e2150]:
+                    - strong [ref=e2151]: auditable/secure
+                    - text: → encryption, access control, audit logs, compliance
+                  - paragraph [ref=e2152]:
+                    - strong [ref=e2153]: scalable
+                    - text: → partitioning, read replicas, message queues, horizontal scaling
+                  - paragraph [ref=e2154]: Each adjective adds components to your architecture. The goal is not cramming in every technology. The goal is justifying each addition by tying it back to a specific constraint.
+                - generic [ref=e2155]:
+                  - heading "Interview Step-by-Step" [level=2] [ref=e2156]
+                  - paragraph [ref=e2157]: Success in system design interviews requires structured approaches. This section demonstrates the process by solving Design Twitter, a popular system design problem using the decomposition framework.
+                  - 'heading "Step 0: Identify Use Cases from Verbs" [level=3] [ref=e2158]'
+                  - paragraph [ref=e2159]: Apply the first step of the decomposition framework. Extract verbs from the problem statement to identify operations.
+                  - paragraph [ref=e2160]:
+                    - text: The problem is "Design Twitter." What can users do? Users
+                    - strong [ref=e2161]: post
+                    - text: tweets. Users
+                    - strong [ref=e2162]: view
+                    - text: their feed. Users
+                    - strong [ref=e2163]: follow
+                    - text: other users. Users
+                    - strong [ref=e2164]: like
+                    - text: tweets. Users
+                    - strong [ref=e2165]: comment
+                    - text: on tweets.
+                  - paragraph [ref=e2166]: "Extract the verbs: post, view, follow, like, comment. Each verb maps to a use case:"
+                  - list [ref=e2167]:
+                    - listitem [ref=e2168]:
+                      - strong [ref=e2169]: Post
+                      - text: ": create a new tweet"
+                    - listitem [ref=e2170]:
+                      - strong [ref=e2171]: View
+                      - text: ": read individual tweets or feeds"
+                    - listitem [ref=e2172]:
+                      - strong [ref=e2173]: Follow
+                      - text: ": create a relationship between users"
+                    - listitem [ref=e2174]:
+                      - strong [ref=e2175]: Like
+                      - text: ": increment engagement counter on a tweet"
+                    - listitem [ref=e2176]:
+                      - strong [ref=e2177]: Comment
+                      - text: ": create a response attached to a tweet"
+                  - paragraph [ref=e2178]: Now define what "correct" means. Should the same tweet content posted twice create two separate tweets or deduplicate? Interviews assume no deduplication unless specified. Should followers see new tweets immediately? This depends on non-functional requirements covered in Step 2. Must deleted tweets be recoverable? Not required for this problem.
+                  - paragraph [ref=e2179]: Interviews last 45-60 minutes. Focus on core operations. Covering five use cases is sufficient.
+                  - 'heading "Step 1: Identify Entities from Nouns" [level=3] [ref=e2180]'
+                  - paragraph [ref=e2181]: Apply the second step. Extract nouns from the use cases to identify entities and their relationships.
+                  - paragraph [ref=e2182]:
+                    - text: From "users post tweets," we get
+                    - strong [ref=e2183]: User
+                    - text: and
+                    - strong [ref=e2184]: Tweet
+                    - text: . From "users follow other users," we get a
+                    - strong [ref=e2185]: Follow
+                    - text: relationship. From "users like tweets" and "users comment on tweets," we get
+                    - strong [ref=e2186]: Like
+                    - text: and
+                    - strong [ref=e2187]: Comment
+                    - text: (both are types of engagement).
+                  - paragraph [ref=e2188]: "List the entities:"
+                  - list [ref=e2189]:
+                    - listitem [ref=e2190]:
+                      - strong [ref=e2191]: User
+                      - text: ": represents an account with profile information"
+                    - listitem [ref=e2192]:
+                      - strong [ref=e2193]: Tweet
+                      - text: ": represents a message with content, timestamp, and author"
+                    - listitem [ref=e2194]:
+                      - strong [ref=e2195]: Follow
+                      - text: ": represents the relationship between follower and followee"
+                    - listitem [ref=e2196]:
+                      - strong [ref=e2197]: Engagement
+                      - text: ": represents interactions (likes and comments) on tweets"
+                  - paragraph [ref=e2198]: "For each entity, establish ownership:"
+                  - list [ref=e2199]:
+                    - listitem [ref=e2200]:
+                      - strong [ref=e2201]: User entity
+                      - text: ": owned by User Service, stored in User Database"
+                    - listitem [ref=e2202]:
+                      - strong [ref=e2203]: Tweet entity
+                      - text: ": owned by Tweet Service, stored in Tweet Database"
+                    - listitem [ref=e2204]:
+                      - strong [ref=e2205]: Follow entity
+                      - text: ": owned by Follow Service, stored in Follow Database"
+                    - listitem [ref=e2206]:
+                      - strong [ref=e2207]: Engagement entity
+                      - text: ": owned by Engagement Service, stored in Engagement Database"
+                  - paragraph [ref=e2208]: Clear ownership prevents conflicts. If two services try updating the same tweet, which write wins? Establishing the Tweet Service as the single source of truth eliminates ambiguity.
+                  - 'heading "Step 2: Identify Constraints from Adjectives" [level=3] [ref=e2209]'
+                  - paragraph [ref=e2210]: Apply the third step. Extract adjectives from the problem description to identify non-functional requirements and their architectural implications.
+                  - paragraph [ref=e2211]: "The problem states Twitter should have \"low latency\" responses, \"high availability,\" support \"scalable\" growth, and ensure \"durable\" storage. Extract the adjectives: low latency, highly available, scalable, durable."
+                  - paragraph [ref=e2212]: "Map each adjective to technical solutions:"
+                  - paragraph [ref=e2213]:
+                    - strong [ref=e2214]: Low latency
+                    - text: ": Users expect feeds to load in under 500ms. This forces caching strategies. Precompute feeds and store in Redis. Read from cache instead of querying the database for every request."
+                  - paragraph [ref=e2215]:
+                    - strong [ref=e2216]: Highly available
+                    - text: ": The system must handle partial failures. If the Tweet Service crashes after receiving a post request, the tweet should not be lost. This forces message queues. Buffer write requests in Kafka. Even if services go down, messages persist and process when services recover."
+                  - paragraph [ref=e2217]:
+                    - strong [ref=e2218]: Scalable
+                    - text: ": Twitter has 400 million monthly active users. A single server cannot handle this load. This forces horizontal scaling with load balancers distributing requests across multiple service instances. It also forces database partitioning to distribute data across shards."
+                  - paragraph [ref=e2219]:
+                    - strong [ref=e2220]: Durable
+                    - text: ": Tweets must never be lost. This forces distributed databases with replication. Store data across multiple nodes. If one node fails, replicas ensure data remains accessible."
+                  - paragraph [ref=e2221]: Each adjective added components to the architecture. Without "low latency," we wouldn't need cache. Without "highly available," we wouldn't need message queues. The constraints drive the design.
+                  - generic [ref=e2222]:
+                    - generic [ref=e2223]: Design checkpoint
+                    - generic [ref=e2227]: An interviewer says the feed must be 'highly available' but never mentions latency. Which addition is justified first?
+                    - generic [ref=e2228]:
+                      - button "A cache, because caches always help" [ref=e2229] [cursor=pointer]
+                      - button "Message queues and replication, because availability is about surviving partial failure" [ref=e2230] [cursor=pointer]
+                  - heading "API Design" [level=3] [ref=e2231]
+                  - paragraph [ref=e2232]: After defining requirements, design APIs. This stage takes a few minutes.
+                  - paragraph [ref=e2233]: Many people overcomplicate this. Turn functional requirements into API endpoints. One endpoint per functional requirement.
+                  - paragraph [ref=e2234]: Interviewers look for readable paths (easily understandable names like /tweet not /item), data types (know what data sends and receives with each API), and HTTP methods (POST for creating, GET for fetching).
+                  - paragraph [ref=e2235]: "For Twitter:"
+                  - paragraph [ref=e2236]: "The author comes from the authenticated session, so it never appears in the request body. Users post tweets:"
+                  - generic [ref=e2237]:
+                    - generic [ref=e2239]:
+                      - generic [ref=e2240]: POST
+                      - code [ref=e2241]: /tweet
+                    - button "Request & response" [ref=e2242] [cursor=pointer]
+                  - paragraph [ref=e2246]: "Users view individual tweets:"
+                  - generic [ref=e2247]:
+                    - generic [ref=e2249]:
+                      - generic [ref=e2250]: GET
+                      - code [ref=e2251]: "/tweet/{id}"
+                    - button "Request & response" [ref=e2252] [cursor=pointer]
+                  - paragraph [ref=e2256]: "Users view feeds:"
+                  - generic [ref=e2257]:
+                    - generic [ref=e2259]:
+                      - generic [ref=e2260]: GET
+                      - code [ref=e2261]: /feed
+                    - button "Request & response" [ref=e2262] [cursor=pointer]
+                  - paragraph [ref=e2266]: "Users follow other users:"
+                  - generic [ref=e2267]:
+                    - generic [ref=e2269]:
+                      - generic [ref=e2270]: POST
+                      - code [ref=e2271]: /follow
+                    - button "Request & response" [ref=e2272] [cursor=pointer]
+                  - paragraph [ref=e2276]: "Users like tweets:"
+                  - generic [ref=e2277]:
+                    - generic [ref=e2279]:
+                      - generic [ref=e2280]: POST
+                      - code [ref=e2281]: /tweet/like
+                    - button "Request & response" [ref=e2282] [cursor=pointer]
+                  - paragraph [ref=e2286]: "Users comment on tweets:"
+                  - generic [ref=e2287]:
+                    - generic [ref=e2289]:
+                      - generic [ref=e2290]: POST
+                      - code [ref=e2291]: /tweet/comment
+                    - button "Request & response" [ref=e2292] [cursor=pointer]
+                  - heading "High-Level Design" [level=3] [ref=e2296]
+                  - paragraph [ref=e2297]: High-level design is the bulk of the interview. Combine work from earlier steps with system design knowledge. This takes around 15-20 minutes but varies by level. Juniors spend more time here. Seniors move to deep dives more quickly.
+                  - paragraph [ref=e2298]: We identified use cases (Step 0), entities (Step 1), and constraints (Step 2). Now build the architecture. Start with basic data flow supporting the use cases. Then layer in components addressing each constraint.
+                  - blockquote [ref=e2299]:
+                    - paragraph [ref=e2300]:
+                      - strong [ref=e2301]: Reading the diagrams below.
+                      - text: Each step adds one component to solve one problem. A pink
+                      - strong [ref=e2302]: NEW
+                      - text: badge marks the component added at that step; everything else was justified in an earlier step.
+                  - heading "Basic Data Flow" [level=3] [ref=e2303]
+                  - paragraph [ref=e2304]: Take API endpoints and map data flow with services. Show methodical, structured thinking. Start simple without complicated parts. This way, if you make mistakes, interviewers can correct them early.
+                  - paragraph [ref=e2305]:
+                    - text: For microservices approaches, see
+                    - link "Microservices and Monolithic Architecture" [ref=e2306] [cursor=pointer]:
+                      - /url: /fundamentals/microservices
+                    - text: .
+                  - paragraph [ref=e2307]: "For Twitter, each use case maps to a service in front of its own database — post and read tweets, follow users, view feeds, like and comment:"
+                  - generic "Click to enlarge" [ref=e2308]:
+                    - document [ref=e2309]:
+                      - generic [ref=e2317]:
+                        - generic [ref=e2318]: Client
+                        - generic [ref=e2323]: Tweet service
+                        - generic [ref=e2328]: Follow service
+                        - generic [ref=e2333]: Feed service
+                        - generic [ref=e2338]: Like service
+                        - generic [ref=e2343]: Comment service
+                        - generic [ref=e2348]: Tweet DB
+                        - generic [ref=e2353]: Follow DB
+                        - generic [ref=e2358]: Feed DB
+                        - generic [ref=e2363]: Like DB
+                        - generic [ref=e2368]: Comment DB
+                  - paragraph [ref=e2373]: This creates many services. Even though separation of concerns matters, avoid turning everything into microservices. Consider combining services. Likes and comments are logically similar. Both are ways of engaging with tweets. Both are types of counters on tweets with different data. This similarity suggests merging them into a single Engagement Service and Engagement Database.
+                  - generic "Click to enlarge" [ref=e2374]:
+                    - document [ref=e2375]:
+                      - generic [ref=e2383]:
+                        - generic [ref=e2384]: Client
+                        - generic [ref=e2389]: Tweet service
+                        - generic [ref=e2394]: Follow service
+                        - generic [ref=e2399]: Feed service
+                        - generic [ref=e2404]: Engagement service
+                        - generic [ref=e2409]: Engagement DB
+                        - generic [ref=e2414]: Tweet DB
+                        - generic [ref=e2419]: Follow DB
+                  - paragraph [ref=e2424]: With multiple services, add an API gateway (see Main Components section above).
+                  - generic "Click to enlarge" [ref=e2425]:
+                    - document [ref=e2426]:
+                      - generic [ref=e2434]:
+                        - generic [ref=e2435]: Client
+                        - generic [ref=e2440]: API gateway
+                        - generic [ref=e2445]: Tweet service
+                        - generic [ref=e2450]: Follow service
+                        - generic [ref=e2455]: Feed service
+                        - generic [ref=e2460]: Engagement service
+                  - heading "Applying Constraints" [level=3] [ref=e2465]
+                  - paragraph [ref=e2466]: We have basic data flow supporting the use cases. This system works but fails at scale. Now apply the constraints identified in Step 2.
+                  - paragraph [ref=e2467]: "We identified four constraints: low latency, high availability, scalability, and durability. Address each constraint by adding the corresponding components. The biggest candidate mistake is adding components without justifying them."
+                  - paragraph [ref=e2468]:
+                    - text: Start with
+                    - strong [ref=e2469]: scalability
+                    - text: . This is relatively straightforward to address. Our goal is supporting horizontal scaling to handle user base growth and increased traffic seamlessly. Horizontal scaling adds more service instances to handle higher loads, ensuring consistent performance as demand increases.
+                  - generic "Click to enlarge" [ref=e2470]:
+                    - document [ref=e2471]:
+                      - generic [ref=e2479]:
+                        - generic [ref=e2480]: API gateway
+                        - generic [ref=e2485]: Tweet service ×N
+                        - generic [ref=e2490]: Feed service ×N
+                        - generic [ref=e2495]: Follow service ×N
+                        - generic [ref=e2500]: Engagement service ×N
+                  - paragraph [ref=e2505]: "Deploy multiple instances of each service: Tweet Service, Feed Service, Follow Service, and Engagement Service. These instances operate independently, handling requests in parallel. To distribute traffic efficiently across instances, add a load balancer."
+                  - generic "Click to enlarge" [ref=e2506]:
+                    - document [ref=e2507]:
+                      - generic [ref=e2513]:
+                        - generic [ref=e2514]: Client
+                        - generic [ref=e2519]: Load balancer
+                        - generic [ref=e2524]: API gateway
+                        - generic [ref=e2529]: Tweet service ×N
+                        - generic [ref=e2534]: Feed service ×N
+                  - paragraph [ref=e2539]: A load balancer ensures incoming requests distribute evenly across available service instances. It performs health checks monitoring each instance's status and reroutes traffic away from unhealthy instances, ensuring high availability. This addresses another non-functional requirement and is a bonus from the load balancer. Scale each service dynamically based on traffic patterns. During peak hours, spin up more Feed Service instances to handle request surges, then scale back during lower activity to optimize resource usage.
+                  - paragraph [ref=e2540]: "Move to another core non-functional requirement: low latency. With few users posting tweets, servers run fast. Each user's feed fetches a handful of tweets. As we scale to millions of users and billions of tweets, accessing the database for every feed request becomes exponentially slow. Users writing tweets to the database, then feeds re-pulling these from the database each time is redundant."
+                  - paragraph [ref=e2541]: Caches solve this.
+                  - generic "Click to enlarge" [ref=e2542]:
+                    - document [ref=e2543]:
+                      - generic [ref=e2549]:
+                        - generic [ref=e2550]: Feed service
+                        - generic [ref=e2555]: Feed cache
+                        - generic [ref=e2560]: Tweet DB
+                  - paragraph [ref=e2565]: A cache is high-speed data storage storing frequently accessed data closer to applications. The Feed Service could leverage distributed caching like Redis or Memcached to store recent tweets for each user.
+                  - paragraph [ref=e2566]: When users post tweets, the Feed Service doesn't just update followers' feeds in the database. It also pushes new tweets to cache, storing them as part of precomputed feeds for followers. When followers log in, the Feed Service fetches feed data directly from cache instead of querying the database or relying on real-time aggregation.
+                  - paragraph [ref=e2567]: "Caches are ideal for storing hot data: data accessed frequently, like latest tweets for user feeds. Since caches operate in memory, they deliver data in milliseconds, reducing response times and improving user experiences."
+                  - paragraph [ref=e2568]: By offloading repeated reads to cache, we reduce database load. This makes systems more scalable and ensures databases are available for other critical write operations.
+                  - paragraph [ref=e2569]: To ensure cache stays fresh, set expiry times for cached items or use event-driven update models. When new tweets post, events trigger cache updates, ensuring followers see latest tweets without delays.
+                  - paragraph [ref=e2570]:
+                    - text: When adding load balancers earlier, we touched on how health checks help maintain high availability. But what else maintains
+                    - strong [ref=e2571]: high availability
+                    - text: "? Consider a situation where we might not have availability with the current system. A user posts a tweet at 1:02pm. At 1:03pm, the tweet service goes down. At 1:04pm, their followers log onto the app. Are followers going to see this tweet in their feed? No. Another scenario: millions of active users publish tweets simultaneously. Trying to process them all simultaneously would overload servers. Message queues solve this."
+                  - generic "Click to enlarge" [ref=e2572]:
+                    - document [ref=e2573]:
+                      - generic [ref=e2582]:
+                        - generic [ref=e2583]: Tweet service
+                        - generic [ref=e2588]: Message queue
+                        - generic [ref=e2593]: Consumer
+                        - generic [ref=e2598]: Feed cache
+                        - generic [ref=e2603]: Tweet DB
+                        - generic [ref=e2608]: Feed service
+                  - paragraph [ref=e2613]: A message queue acts as a buffer between services, decoupling dependencies and ensuring messages (like new tweets) aren't lost even if services experience downtime. When users post tweets, the Tweet Service doesn't directly communicate with the Feed Service. Instead, it places tweets in a queue. Consumers process the queue and add to both database and cache. The Feed Service, which processes tweets to update user feeds, reads from this cache. Even if the Tweet Service goes offline, messages (tweets) are safely stored in the queue and processed by consumers. The Feed Service can still update followers' feeds when they log in.
+                  - paragraph [ref=e2614]: Incorporating message queues ensures eventual consistency and high availability during partial system failures. In our scenario, followers would still see tweets in feeds thanks to queues ensuring no message loss. Decoupling services also helps scalability. Queues handle varying workloads and traffic spikes without overwhelming downstream services. Message queues like RabbitMQ, Kafka, or AWS SQS are built for durability and reliability, making them perfect for our use case.
+                  - paragraph [ref=e2615]: "We've addressed service non-functional requirements. One last critical requirement remains: data durability. In systems handling billions of tweets, likes, and follows, ensuring data is never lost is essential. Once lost, we cannot recover it. How do we prevent this? Use distributed databases."
+                  - generic "Click to enlarge" [ref=e2616]:
+                    - document [ref=e2617]:
+                      - generic [ref=e2623]:
+                        - generic [ref=e2624]: Consumer
+                        - generic [ref=e2629]: Tweet DB primary
+                        - generic [ref=e2634]: Replica
+                        - generic [ref=e2639]: Replica
+                  - paragraph [ref=e2644]: Distributed databases replicate and store data across multiple cluster nodes. Distributed databases like Amazon DynamoDB, Google Cloud Spanner, or Cassandra automatically replicate data across multiple nodes. Even if one node goes down, data remains accessible from other replicas. Additionally, distributed databases provide built-in mechanisms for point-in-time recovery and automated backups. Regular snapshots of Tweet DB, Follow DB, and Engagement DB can be taken and stored in separate backup systems. If complete failure occurs, data can be restored to its last consistent state.
+                  - heading "Deep Dives" [level=3] [ref=e2645]
+                  - paragraph [ref=e2646]: Deep dives are the last step of system design interviews. They focus on addressing higher-level, more specific challenges or edge cases in your system. They go beyond high-level architecture to test understanding of advanced features, domain-specific scenarios, and trade-offs.
+                  - heading "How would you handle the Celebrity Problem?" [level=3] [ref=e2647]
+                  - paragraph [ref=e2648]: The celebrity problem arises when users with millions of followers post tweets, creating massive fan-out as their tweets need adding to millions of follower feeds. This can overwhelm systems leading to latency and high write amplification.
+                  - paragraph [ref=e2649]: Toggle the strategy below. Push (fan-out-on-write) copies each post into every follower's timeline; above a follower threshold, hybrid switches that author to pull (fan-out-on-read) so one viral post costs zero timeline writes.
+                  - generic [ref=e2650]:
+                    - generic [ref=e2651]:
+                      - button "Pure push" [ref=e2652] [cursor=pointer]
+                      - button "Hybrid (T = 100K)" [ref=e2653] [cursor=pointer]
+                    - generic [ref=e2654]:
+                      - generic [ref=e2655]: Producer followers
+                      - slider [ref=e2656]: "40"
+                      - generic [ref=e2657]: 6K
+                    - generic "threshold T" [ref=e2660]
+                    - generic [ref=e2661]:
+                      - generic [ref=e2662]:
+                        - generic [ref=e2663]: Strategy for this author
+                        - generic [ref=e2664]: Push on write
+                      - generic [ref=e2665]:
+                        - generic [ref=e2666]: Timeline writes per post
+                        - generic [ref=e2667]: 6K
+                    - generic [ref=e2668]: Push copies this post into 6K timelines at write time, so reads stay cheap.
+                  - paragraph [ref=e2669]: Modify existing architecture to handle this efficiently. For normal users with manageable follower numbers, continue with standard fan-out-on-write. Tweets push to followers' feeds as soon as posted.
+                  - paragraph [ref=e2670]: For users with large follower counts (more than 10,000), switch to fan-out-on-read. Celebrity tweets store in Tweet Database and Tweet Cache but aren't precomputed into individual follower feeds. When followers open feeds, the Feed Service dynamically fetches celebrity latest tweets from cache or database and merges them into user timelines.
+                  - paragraph [ref=e2671]: Implement thresholds (follower count or engagement volume) to dynamically decide between fan-out-on-write or fan-out-on-read for given users.
+                  - generic [ref=e2672]:
+                    - generic [ref=e2673]: What separates answers on celebrity fan-out
+                    - generic [ref=e2674]:
+                      - button "Bad Pure fan-out-on-write for everyone ▾" [ref=e2676] [cursor=pointer]:
+                        - generic [ref=e2677]: Bad
+                        - generic [ref=e2678]: Pure fan-out-on-write for everyone
+                        - generic [ref=e2679]: ▾
+                      - button "Good Hybrid push/pull with a follower threshold ▾" [ref=e2681] [cursor=pointer]:
+                        - generic [ref=e2682]: Good
+                        - generic [ref=e2683]: Hybrid push/pull with a follower threshold
+                        - generic [ref=e2684]: ▾
+                      - button "Great Hybrid, plus a cache for the pulled hot keys ▾" [ref=e2686] [cursor=pointer]:
+                        - generic [ref=e2687]: Great
+                        - generic [ref=e2688]: Hybrid, plus a cache for the pulled hot keys
+                        - generic [ref=e2689]: ▾
+                  - heading "How would you efficiently support Trends and Hashtags?" [level=3] [ref=e2690]
+                  - paragraph [ref=e2691]: Twitter trends and hashtags involve aggregating data across billions of tweets in real-time to identify popular topics. How can we compute and update trends efficiently?
+                  - paragraph [ref=e2692]: Enhance existing architecture. Each region or data center computes local trends by aggregating hashtags and keywords using sliding window algorithms (the past 15 minutes). Local results send to global aggregation services, which combine them to generate global trends.
+                  - paragraph [ref=e2693]: Modify the Tweet Service to index hashtags upon tweet creation. Maintain inverted indexes where hashtags are keys and associated tweet IDs are values. Use distributed search engines like Elasticsearch or Solr to store and query hashtag indexes efficiently.
+                  - paragraph [ref=e2694]: Trends calculate periodically (every minute) and cache in distributed caches like Redis for low-latency access. TTL (time-to-live) ensures trends refresh frequently without overwhelming systems.
+                  - heading "How would you handle Tweet Search at Scale?" [level=3] [ref=e2695]
+                  - paragraph [ref=e2696]: Search is a core Twitter feature, allowing users to search tweets, hashtags, and profiles. How can we support scalable, real-time search systems?
+                  - paragraph [ref=e2697]: Incorporate distributed search architecture. Modify the Tweet Service to send newly created tweets to search indexing services via message queues. Indexing services process tweets and update search indexes in distributed search engines like Elasticsearch or Apache Solr.
+                  - paragraph [ref=e2698]: Partition search indexes by time (daily indices) or hashtags to distribute load across multiple nodes. Older indices can store on slower storage systems to save costs while keeping recent indices on faster nodes.
+                  - paragraph [ref=e2699]: Use inverted indexing for efficient keyword and hashtag search. Employ ranking algorithms (BM25 or ML-based) to surface most relevant tweets based on user engagement, recency, or other factors.
+                  - paragraph [ref=e2700]: Cache popular search queries and results to reduce load on search engines.
+                  - heading "Test Your Understanding" [level=3] [ref=e2701]
+                  - generic [ref=e2702]:
+                    - generic [ref=e2703]:
+                      - generic [ref=e2704]: System Design Primer Quiz
+                      - generic [ref=e2705]:
+                        - button "Hide All" [ref=e2706] [cursor=pointer]
+                        - button "Reveal All" [ref=e2707] [cursor=pointer]
+                    - generic [ref=e2708]:
+                      - generic [ref=e2710]:
+                        - generic [ref=e2711]:
+                          - generic [ref=e2712]: 1)
+                          - generic [ref=e2713]: Why should you reveal architecture components one at a time in an interview instead of drawing the full diagram up front?
+                        - button "Show Answer" [ref=e2714] [cursor=pointer]
+                      - generic [ref=e2716]:
+                        - generic [ref=e2717]:
+                          - generic [ref=e2718]: 2)
+                          - generic [ref=e2719]: Plain hash-mod-N sharding and consistent hashing both spread keys across nodes. Why prefer consistent hashing when the cluster resizes?
+                        - button "Show Answer" [ref=e2720] [cursor=pointer]
+                      - generic [ref=e2722]:
+                        - generic [ref=e2723]:
+                          - generic [ref=e2724]: 3)
+                          - generic [ref=e2725]: During a network partition, what does an AP system do that a CP system does not?
+                        - button "Show Answer" [ref=e2726] [cursor=pointer]
+                      - generic [ref=e2728]:
+                        - generic [ref=e2729]:
+                          - generic [ref=e2730]: 4)
+                          - generic [ref=e2731]: Two clients increment the same counter concurrently and one update is lost. How does optimistic locking prevent this?
+                        - button "Show Answer" [ref=e2732] [cursor=pointer]
+                      - generic [ref=e2734]:
+                        - generic [ref=e2735]:
+                          - generic [ref=e2736]: 5)
+                          - generic [ref=e2737]: Why does a message queue require workers to be idempotent?
+                        - button "Show Answer" [ref=e2738] [cursor=pointer]
+            - generic [ref=e2742]:
+              - paragraph [ref=e2743]: The System Design Courses
+              - paragraph [ref=e2744]: Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.
+              - link "Start Learning" [ref=e2745] [cursor=pointer]:
+                - /url: /pricing
+            - generic [ref=e2746]:
+              - generic [ref=e2747]: Was this lesson clear?
+              - generic [ref=e2749]:
+                - button "Yes — the lesson was clear" [ref=e2750] [cursor=pointer]:
+                  - generic [ref=e2751]: 👍
+                - button "No — the lesson was unclear" [ref=e2752] [cursor=pointer]:
+                  - generic [ref=e2753]: 👎
+            - generic [ref=e2754]:
+              - heading "System Design Master Template" [level=3] [ref=e2755]
+              - iframe [ref=e2757]:
+                - generic [ref=f3e1]:
+                  - generic "YouTube Video Player" [ref=f3e3]
+                  - generic [ref=f3e5]:
+                    - generic:
+                      - generic:
+                        - button "Play video" [ref=f3e10] [cursor=pointer]
+                        - button "Hide player controls" [ref=f3e12] [cursor=pointer]
+                        - generic [ref=f3e14]:
+                          - generic [ref=f3e19]:
+                            - generic [ref=f3e20]:
+                              - 'link "Master System Design Interviews: 5 Key Questions & a Winning Template" [ref=f3e21] [cursor=pointer]':
+                                - /url: https://www.youtube.com/watch?v=OWVaX_cBrh8
+                              - link "System Design School" [ref=f3e22] [cursor=pointer]:
+                                - /url: /channel/UCekXOQXPXh2JXv5EkQB9MRQ
+                            - generic [ref=f3e24]:
+                              - button [ref=f3e25] [cursor=pointer]
+                              - generic [ref=f3e27]:
+                                - generic: System Design School
+                                - generic: 20.8K subscribers
+                          - generic [ref=f3e28]:
+                            - button "Share" [ref=f3e31] [cursor=pointer]
+                            - link "Watch on YouTube" [ref=f3e42] [cursor=pointer]:
+                              - /url: https://www.youtube.com/watch?v=OWVaX_cBrh8
+                              - generic [ref=f3e43]: Watch on
+            - generic [ref=e2758]:
+              - heading "Comments" [level=4] [ref=e2759]
+              - button "Join the Discussion" [ref=e2761] [cursor=pointer]
+            - generic [ref=e2765]:
+              - generic [ref=e2769]:
+                - generic [ref=e2770]: Dean Hunter
+                - generic [ref=e2771]: Thank you very much for this. I have learnt a great deal. I would like the primer to include more on the deep dive including patterns than the specific example for Twitter. Great course overall.
+                - generic [ref=e2772]: Mon Jul 13 2026
+              - generic [ref=e2783]:
+                - generic [ref=e2784]: Michael Moon (Michael)
+                - generic [ref=e2785]: Amazing content
+                - generic [ref=e2786]: Wed Jun 10 2026
+                - generic [ref=e2787]: "1"
+              - generic [ref=e2798]:
+                - generic [ref=e2799]: falase femi
+                - generic [ref=e2800]: very well detailed
+                - generic [ref=e2801]: Thu Apr 02 2026
+              - generic [ref=e2812]:
+                - generic [ref=e2813]: Pawan Pawar
+                - generic [ref=e2814]: Well written primer! 👏🏻
+                - generic [ref=e2815]: Fri Jan 02 2026
+              - generic [ref=e2826]:
+                - generic [ref=e2827]: Manjunath A
+                - generic [ref=e2828]: Every helpfull
+                - generic [ref=e2829]: Fri Nov 28 2025
+              - generic [ref=e2840]:
+                - generic [ref=e2841]: mohan nair
+                - generic [ref=e2842]: How is the GET request for tweets returning the likes and comments since those are stored in Engagement DB as per the HLD? GET /tweet/<id>
+                - generic [ref=e2843]: Wed Sep 24 2025
+              - generic [ref=e2854]:
+                - generic [ref=e2855]: PLuna
+                - generic [ref=e2856]: This is awesome. Thank you so much for posting this. One thing that confuses me is how to get good at the API Design part. Aside from your tips, for someone thats never written GET, POST or PUT requests, how do we know how to write those for the first time?
+                - generic [ref=e2857]: Thu Jul 31 2025
+                - generic [ref=e2858]: "1"
+              - generic [ref=e2869]:
+                - generic [ref=e2870]: Don Mamaril
+                - generic [ref=e2871]: This was an excellent primer. Thank you!
+                - generic [ref=e2872]: Sun Jul 20 2025
+              - generic [ref=e2883]:
+                - generic [ref=e2884]: Ank7T
+                - generic [ref=e2885]: "\"What happens if a user posts a tweet at 1:02pm, but at 1:03pm, our tweet service goes down, and at 1:04pm, their followers log onto the app. Are their followers going to see this tweet in their feed? As it stands now, NO!\" But as per the design, when a user posts a tweet it also gets added into follower's feed cache. so even if tweet service goes down, other users should be able to see the tweet in their feed."
+                - generic [ref=e2886]: Thu Jun 12 2025
+                - generic [ref=e2887]: "1"
+              - generic [ref=e2898]:
+                - generic [ref=e2899]: Mosharaf Hossain
+                - generic [ref=e2900]: Supper nice explanation - short, sweet, and to the point. Thank you
+                - generic [ref=e2901]: Tue Jun 10 2025
+                - generic [ref=e2902]: "2"
+              - generic [ref=e2910]: Load More
+    - button "Send feedback" [ref=e2912] [cursor=pointer]
+  - alert [ref=e2916]

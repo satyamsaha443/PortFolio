@@ -1,0 +1,220 @@
+<h1>Service Mesh (Istio, Envoy)</h1>
+<blockquote>
+<p><strong>Lesson 4.2</strong> · Senior · 40 min</p>
+</blockquote>
+<hr>
+<h2>The Problem: Cross-Cutting Concerns at Scale</h2>
+<p>In a microservices architecture with 50+ services, every service needs:</p>
+<ul>
+<li><strong>mTLS encryption</strong> — all traffic between services encrypted</li>
+<li><strong>Circuit breakers</strong> — stop cascading failures</li>
+<li><strong>Retries with backoff</strong> — handle transient failures</li>
+<li><strong>Load balancing</strong> — distribute traffic across instances</li>
+<li><strong>Distributed tracing</strong> — trace a request across 10 services</li>
+<li><strong>Rate limiting</strong> — protect services from overload</li>
+<li><strong>Auth</strong> — verify JWT tokens on every request</li>
+</ul>
+<p>If each service implements these independently, you get:</p>
+<ul>
+<li>Inconsistent implementations across teams</li>
+<li>Language-specific libraries (Java team uses Hystrix, Go team uses its own)</li>
+<li>50 services × 7 concerns = 350 pieces of infrastructure code to maintain</li>
+</ul>
+<p>A <strong>service mesh</strong> moves all of this out of application code into the network layer.</p>
+<hr>
+<h2>What Is a Service Mesh?</h2>
+<p>A service mesh adds a sidecar proxy to every service instance. All traffic in and out of a service goes through the proxy. The application code never implements networking concerns — the proxy handles them.</p>
+<pre><code>Without service mesh:
+  Service A ────────────────────────────────► Service B
+
+With service mesh:
+  Service A → [Envoy sidecar A] ──mTLS──► [Envoy sidecar B] → Service B
+                     │                              │
+                     └──────────────────────────────┘
+                              Control Plane (Istio)
+                           (push config to all sidecars)
+</code></pre>
+<p>The application calls <code>localhost:8080</code> — it thinks it&#39;s talking to another service directly. The sidecar intercepts the call, applies policies, and forwards it.</p>
+<hr>
+<h2>Envoy Proxy</h2>
+<p>Envoy is the most widely used proxy in service meshes. Originally built at Lyft, now a CNCF project.</p>
+<p>Envoy handles:</p>
+<ul>
+<li><strong>L7 load balancing</strong> — round-robin, least requests, consistent hashing</li>
+<li><strong>HTTP/2 and gRPC</strong> — full support including streaming</li>
+<li><strong>Circuit breaking</strong> — stop sending requests when a service is failing</li>
+<li><strong>Retries</strong> — automatic retry with exponential backoff</li>
+<li><strong>Timeouts</strong> — per-request and per-retry timeouts</li>
+<li><strong>Observability</strong> — emits metrics (Prometheus), logs (access log), traces (Zipkin/Jaeger)</li>
+</ul>
+<p>Envoy configuration is complex JSON/YAML. In production, you don&#39;t configure Envoy directly — a control plane (Istio) generates the configuration and pushes it.</p>
+<hr>
+<h2>Istio: The Control Plane</h2>
+<p>Istio manages the fleet of Envoy sidecars. You define policies (traffic rules, security rules) and Istio translates them into Envoy configuration.</p>
+<pre><code>You define (YAML):
+  &quot;Route 10% of traffic to orders-service v2&quot;
+  &quot;Retry failed requests to payment-service 3 times&quot;
+  &quot;Require mTLS for all service-to-service calls&quot;
+  &quot;Timeout all requests to inventory-service after 500ms&quot;
+
+Istio:
+  1. Translates these policies to Envoy config
+  2. Pushes config to all Envoy sidecars in the cluster
+  3. Collects telemetry from all sidecars
+  4. Provides a control plane UI (Kiali)
+</code></pre>
+<h3>Istio&#39;s key components:</h3>
+<p><strong>Pilot (now Istiod):</strong> Distributes routing and load balancing rules to Envoy proxies.</p>
+<p><strong>Citadel:</strong> Issues and rotates TLS certificates for mTLS between services. Zero application code needed for encryption.</p>
+<p><strong>Mixer (deprecated):</strong> Policy enforcement. Replaced by extensions in newer Istio versions.</p>
+<hr>
+<h2>Traffic Management</h2>
+<h3>Canary Deployments</h3>
+<p>Deploy v2 to 10% of traffic without changing any application code:</p>
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: orders-service
+spec:
+  hosts:
+  - orders-service
+  http:
+  - route:
+    - destination:
+        host: orders-service
+        subset: v1
+      weight: 90
+    - destination:
+        host: orders-service
+        subset: v2
+      weight: 10
+</code></pre>
+<p>Gradually increase weight from 10% to 100% as confidence grows.</p>
+<h3>Circuit Breaker</h3>
+<p>Stop calling a service that is failing:</p>
+<pre><code class="language-yaml">apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: payment-service
+spec:
+  host: payment-service
+  trafficPolicy:
+    outlierDetection:
+      consecutiveErrors: 5        # after 5 consecutive errors
+      interval: 10s               # measured over 10 seconds
+      baseEjectionTime: 30s       # eject for 30 seconds
+      maxEjectionPercent: 50      # eject at most 50% of instances
+</code></pre>
+<p>If an instance returns 5 consecutive errors, Envoy stops routing to it for 30 seconds, then tries it again.</p>
+<h3>Retries</h3>
+<pre><code class="language-yaml">http:
+- route:
+  - destination:
+      host: inventory-service
+  retries:
+    attempts: 3
+    perTryTimeout: 2s
+    retryOn: 5xx,gateway-error,connect-failure
+</code></pre>
+<p>Retry on server errors or connection failures, up to 3 times with a 2-second timeout per attempt.</p>
+<hr>
+<h2>Security: mTLS</h2>
+<p>Without a service mesh, service A calls service B over plain HTTP inside the cluster. Any compromised pod can sniff traffic.</p>
+<p>Istio&#39;s mTLS:</p>
+<ol>
+<li>Issues a certificate to every service (identity = service name)</li>
+<li>Every call is mutually authenticated: both sides verify each other&#39;s certificate</li>
+<li>All traffic is encrypted</li>
+<li>Zero application code changes — the Envoy sidecar handles it</li>
+</ol>
+<pre><code>Service A (cert: orders-service)
+  → Envoy A: &quot;I am orders-service, connecting to payment-service&quot;
+    → TLS handshake, verify payment-service cert
+      → mTLS connection established
+        → Envoy B: allow (orders-service is authorized to call payment-service)
+          → Service B handles request
+</code></pre>
+<p>Authorization policy: only specific services can call payment-service.</p>
+<pre><code class="language-yaml">apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: payment-service-policy
+spec:
+  selector:
+    matchLabels:
+      app: payment-service
+  rules:
+  - from:
+    - source:
+        principals: [&quot;cluster.local/ns/default/sa/orders-service&quot;]
+</code></pre>
+<p>Only the orders-service service account can call payment-service. All other callers are denied at the network layer.</p>
+<hr>
+<h2>Observability Without Code Changes</h2>
+<p>With Istio, every service automatically gets:</p>
+<p><strong>Metrics</strong> (Prometheus):</p>
+<pre><code>istio_requests_total{source_app=&quot;orders-service&quot;, destination_app=&quot;payment-service&quot;, response_code=&quot;200&quot;}
+istio_request_duration_milliseconds{...}
+</code></pre>
+<p><strong>Distributed Tracing</strong> (Jaeger/Zipkin):
+A trace header (<code>x-b3-traceid</code>) is propagated automatically. Jaeger shows a waterfall of all service calls for one request.</p>
+<p><strong>Access Logs:</strong>
+Every request logged with source, destination, latency, status code.</p>
+<p>All from zero lines of application code.</p>
+<hr>
+<h2>The Cost of a Service Mesh</h2>
+<p>Service meshes add real overhead:</p>
+<ul>
+<li><strong>CPU:</strong> Each Envoy sidecar uses 50–200m CPU cores. At 50 services × 10 pods = 500 sidecars × 100m cores = 50 CPU cores overhead.</li>
+<li><strong>Memory:</strong> Each Envoy uses ~50MB. 500 sidecars = 25GB extra memory.</li>
+<li><strong>Latency:</strong> Extra hop through sidecar adds 1–3ms per service call.</li>
+<li><strong>Complexity:</strong> Istio has a steep learning curve. Debugging networking issues through a mesh is hard.</li>
+</ul>
+<p><strong>Not worth it for:</strong> Small teams, simple architectures, low service count.
+<strong>Worth it for:</strong> 20+ services, security requirements (mTLS), need for traffic management without code changes.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>What problem does a service mesh solve?</td>
+<td>Cross-cutting concerns (mTLS, retries, circuit breakers) without application code</td>
+</tr>
+<tr>
+<td>Components</td>
+<td>Envoy sidecar (data plane) + Istio control plane</td>
+</tr>
+<tr>
+<td>mTLS</td>
+<td>Citadel issues certs; Envoy handles handshake; app code unchanged</td>
+</tr>
+<tr>
+<td>Canary deploys</td>
+<td>VirtualService weight splitting; 90/10 v1/v2</td>
+</tr>
+<tr>
+<td>Circuit breaker</td>
+<td>OutlierDetection policy; eject failing instances</td>
+</tr>
+<tr>
+<td>Observability</td>
+<td>Metrics, tracing, logs — automatic via sidecar</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td>1-3ms latency; CPU/memory per sidecar; steep learning curve</td>
+</tr>
+<tr>
+<td>When to use</td>
+<td>20+ services; security/compliance requirements; large teams</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./03-distributed-transactions.md">Lesson 4.3 — Distributed Transactions (Saga, 2-Phase Commit)</a></p>
+</blockquote>

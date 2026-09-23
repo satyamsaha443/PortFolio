@@ -1,0 +1,199 @@
+<h1>Multi-Region Active-Active Architecture</h1>
+<blockquote>
+<p><strong>Lesson 4.10</strong> · Senior · 50 min</p>
+</blockquote>
+<hr>
+<h2>Why Multi-Region?</h2>
+<p>A single-region deployment has a single point of failure at the datacenter level:</p>
+<ul>
+<li>Natural disaster (AWS us-east-1 goes down — it has happened)</li>
+<li>Cloud provider outage (us-east-1 had major outages in 2021, 2023)</li>
+<li>Regional network issue (cable cut, BGP misconfiguration)</li>
+</ul>
+<p>For services requiring 99.99% availability (52 minutes downtime/year) or 99.999% (5 minutes/year), a single region is not enough.</p>
+<p>Additionally: <strong>latency</strong>. A user in Tokyo hitting servers in Virginia has 150ms of network latency before the application even begins processing.</p>
+<hr>
+<h2>Active-Passive vs Active-Active</h2>
+<p><strong>Active-Passive (disaster recovery):</strong></p>
+<pre><code>US-East (PRIMARY) ← all traffic
+      │ replication
+      ▼
+EU-West (STANDBY) ← failover only
+
+Normal: all traffic to US-East
+Disaster: DNS cutover → traffic to EU-West
+Failover time: 1-10 minutes
+</code></pre>
+<p>Users in Tokyo still hit US-East. The standby is idle, wasting cost. Failover requires manual or automated DNS changes.</p>
+<p><strong>Active-Active:</strong></p>
+<pre><code>US-East ← US users
+EU-West ← EU users
+AP-Southeast ← APAC users
+
+All regions serve traffic simultaneously.
+If one region fails: other regions absorb its traffic.
+Zero manual intervention for regional failure.
+</code></pre>
+<p>Active-active provides both low latency (users served from nearest region) and high availability (automatic failover).</p>
+<hr>
+<h2>The Core Challenge: Data Consistency</h2>
+<p>In active-active, writes happen in multiple regions simultaneously. The same user might write to US-East while their friend writes to EU-West. Both writes must eventually be seen by all regions.</p>
+<p>This is the hardest problem in distributed systems.</p>
+<hr>
+<h2>Data Classification for Multi-Region</h2>
+<p>Not all data has the same consistency requirements. Classify your data:</p>
+<p><strong>User profile, preferences:</strong> Eventually consistent is fine. A user updates their avatar in Tokyo; it takes 2 seconds to appear in US-East. Acceptable.</p>
+<p><strong>Financial transactions:</strong> Strong consistency required. A payment deducted in US-East must not be double-spent in EU-West. Cannot use async replication.</p>
+<p><strong>Session / auth tokens:</strong> Can be region-local. JWT tokens are self-validating (contain the signature). Redis session stores are regional.</p>
+<p><strong>Inventory:</strong> Strong consistency required. Cannot oversell from multiple regions.</p>
+<hr>
+<h2>Strategy 1: Follow-the-Sun (Active-Passive with Regional Routing)</h2>
+<p>A middle ground: users are geographically routed to the nearest <strong>active</strong> region, but there is a primary region for writes.</p>
+<pre><code>US-East: reads and writes (PRIMARY)
+EU-West: reads only (from replicas)
+AP-Southeast: reads only (from replicas)
+
+User in Tokyo writes: routed to AP-Southeast
+AP-Southeast proxies write to US-East (adds ~150ms latency to writes)
+US-East commits → replicates to AP-Southeast and EU-West
+</code></pre>
+<p>Writes always go to US-East (single source of truth). Reads are local. Write latency is higher for non-US users.</p>
+<p>This is <strong>active-passive for writes, active-active for reads</strong>. Used by many large services (GitHub was like this for years).</p>
+<hr>
+<h2>Strategy 2: Region-Sharded (Geo-Partitioned)</h2>
+<p>Partition data by user geography. A user in EU lives entirely in EU-West. Their data is never in US-East.</p>
+<pre><code>US users → US-East (their data lives here)
+EU users → EU-West (their data lives here)
+APAC users → AP-Southeast (their data lives here)
+</code></pre>
+<p>Writes and reads are local. No cross-region coordination for most operations. Low latency globally.</p>
+<p><strong>Challenge:</strong> What if a US user travels to Europe?</p>
+<ul>
+<li>Short-term: route their requests to US-East (add latency temporarily)</li>
+<li>Long-term: migrate their data to EU-West</li>
+</ul>
+<p><strong>Used by:</strong> Facebook (&quot;social graph regions&quot;), CockroachDB multi-region partitioning.</p>
+<p><strong>Compliance benefit:</strong> EU user data stays in EU. Satisfies GDPR data residency requirements without complex legal structures.</p>
+<hr>
+<h2>Strategy 3: True Active-Active with Conflict Resolution</h2>
+<p>All regions accept writes to any data. Conflicts are detected and resolved.</p>
+<p>This is the hardest to implement correctly. Requires:</p>
+<ol>
+<li>A globally unique, conflict-free ID for every write</li>
+<li>Conflict detection (happens when same data is written in two regions simultaneously)</li>
+<li>Conflict resolution (CRDT, last-write-wins, or application-level merge)</li>
+</ol>
+<p><strong>CRDTs (Conflict-free Replicated Data Types):</strong> Data structures that can always be merged without conflicts. Suitable for counters, sets, flags.</p>
+<p><strong>Last-write-wins (LWW):</strong> The write with the highest timestamp wins. Risk: clock skew between regions. Use hybrid logical clocks (HLC) to minimize this risk.</p>
+<p><strong>Application-level merge:</strong> For complex data (shopping cart, collaborative doc), the application decides how to merge conflicting versions. Shown to the user if needed.</p>
+<p><strong>Used by:</strong> DynamoDB Global Tables, Cassandra multi-datacenter, CockroachDB.</p>
+<hr>
+<h2>Database Solutions</h2>
+<h3>CockroachDB (Distributed SQL)</h3>
+<ul>
+<li>Multi-region with ACID guarantees</li>
+<li>Geo-partitioned tables: US rows stored in US regions</li>
+<li>Writes to US partition are local; replication to non-primary regions is async</li>
+<li>If US region goes down: other regions elect new leader for US partition</li>
+<li>Near-linear scaling; standard SQL interface</li>
+</ul>
+<h3>DynamoDB Global Tables</h3>
+<ul>
+<li>True active-active across up to 6 regions</li>
+<li>Last-write-wins conflict resolution</li>
+<li>Replication lag &lt; 1 second between regions</li>
+<li>Works best for key-value access patterns (no complex SQL joins)</li>
+</ul>
+<h3>PostgreSQL + Streaming Replication</h3>
+<ul>
+<li>One primary region (writes)</li>
+<li>Read replicas in other regions</li>
+<li>Failover: promote a replica to primary (minutes)</li>
+<li>Not true active-active for writes</li>
+</ul>
+<hr>
+<h2>DNS-Based Routing</h2>
+<p>Route users to the nearest region using DNS:</p>
+<p><strong>GeoDNS:</strong> Returns different IP addresses based on the client&#39;s geographic location.</p>
+<pre><code>DNS query: api.company.com from IP in Tokyo
+→ Returns: 1.2.3.4 (AP-Southeast load balancer)
+
+DNS query: api.company.com from IP in New York
+→ Returns: 5.6.7.8 (US-East load balancer)
+</code></pre>
+<p><strong>Anycast routing:</strong> BGP advertises the same IP from multiple regions. The internet routes the packet to the nearest one. Used by Cloudflare.</p>
+<p><strong>Failover:</strong> If US-East goes down:</p>
+<ol>
+<li>Health check detects failure</li>
+<li>GeoDNS stops returning US-East IP for US users</li>
+<li>US users routed to EU-West or AP-Southeast</li>
+<li>This happens in seconds (TTL on DNS record must be low: 30-60 seconds)</li>
+</ol>
+<hr>
+<h2>The Data Replication Lag Budget</h2>
+<p>Cross-region replication is not instant:</p>
+<pre><code>US-East → EU-West: ~80ms network RTT
+US-East → AP-Southeast: ~150ms network RTT
+
+Replication lag (async): typically 100-300ms
+In practice: 99th percentile &lt; 1 second under normal conditions
+Under load: can be several seconds
+</code></pre>
+<p>Design your application to handle stale reads for non-critical data. Display &quot;Last updated 2 seconds ago&quot; where needed.</p>
+<p>For strong consistency: accept higher write latency (synchronous replication to a quorum of regions) or use primary-writes architecture.</p>
+<hr>
+<h2>Chaos Engineering</h2>
+<p>Test your multi-region setup before a disaster:</p>
+<ol>
+<li><strong>Simulate a region failure:</strong> Block all traffic in/out of US-East in a canary environment</li>
+<li><strong>Verify:</strong> Traffic automatically reroutes to other regions</li>
+<li><strong>Verify:</strong> No data loss occurred</li>
+<li><strong>Measure:</strong> Time to full recovery</li>
+</ol>
+<p>Teams like Netflix (Chaos Monkey), AWS (GameDay), Google (DiRT — Disaster Recovery Testing) regularly test their systems by intentionally breaking regions.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Active-passive vs active-active</td>
+<td>Passive: failover only; Active: both regions serve traffic</td>
+</tr>
+<tr>
+<td>Latency benefit</td>
+<td>Route users to nearest region (150ms vs 10ms for Tokyo users)</td>
+</tr>
+<tr>
+<td>Hardest problem</td>
+<td>Data consistency across regions (concurrent writes)</td>
+</tr>
+<tr>
+<td>Strategies</td>
+<td>Follow-the-sun (primary writes), geo-partition, true active-active with CRDT</td>
+</tr>
+<tr>
+<td>Conflict resolution</td>
+<td>LWW (simple), CRDT (automatic), application-level (complex)</td>
+</tr>
+<tr>
+<td>Database options</td>
+<td>CockroachDB (ACID), DynamoDB Global Tables (eventual), Postgres replicas (passive reads)</td>
+</tr>
+<tr>
+<td>DNS failover</td>
+<td>GeoDNS with 30s TTL; health check removes failing region</td>
+</tr>
+<tr>
+<td>Replication lag</td>
+<td>Typically 100-300ms; design for eventual consistency in non-critical reads</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Module 4 Complete!</strong> Next: <a href="../module-5-interview-mastery/01-45-min-framework.md">Module 5 — Interview Mastery Track</a></p>
+</blockquote>

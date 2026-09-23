@@ -1,0 +1,303 @@
+<h1>Designing for Emerging Markets: Low Bandwidth, Offline-First</h1>
+<blockquote>
+<p><strong>Lesson 6.5</strong> · Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<p>If you have built software primarily for users in the US, Western Europe, or Japan, you have been designing for the most forgiving network conditions on the planet. Fibre to the home, LTE that actually delivers LTE speeds, handsets with 6GB of RAM and a battery that lasts two days. These are not global norms — they are exceptional privileges.</p>
+<p>The next billion users are coming online in India, Nigeria, Indonesia, Brazil, and across sub-Saharan Africa and Southeast Asia. If your system cannot serve them, you are not building for the world. This lesson covers the real constraints those users face and the architecture patterns that make software work under them.</p>
+<hr>
+<h2>1. The Reality of Emerging Markets</h2>
+<p>Understanding the constraint set is the prerequisite for every design decision that follows. These are not edge cases to accommodate after launch — they define the baseline.</p>
+<p><strong>Median mobile speeds</strong> (Ookla Speedtest data, 2024 averages):</p>
+<table>
+<thead>
+<tr>
+<th>Country</th>
+<th>Median Mobile Download</th>
+<th>Typical latency</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>United States</td>
+<td>110 Mbps</td>
+<td>30 ms</td>
+</tr>
+<tr>
+<td>India</td>
+<td>21 Mbps (urban) / 2–4 Mbps (rural)</td>
+<td>50–120 ms</td>
+</tr>
+<tr>
+<td>Indonesia</td>
+<td>18 Mbps (urban) / 1–3 Mbps (rural)</td>
+<td>60–150 ms</td>
+</tr>
+<tr>
+<td>Nigeria</td>
+<td>12 Mbps (urban) / 0.5–2 Mbps (rural)</td>
+<td>80–200 ms</td>
+</tr>
+<tr>
+<td>Brazil</td>
+<td>25 Mbps (urban) / 3–8 Mbps (rural)</td>
+<td>40–100 ms</td>
+</tr>
+</tbody></table>
+<p>Those rural figures translate directly to user experience. A 500KB JavaScript bundle that loads in 40ms on a US connection takes 2 full seconds on a 2Mbps Nigerian rural connection — before the browser even begins to parse and execute it.</p>
+<p><strong>2G is not dead.</strong> In rural India and across much of sub-Saharan Africa, 2G EDGE connections delivering 50–100 Kbps are still the only option for hundreds of millions of users. Designing with this in mind means your app must be functional — not degraded, <em>functional</em> — over a connection slower than a 1990s dial-up modem.</p>
+<p><strong>Prepaid data economics.</strong> A user in Nigeria or Indonesia buying mobile data on a prepaid plan may pay the equivalent of $0.05–0.15 per MB. An app that blithely downloads 50MB of assets on first launch has just billed that user the cost of a meal. Data is not free infrastructure — it is a rationed resource your users pay for per kilobyte.</p>
+<p><strong>Device constraints.</strong> The global median Android handset runs on a Snapdragon 460 or equivalent, with 2–3GB of RAM and 32GB of internal storage. Flagship-class memory management assumptions — keeping the full application state in RAM, WebAssembly modules that assume 4GB address space, large image decode buffers — all fail on these devices. Battery capacity is 3000–4000 mAh, but power-hungry background processes drain it visibly, and users notice.</p>
+<p><strong>Older OS versions.</strong> Android 7 (Nougat, released 2016) is still in active use across the markets above. Your minimum SDK target cannot be Android 12 if you want to reach these users.</p>
+<hr>
+<h2>2. Offline-First Architecture</h2>
+<p>The single most important mindset shift when designing for emerging markets is this: <strong>connectivity is intermittent, not the happy path.</strong> Design for offline as the baseline and treat connectivity as a pleasant enhancement, not a hard requirement.</p>
+<h3>The Offline-First Principle</h3>
+<p>A traditional web or mobile app treats the server as the system of record. When offline, it shows an error. An offline-first app treats the <em>device</em> as the system of record. It operates fully when disconnected and synchronises opportunistically when connectivity returns.</p>
+<pre><code>Traditional model:
+  User action → Network request → Server response → UI update
+                       ↑
+               FAILS when offline
+
+Offline-first model:
+  User action → Local store → UI update (immediate)
+                     ↓
+               Sync queue (background, when online)
+                     ↓
+               Server reconciliation
+</code></pre>
+<p>This model requires you to answer a harder question: <strong>what happens when two devices both modify the same data while offline and then sync?</strong> That is the conflict resolution problem.</p>
+<h3>Local-First Data Storage</h3>
+<p>On <strong>mobile (Android/iOS)</strong>: <strong>SQLite</strong> is the standard. React Native, Flutter, and native Android all give you access to SQLite. It is ACID-compliant, fast for the query patterns apps use, and its database files are small. Realm and WatermelonDB are higher-level wrappers that add reactive queries and better sync abstractions on top.</p>
+<p>On <strong>the web</strong>: <strong>IndexedDB</strong> is the browser&#39;s built-in transactional key-value store. It is asynchronous (critical — never block the main thread on storage I/O) and can hold gigabytes of structured data. Libraries like Dexie.js give it a usable API.</p>
+<p>Design your data model for offline first: every record needs a client-generated ID (use UUIDs, not server-assigned integers), a <code>created_at</code> timestamp from the device clock, and a <code>sync_status</code> field (<code>pending</code>, <code>synced</code>, <code>conflict</code>).</p>
+<h3>Sync Strategies: CRDTs, OT, and Last-Write-Wins</h3>
+<p><strong>Last-Write-Wins (LWW)</strong> is the simplest conflict resolution strategy: when two versions of the same record conflict, the one with the later timestamp wins. It is wrong surprisingly often — clocks are not perfectly synchronised across devices, and users who edit a document on two phones simultaneously both lose edits. LWW is acceptable for append-only data (messages, logs) but dangerous for fields that multiple users legitimately modify (account balance, shared document content).</p>
+<p><strong>Operational Transforms (OT)</strong> are the algorithm behind Google Docs. Each edit is expressed as an operation (insert character X at position Y), and when two concurrent operations conflict, the algorithm transforms one to account for the other. OT is correct but complex to implement; if you need collaborative editing, use an existing library (ShareDB, Yjs) rather than rolling your own.</p>
+<p><strong>CRDTs (Conflict-free Replicated Data Types)</strong> are data structures mathematically guaranteed to converge to the same state on all replicas, regardless of the order operations are applied. Common CRDTs include:</p>
+<ul>
+<li><strong>G-Counter</strong>: a counter that only grows (suitable for view counts, likes)</li>
+<li><strong>LWW-Register</strong>: single-value register with LWW semantics (suitable for user profile fields)</li>
+<li><strong>OR-Set</strong>: a set where adds and removes are tracked separately to avoid tombstone conflicts (suitable for shopping carts, tag sets)</li>
+<li><strong>CRDT text</strong>: Automerge and Yjs implement list/text CRDTs for collaborative editing</li>
+</ul>
+<p>Automerge and Yjs are production-ready CRDT libraries usable in both React Native and the browser.</p>
+<h3>WhatsApp&#39;s Offline Message Queue</h3>
+<p>WhatsApp&#39;s architecture provides a concrete example of offline-first done right. Messages are stored locally in SQLite the moment they are composed, marked with status <code>sending</code>. The app maintains a persistent TCP connection to its servers using a binary protocol (XMPP-derived); when that connection drops, outbound messages queue locally. When connectivity returns, the queue drains in order. The server holds undelivered messages for 30 days before dropping them. The single-tick / double-tick / blue-tick status system gives users a clear model of delivery state without ever blocking the send action on network availability.</p>
+<hr>
+<h2>3. Bandwidth Optimisation</h2>
+<p>Once you accept offline-first architecture for data, the next battle is keeping your payload sizes honest.</p>
+<h3>Payload Compression</h3>
+<p><strong>Brotli beats gzip.</strong> For compressible text content (JSON, HTML, CSS, JavaScript), Brotli achieves 15–25% better compression ratios than gzip at comparable CPU cost. Serve <code>Content-Encoding: br</code> to clients that advertise <code>Accept-Encoding: br</code> (all modern browsers do). Keep gzip as the fallback.</p>
+<p><strong>Protobuf beats JSON.</strong> For API payloads, Protocol Buffers (Protobuf) encode the same data in roughly 30–70% less space than JSON, with no field name repetition and binary encoding of numbers. The tradeoff is schema maintenance and tooling overhead. For high-frequency APIs (real-time sync, search results), the bandwidth saving is worth it. For low-frequency APIs (settings, profile), JSON is acceptable.</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Relative size</th>
+<th>Human-readable</th>
+<th>Schema required</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>JSON</td>
+<td>100% (baseline)</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>MessagePack</td>
+<td>~60–70%</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Protobuf</td>
+<td>~30–50%</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Flatbuffers</td>
+<td>~30–45%</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+</tbody></table>
+<h3>Delta Sync</h3>
+<p>Instead of sending the full resource state on every sync, send only what changed since the client&#39;s last sync. The client sends its last known <code>sync_token</code> (a timestamp or vector clock); the server responds with only the operations applied after that point. This requires event sourcing or a change-data-capture log on the server side, but the bandwidth savings are dramatic for users who sync frequently.</p>
+<h3>Progressive Image Loading</h3>
+<p>Never serve full-resolution images to low-bandwidth users without a fallback strategy.</p>
+<p><strong>BlurHash</strong> generates a compact 20–30 character string that encodes a blurred placeholder for any image. Embed the BlurHash in your API response alongside the image URL; render the placeholder immediately, then load the full image lazily. Users see something meaningful within milliseconds.</p>
+<p><strong>Adaptive bitrate</strong> for video: serve HLS or DASH streams with multiple quality levels. Use the Network Information API (covered below) to start at an appropriate bitrate rather than always starting at the highest.</p>
+<h3>Service Workers and HTTP Caching</h3>
+<p>A <strong>service worker</strong> is a JavaScript file that runs in a background thread in the browser and acts as a programmable proxy between your app and the network. Use it to:</p>
+<ul>
+<li><strong>Cache-first</strong>: serve static assets (JS bundles, CSS, fonts) from cache, update in background</li>
+<li><strong>Network-first with offline fallback</strong>: try the network for fresh data, fall back to cached data if the request fails</li>
+<li><strong>Background sync</strong>: queue failed POST requests and replay them when connectivity returns</li>
+</ul>
+<p>Set aggressive <code>Cache-Control</code> headers on immutable assets: <code>Cache-Control: public, max-age=31536000, immutable</code>. Version your asset filenames (content-hash in the filename) so you can cache forever without stale-content issues.</p>
+<h3>Bundle Size Target</h3>
+<p><strong>Your initial JavaScript bundle should be under 200KB gzipped.</strong> This is not an aspirational goal — it is a hard constraint for users on slow connections. Route-based code splitting (load only the JS needed for the current screen), tree-shaking dead code, and deferring third-party scripts are all standard tools. Use <code>source-map-explorer</code> or <code>webpack-bundle-analyzer</code> to audit what is in your bundle. Be ruthless about third-party dependencies: a full moment.js import adds 67KB gzipped; day.js provides 95% of the functionality at 2KB.</p>
+<hr>
+<h2>4. Network-Aware Design</h2>
+<h3>The Network Information API</h3>
+<p>The browser&#39;s <code>navigator.connection</code> object exposes the effective connection type (<code>slow-2g</code>, <code>2g</code>, <code>3g</code>, <code>4g</code>) and estimated downlink speed. Use it to make adaptive decisions at runtime:</p>
+<pre><code class="language-javascript">const connection = navigator.connection;
+
+if (connection.effectiveType === &#39;2g&#39; || connection.saveData) {
+  // Serve low-res images, disable autoplay video, skip analytics
+  loadLowResImages();
+  disableAutoplay();
+} else {
+  loadHighResImages();
+}
+
+connection.addEventListener(&#39;change&#39;, () =&gt; {
+  // Re-evaluate when connection quality changes
+  adaptToConnection(connection.effectiveType);
+});
+</code></pre>
+<p>The <code>saveData</code> flag honours the user&#39;s &quot;Data Saver&quot; mode in Chrome — always respect it.</p>
+<h3>Retry with Exponential Backoff and Jitter</h3>
+<p>On a flaky 2G connection, requests will fail. Retrying immediately just hammers a struggling connection harder. <strong>Exponential backoff</strong> doubles the wait time between each retry; <strong>jitter</strong> adds random noise to prevent the thundering herd problem when thousands of devices reconnect simultaneously after a network outage.</p>
+<pre><code>Attempt 1: fail → wait 1s + random(0, 1s)
+Attempt 2: fail → wait 2s + random(0, 2s)
+Attempt 3: fail → wait 4s + random(0, 4s)
+Attempt 4: fail → wait 8s + random(0, 8s)
+Max backoff cap: 60s
+Max attempts: 5, then surface error to user
+</code></pre>
+<h3>Background Sync API</h3>
+<p>The browser&#39;s <strong>Background Sync API</strong> lets you register a sync event that fires when the device next has reliable connectivity, even if the tab is closed. This is ideal for non-urgent writes: form submissions, analytics events, draft saves. The user can close the app, get on a bus, regain connectivity 20 minutes later, and the pending writes will flush automatically.</p>
+<hr>
+<h2>5. Device Constraints</h2>
+<h3>Memory Management on Low-RAM Devices</h3>
+<p>On a 2GB RAM device, your app is competing with the OS, the browser, background apps, and a launcher. Practical rules:</p>
+<ul>
+<li><strong>Paginate aggressively.</strong> Never load a flat list of 10,000 items. Render 20–50 items with a virtual list (RecyclerView on Android, FlatList in React Native, virtual scrolling in web).</li>
+<li><strong>Release image memory.</strong> On scroll, release the decoded pixel buffers of images that are far off-screen. Glide and Coil (Android) do this automatically; ensure you are not holding explicit references that prevent GC.</li>
+<li><strong>Avoid large in-memory caches.</strong> An LRU cache capped at 10MB is better than one that grows unbounded.</li>
+<li><strong>Measure.</strong> Profile with Android Studio&#39;s Memory Profiler or Chrome DevTools&#39; Memory tab on an actual low-end device, not a simulator.</li>
+</ul>
+<h3>Battery Conservation</h3>
+<p>Background battery drain is a first-class user complaint on low-end devices with smaller batteries. Design principles:</p>
+<ul>
+<li><strong>Batch background syncs.</strong> Use WorkManager (Android) or Background Tasks (iOS) to run syncs together rather than triggering individual network requests per event.</li>
+<li><strong>Avoid polling.</strong> Polling every 30 seconds for new data keeps the radio active. Use WebSockets or server-sent events for push, or long-poll with a 30–60 second timeout.</li>
+<li><strong>No wake locks for non-critical work.</strong> A wake lock prevents the CPU from sleeping. Hold it only for media playback, navigation, and active payment flows — never for background sync.</li>
+<li><strong>Exponential backoff for idle sync.</strong> If the user has not opened the app in 6 hours, reduce sync frequency proportionally.</li>
+</ul>
+<h3>Testing on Older Android Versions</h3>
+<p>Android 7 (API 24) lacks several APIs your code may silently assume: Java 8 streams require desugaring, some crypto APIs differ, WebView versions are older. Your CI pipeline should run instrumented tests on an Android 7 emulator. Use Firebase Test Lab or BrowserStack to test on real low-end devices at least before each major release.</p>
+<hr>
+<h2>6. Real Case Studies</h2>
+<h3>Facebook Lite — 1MB App for 2G Markets</h3>
+<p>In 2015, Facebook launched Facebook Lite specifically for users in India, Africa, and Southeast Asia. The key engineering decisions:</p>
+<ul>
+<li><strong>No native module dependencies.</strong> Everything rendered via a minimal custom UI framework rather than React Native (which adds significant binary weight).</li>
+<li><strong>Server-side rendering of content.</strong> Complex feed ranking runs on the server; the client receives pre-rendered HTML fragments, not raw data to process.</li>
+<li><strong>Aggressive asset deferral.</strong> Profile photos load only when a profile is explicitly tapped. Feed images use low-resolution placeholders.</li>
+<li><strong>Sub-1MB APK.</strong> The install binary is under 1MB. Compare to the main Facebook app at 50–80MB.</li>
+</ul>
+<p>The result: Facebook Lite reached 200 million monthly active users within two years and is now the primary Facebook surface in multiple markets.</p>
+<h3>YouTube Go — Offline Download Architecture</h3>
+<p>YouTube Go (2016, now discontinued but architecturally instructive) introduced a peer-to-peer video sharing mechanism for offline markets. Key design points:</p>
+<ul>
+<li>Users could pre-download videos over Wi-Fi at home and share them via Bluetooth or Wi-Fi Direct with nearby friends, avoiding repeated cellular data costs.</li>
+<li>Video quality was selectable at download time (360p vs 480p), giving users direct control over data spend.</li>
+<li>The app cached video metadata aggressively so browsing and discovery worked offline, even if playback required downloading.</li>
+</ul>
+<h3>Google Maps Offline — Tile Pre-Caching</h3>
+<p>Google Maps allows users to download a geographic region for offline use. The tile pre-caching system:</p>
+<pre><code>User selects region → Bounding box calculated
+                     ↓
+         Zoom levels 8–16 enumerated
+                     ↓
+         Tile manifest generated (list of tile IDs)
+                     ↓
+         Tiles downloaded in parallel (50 concurrent)
+                     ↓
+         Stored in SQLite MBTiles format on device
+                     ↓
+         Routing graph downloaded separately (road network only)
+</code></pre>
+<p>The design separates <em>display tiles</em> (raster images, ~3KB each) from the <em>routing graph</em> (edge data for navigation, much more compact). A 100km² offline region is typically 150–300MB of display tiles but only 5–10MB of routing data. Routing works with the compact graph; display quality degrades gracefully without the high-zoom tiles.</p>
+<hr>
+<h2>7. Emerging Market Readiness Checklist</h2>
+<p>Use this table as a design review gate before any feature ships to an emerging market:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Check</th>
+<th>Pass criteria</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Initial JS bundle size</td>
+<td>&lt; 200KB gzipped</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Time to Interactive on 3G</td>
+<td>&lt; 5 seconds (Lighthouse)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Offline functionality</td>
+<td>Core user journey works with no connectivity</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Offline conflict resolution</td>
+<td>Strategy documented and tested (LWW / CRDT / OT)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Image loading</td>
+<td>BlurHash placeholders, lazy loading implemented</td>
+</tr>
+<tr>
+<td>6</td>
+<td>API payload format</td>
+<td>Brotli compression enabled; Protobuf or MessagePack for high-frequency endpoints</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Delta sync</td>
+<td>API returns incremental changes, not full state</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Retry logic</td>
+<td>Exponential backoff with jitter on all network calls</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Network-aware adaptation</td>
+<td><code>navigator.connection</code> and <code>saveData</code> respected</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Background sync</td>
+<td>Failed writes queued and replayed via Background Sync API</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Memory usage</td>
+<td>App tested on 2GB RAM device; no OOM crashes</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Battery usage</td>
+<td>No unnecessary wake locks; background syncs batched</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Summary</h2>
+<p>Designing for emerging markets is not a set of compromises — it is a discipline that produces better software everywhere. The engineers who built the systems above (Facebook Lite, YouTube Go, Maps offline) did not ship degraded versions of their products. They rethought their architecture from first principles, treating connectivity and memory as the scarce resources they actually are.</p>
+<p>The offline-first principle, aggressive payload reduction, and network-aware adaptation combine to produce apps that feel <em>faster</em> on a good connection, <em>functional</em> on a bad one, and <em>usable</em> on no connection at all. Build to that standard and you have not just reached the next billion users — you have shipped better software for everyone.</p>
+<hr>
+<p><strong>Next:</strong> Lesson 6.6 — Case Study: Taking an App from 1 Country to 50 Countries</p>

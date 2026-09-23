@@ -1,0 +1,210 @@
+<h1>Design 10: Search Autocomplete / Typeahead</h1>
+<blockquote>
+<p><strong>Lesson 3.10</strong> · Pro · 70 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a search autocomplete system (typeahead) that suggests completions as the user types. Like Google&#39;s search suggestions or Spotify&#39;s search bar.</p>
+<p>Requirements:</p>
+<ul>
+<li>Return 5–10 suggestions per keystroke</li>
+<li>Latency &lt; 100ms (it must feel instant)</li>
+<li>Suggestions ranked by popularity</li>
+<li>Updated daily with new trending searches</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>As user types a prefix, return matching search suggestions</li>
+<li>Suggestions sorted by search frequency (most popular first)</li>
+<li>Suggestions are personalized optionally (user&#39;s recent searches bubble up)</li>
+<li>Updates: top suggestions change based on trending searches</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>Google processes 8.5B searches/day → ~100,000 queries/second</li>
+<li>Typeahead triggers on each keystroke → multiply by ~5 = 500,000 autocomplete requests/second</li>
+<li>Latency must be &lt; 100ms (p99)</li>
+<li>Read-heavy: autocomplete queries &gt;&gt; search queries</li>
+</ul>
+<hr>
+<h2>Step 2: Data Structure — The Trie</h2>
+<p>A <strong>trie</strong> (prefix tree) is the classic data structure for autocomplete:</p>
+<pre><code>Words: &quot;apple&quot;, &quot;app&quot;, &quot;application&quot;, &quot;apply&quot;, &quot;apt&quot;
+
+         root
+          │
+          a
+          │
+          p
+         / \
+        p   t
+       /|    \
+      l e    ...
+     / \ \
+    e  i  y
+   / \  \
+  .  ...  ...
+
+&quot;app&quot; → node at a→p→p (marked as complete word)
+&quot;apple&quot; → a→p→p→l→e (marked)
+</code></pre>
+<p>To find all completions for &quot;app&quot;:</p>
+<ol>
+<li>Traverse to the &quot;app&quot; node</li>
+<li>DFS to find all complete words in the subtree</li>
+</ol>
+<p><strong>At 1M+ unique search terms, a pure in-memory trie takes gigabytes</strong> and traversal is slow.</p>
+<hr>
+<h2>Step 3: Practical Implementation — Redis Sorted Sets</h2>
+<p>Instead of a pure trie, use <strong>prefix-indexed Redis sorted sets</strong>.</p>
+<p><strong>Concept:</strong>
+For each prefix of each popular search term, store the term with its frequency as the score.</p>
+<pre><code>Search term &quot;apple&quot; with frequency 50,000:
+  ZADD prefix:a     50000 &quot;apple&quot;
+  ZADD prefix:ap    50000 &quot;apple&quot;
+  ZADD prefix:app   50000 &quot;apple&quot;
+  ZADD prefix:appl  50000 &quot;apple&quot;
+  ZADD prefix:apple 50000 &quot;apple&quot;
+</code></pre>
+<p>To get suggestions for prefix &quot;app&quot;:</p>
+<pre><code>ZREVRANGE prefix:app 0 4   → top 5 terms for prefix &quot;app&quot; by score
+</code></pre>
+<p>This is O(log N + k) where N is terms with this prefix and k is 5. Extremely fast.</p>
+<p><strong>Memory:</strong>
+Average word has 5 characters → 5 prefix entries per word.
+1M words × 5 prefixes × ~50 bytes per entry = ~250MB. Fits in Redis.</p>
+<hr>
+<h2>Step 4: Updating Frequencies</h2>
+<p>Searches happen continuously. The autocomplete data needs to stay fresh.</p>
+<p><strong>Approach: offline batch update + swap</strong></p>
+<pre><code>1. Every hour: stream search logs to data pipeline
+2. Count search frequency per term for the last 7 days (rolling window)
+3. Filter to top 1M search terms
+4. Build new prefix index in background Redis cluster
+5. Atomic swap: rename new cluster → production key
+</code></pre>
+<p>This ensures:</p>
+<ul>
+<li>No downtime during update</li>
+<li>No partial state visible to users</li>
+<li>Stale data by at most 1 hour (acceptable)</li>
+</ul>
+<p><strong>Alternative for trending:</strong> For real-time trends (like Twitter trends), use a streaming pipeline (Flink/Spark Streaming) that updates frequency counts every few minutes.</p>
+<hr>
+<h2>Step 5: System Architecture</h2>
+<pre><code>User types &quot;app&quot;
+         │
+         ▼
+API Gateway
+         │
+         ▼
+Autocomplete Service
+  1. Normalize query: lowercase, trim
+  2. Check local memory cache (LRU, top 10k prefixes)
+  3. Cache miss → Redis ZREVRANGE prefix:app 0 9
+  4. Return results
+         │
+         ▼
+Response: [&quot;apple&quot;, &quot;application&quot;, &quot;app store&quot;, &quot;apple music&quot;, ...]
+
+Background (every hour):
+Log aggregator (Spark) → count frequencies → rebuild index → swap
+</code></pre>
+<p><strong>Local memory cache:</strong>
+Most requests are for the same few prefixes (&quot;the&quot;, &quot;how&quot;, &quot;what&quot;, &quot;apple&quot;). Cache the top 10,000 most-requested prefixes in each application server&#39;s memory (LRU eviction). This handles 90%+ of traffic without touching Redis.</p>
+<hr>
+<h2>Step 6: Personalization</h2>
+<p>Beyond global popularity, include personal signals:</p>
+<ul>
+<li>Recent searches (stored in user session or browser localStorage)</li>
+<li>Previously clicked results</li>
+</ul>
+<p><strong>Simple approach:</strong> Client-side personalization</p>
+<ol>
+<li>Server returns top 10 global suggestions</li>
+<li>Client checks localStorage for recent searches matching the prefix</li>
+<li>Client merges: recent searches first, then global suggestions, deduplicate</li>
+</ol>
+<p>No server-side change needed. Works well for most use cases.</p>
+<p><strong>Advanced personalization:</strong>
+Store user search history in a per-user cache. On autocomplete request, merge global suggestions with personal ones. Requires user to be logged in.</p>
+<hr>
+<h2>Step 7: Handling Special Cases</h2>
+<p><strong>Multi-word prefixes:</strong>
+&quot;how to bake&quot; → match &quot;how to bake bread&quot;, &quot;how to bake a cake&quot;
+Index the full phrase, not just each word. Phrase search prefix matching.</p>
+<p><strong>Typo tolerance:</strong>
+&quot;aple&quot; should suggest &quot;apple&quot;</p>
+<ul>
+<li>Use Elasticsearch fuzzy search for typo-tolerant matching (edit distance 1–2)</li>
+<li>This is slower (~50ms) so run in parallel with the exact prefix match; merge results</li>
+</ul>
+<p><strong>Multiple languages:</strong>
+Each language has its own prefix index. Detect user language from browser headers (<code>Accept-Language</code>) and query the right index.</p>
+<p><strong>Offensive/blocked terms:</strong>
+Maintain a blocklist in Redis. Filter suggestions against it. Updated in real time.</p>
+<hr>
+<h2>Step 8: Scale Deep-Dive</h2>
+<p>At 500,000 autocomplete requests/second:</p>
+<pre><code>Single Redis instance: ~100,000 ops/second → not enough
+
+Solution: Redis cluster sharded by prefix
+  Shard 0: prefixes a-f
+  Shard 1: prefixes g-m
+  Shard 2: prefixes n-s
+  Shard 3: prefixes t-z
+
+Each shard handles ~125,000 req/s → within limits
+
+Additionally: 100 autocomplete servers, each with LRU cache
+  Cache hit rate ~90% → only 50,000 req/s reach Redis
+</code></pre>
+<p>Redis latency for ZREVRANGE: ~1ms. With network RTT of 1ms, total Redis round-trip is ~2ms. Well within 100ms budget.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Data structure</td>
+<td>Trie (concept) → Redis sorted set per prefix (practice)</td>
+</tr>
+<tr>
+<td>Redis command</td>
+<td>ZADD prefix:{p} score term; ZREVRANGE prefix:{p} 0 9</td>
+</tr>
+<tr>
+<td>Latency budget</td>
+<td>&lt; 100ms total; Redis ~2ms; local cache ~0.1ms</td>
+</tr>
+<tr>
+<td>Freshness</td>
+<td>Hourly batch rebuild; atomic swap</td>
+</tr>
+<tr>
+<td>Local cache</td>
+<td>LRU cache of top 10k prefixes in app server memory</td>
+</tr>
+<tr>
+<td>Personalization</td>
+<td>Client-side merge of localStorage recent searches</td>
+</tr>
+<tr>
+<td>Typo tolerance</td>
+<td>Elasticsearch fuzzy search, parallel to exact prefix match</td>
+</tr>
+<tr>
+<td>Scale</td>
+<td>Redis cluster sharded by prefix letter range</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./11-rate-limiter-service.md">Design 11 — Rate Limiter as a Service</a></p>
+</blockquote>

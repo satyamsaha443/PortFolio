@@ -1,0 +1,388 @@
+# Edge Computing Use Cases
+
+> **Lesson 6.4** · Senior · 30 min
+
+---
+
+## Introduction
+
+For most of computing history, the mental model was simple: clients send requests, servers respond. The server farm — whether a data centre in Virginia or a managed cloud region — was where computation lived. Everything else was a terminal.
+
+That model is cracking under the weight of three simultaneous pressures: the speed of light (latency that cloud regions simply cannot eliminate), the economics of bandwidth (transmitting raw video from ten million IoT cameras is prohibitively expensive), and regulatory reality (sending personal health data to a US cloud region from an EU hospital may be illegal). Edge computing is the architectural response to all three.
+
+This lesson maps the compute spectrum from cloud to device, explains why each tier exists, explores the real use cases that each tier is best suited for, and — critically — identifies when you should resist the temptation to push computation to the edge.
+
+---
+
+## 1. What "The Edge" Means
+
+"The edge" is not a single location. It is a spectrum of compute locations, each progressively closer to the end user or the physical event being processed. The full spectrum looks like this:
+
+```
+  ┌──────────────────────────────────────────────────────────────────────────────┐
+  │                        The Compute Spectrum                                  │
+  │                                                                              │
+  │  CLOUD REGION          CDN PoP             ISP/TELCO EDGE       DEVICE       │
+  │  (us-east-1)           (Frankfurt PoP)     (MEC node)           (phone/car)  │
+  │                                                                              │
+  │  ┌─────────┐           ┌─────────┐         ┌─────────┐          ┌─────────┐ │
+  │  │         │           │         │         │         │          │         │ │
+  │  │  Full   │  ◄──────► │  CDN    │ ◄─────► │  MEC    │ ◄──────► │  Local  │ │
+  │  │  Stack  │           │  Edge   │         │  Node   │          │ Runtime │ │
+  │  │  Apps   │           │  Fn     │         │  (5G)   │          │         │ │
+  │  │         │           │         │         │         │          │         │ │
+  │  └─────────┘           └─────────┘         └─────────┘          └─────────┘ │
+  │                                                                              │
+  │  Latency to user:     Latency to user:     Latency to user:    Latency:     │
+  │  50–200 ms            5–30 ms              1–10 ms             <1 ms        │
+  │                                                                              │
+  │  Compute power:       Compute power:       Compute power:      Compute:     │
+  │  Unlimited (scale)    Limited              Moderate            Very limited │
+  │                                                                              │
+  │  State:               Stateless (mostly)   Limited state       Local state  │
+  │  Full                                                                        │
+  │                                                                              │
+  │  Deployment:          ~300 PoPs globally   Telco-managed       Per-device   │
+  │  Cloud-managed        (Cloudflare scale)   per city/district   update       │
+  └──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Cloud regions** (AWS us-east-1, GCP europe-west1, Azure westeurope) are large, full-featured data centres. They offer virtually unlimited compute, complete state management, and every service imaginable. Their weakness is that they are geographically concentrated: a user in Sydney talking to us-east-1 travels ~16,000 km and back on every request, imposing an irreducible 160–200 ms round-trip baseline purely from the speed of light.
+
+**CDN Points of Presence (PoPs)** are Cloudflare's ~300 locations, AWS CloudFront's ~600 edge locations, and similar. Originally used to cache static assets close to users, they now support running lightweight compute (edge functions). Latency to a nearby PoP is typically 5–30 ms.
+
+**ISP/Telco edge nodes (MEC — Multi-Access Edge Computing)** sit inside mobile operator infrastructure, physically co-located with base stations. A 5G MEC node might be in a cabinet in a city district, serving only that district. Round-trip latency can be 1–10 ms.
+
+**On-device/on-premise compute** runs on the end device itself (phone, car, factory controller, kiosk), or on a local server on the same LAN. Latency is sub-millisecond because no network traversal occurs at all.
+
+---
+
+## 2. Why Edge Computing Exists
+
+### Latency Math
+
+The speed of light in fibre is approximately 200,000 km/s (slower than in vacuum due to the refractive index of glass). One-way propagation from London to Sydney (~17,000 km) takes a minimum of ~85 ms. Round-trip: ~170 ms, even with perfect routing. Real internet routing adds more. For applications requiring sub-10 ms response — live multiplayer gaming, real-time bidding, AR overlays, autonomous vehicle decisions — cloud regions are physically impossible, regardless of how fast your servers are.
+
+**The 100 ms psychological threshold:** Users perceive interactions as "instant" below ~100 ms. Above that, there is a noticeable lag. For users in regions far from cloud regions (Southeast Asia, Africa, South America), this threshold is frequently breached for cloud-origin requests.
+
+### Bandwidth Cost and Efficiency
+
+A factory with 500 machine-vision cameras generates terabytes of raw video per day. Uploading all of it to a cloud region for processing would be astronomically expensive and slow. Processing locally — filtering, detecting anomalies, compressing interesting frames — and only sending flagged events to the cloud reduces bandwidth by 99%+.
+
+### Privacy and Data Sovereignty
+
+Processing data locally means sensitive raw data never leaves the device or the facility. A medical imaging device can run preliminary inference on-device; only a flagged result (not the full image) goes to a central system. This pattern is often legally required under GDPR, HIPAA, or sectoral regulations, and it also reduces the attack surface.
+
+### Offline Capability
+
+If your computation moves to the device, the application can function without a network connection. A retail point-of-sale system that processes card payments via a local edge node keeps working during internet outages. An autonomous vehicle that depends on cloud-based decisions for every steering correction cannot tolerate any connectivity interruption.
+
+---
+
+## 3. The Three Flavours of Edge Compute
+
+### CDN Edge Functions
+
+**What they are:** Short-lived JavaScript (or WASM) runtimes executing inside CDN infrastructure. Each request is handled by a separate ephemeral worker. The two dominant platforms are **Cloudflare Workers** and **AWS Lambda@Edge**.
+
+**What they can do:**
+- Modify HTTP requests and responses on the fly (add headers, rewrite URLs)
+- Make outbound fetch calls to APIs or KV stores
+- Run cryptographic operations (JWT validation, HMAC verification)
+- Serve personalised content based on request metadata (geolocation, headers)
+- Perform A/B test bucket assignment and redirect
+- Render lightweight server-side HTML with data from a KV store
+
+**What they cannot do (or do poorly):**
+- Long-running computation (CPU time limits: 50ms on Cloudflare free tier, up to 30s on paid tiers, but with tight CPU budget)
+- Persistent in-memory state between requests (each invocation is independent)
+- Large memory footprint (128 MB–256 MB typical limit)
+- Access to full operating system APIs, arbitrary file system, or native libraries
+- Guaranteed low latency on first invocation (cold starts, though much shorter than Lambda in a region)
+
+**Cloudflare Workers** run in V8 isolates rather than containers, so cold start is measured in microseconds rather than the hundreds of milliseconds typical for container-based FaaS. This makes them genuinely viable for latency-sensitive paths.
+
+```javascript
+// Cloudflare Worker: JWT validation at the edge
+export default {
+  async fetch(request, env) {
+    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
+
+    if (!token) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    try {
+      const payload = await verifyJWT(token, env.JWT_SECRET);
+      // Attach identity to request, forward to origin
+      const modified = new Request(request, {
+        headers: { ...Object.fromEntries(request.headers), 'X-User-Id': payload.sub }
+      });
+      return fetch(modified);
+    } catch {
+      return new Response('Forbidden', { status: 403 });
+    }
+  }
+};
+```
+
+### Telco/ISP Edge (MEC — Multi-Access Edge Computing)
+
+**Multi-Access Edge Computing** is a standard defined by ETSI that places compute nodes inside the mobile operator's Radio Access Network (RAN) infrastructure. Rather than traffic from a 5G base station flowing back to a central cloud, it is intercepted and processed at a server physically co-located with or near the base station.
+
+**5G makes MEC viable at scale** because 5G's sub-1 ms air interface latency is wasted if the workload then routes 50 ms to a cloud region. MEC unlocks the full potential of 5G's latency budget.
+
+**Use cases unique to MEC:**
+- **Augmented and Mixed Reality:** Real-time rendering of AR overlays requires processing sensor data and generating frames in <10 ms. Consumer devices lack the GPU; cloud adds too much latency. MEC node with a GPU, 2 ms from the device, is the only viable architecture.
+- **Autonomous vehicles:** A 5G-connected vehicle using MEC can offload some sensor fusion and path planning to a roadside MEC node, handling scenarios that on-board compute cannot (multi-vehicle coordination, map updates).
+- **Smart manufacturing:** A MEC node on the factory floor handles machine-vision quality control at line speed without any internet dependency.
+- **Live event video processing:** A stadium with MEC infrastructure can process live feeds from 100 cameras and deliver personalised highlights to attendees with <2 second latency.
+
+MEC infrastructure is controlled by telcos, not developers. Access is through platform APIs (AWS Wavelength, Azure Edge Zones) or direct telco partnerships.
+
+### On-Device / On-Premise Edge
+
+The most latency-efficient form of edge compute: the computation runs on the device generating the data, or on a local server on the same LAN. No network round-trip at all.
+
+**On-device ML inference** is a rapidly growing category. Apple's Core ML, Google's TensorFlow Lite, and ONNX Runtime allow trained models to execute on mobile GPUs and Neural Processing Units (NPUs). A camera that runs object detection on-chip never sends raw frames to the cloud — only bounding-box coordinates.
+
+**On-premise edge servers** (often called "micro data centres" or "edge appliances") are small servers deployed in retail stores, factory floors, oil rigs, or remote sites. They run full workloads — not just inference — but are managed remotely via edge orchestration platforms like AWS IoT Greengrass, Azure IoT Edge, or K3s (a lightweight Kubernetes variant for edge).
+
+---
+
+## 4. Real Use Cases with Architecture Patterns
+
+### A/B Testing at the Edge
+
+Traditional A/B testing requires the request to reach an origin server, which queries an experiment service, selects the variant, sets a cookie, and renders the appropriate version. This adds latency and complexity on every request.
+
+**Edge A/B testing** moves bucket assignment to a CDN worker:
+
+```
+User Request
+     │
+     ▼
+┌──────────────────────────────────────────┐
+│  Edge Worker                             │
+│                                          │
+│  1. Check existing experiment cookie     │
+│  2. If none: hash(userId) % 100          │
+│     < 50  →  bucket = 'control'          │
+│     >= 50 →  bucket = 'variant'          │
+│  3. Set cookie; rewrite request path     │
+│     /home → /home?variant=B              │
+│  4. Forward to origin (already bucketed) │
+└──────────────────────────────────────────┘
+     │
+     ▼
+  Origin (just renders what it's asked for)
+```
+
+The origin never sees the bucketing logic. Latency overhead: near zero (a hash computation). Consistent assignment is maintained via cookie; no per-request experiment service call.
+
+### Auth Token Validation at the Edge
+
+Rather than letting every request reach your origin before checking authentication, validate JWT tokens at the edge and reject invalid requests immediately:
+
+```
+                  ┌─────────────────────────────────┐
+                  │         Edge Worker              │
+  Request + JWT   │                                  │
+  ──────────────► │  Verify signature (HMAC/RSA)     │
+                  │  Check expiry (exp claim)         │
+                  │  Check issuer, audience           │
+                  │                                  │
+                  │  Invalid → 401 (never hits origin)│
+                  │  Valid   → forward + inject claims│
+                  └─────────────────────────────────┘
+                                  │ Valid
+                                  ▼
+                            ┌──────────┐
+                            │  Origin  │
+                            │ (trusts  │
+                            │  headers)│
+                            └──────────┘
+```
+
+Benefits: origin is shielded from unauthenticated traffic; token validation is geographically distributed; reduces origin load significantly at scale. The edge worker must have access to the public key (for RS256) or the HMAC secret — stored in the platform's secret store (Cloudflare Workers Secrets).
+
+### Image and Video Transcoding at the Edge
+
+Serving a 4K image to a mobile phone on a slow connection is wasteful. Serving a 1920px image to a 400px thumbnail slot is wasteful. CDN edge functions can intercept image requests and:
+
+1. Parse `Accept` header for WebP/AVIF support
+2. Read `width` query param (e.g. `?w=400`) from the request
+3. Use Cloudflare Image Resizing, AWS Lambda@Edge + S3, or a similar service to resize and transcode on the fly
+4. Cache the transcoded result at the PoP for subsequent identical requests
+
+```
+GET /product/img-42.jpg?w=400&fmt=webp
+            │
+            ▼
+  ┌─────────────────────┐
+  │  Edge Worker         │
+  │  Cache hit? → serve  │
+  │  Cache miss:         │
+  │  Fetch from S3 →     │
+  │  Resize to 400px →   │
+  │  Convert to WebP →   │
+  │  Cache + serve       │
+  └─────────────────────┘
+```
+
+This eliminates a dedicated image processing service and serves the right format/size to every client without changing origin storage.
+
+### Real-Time Fraud Detection at Point of Transaction
+
+Traditional fraud detection runs as a batch job or an asynchronous API call after the transaction is already authorised. Edge-based fraud detection gates the transaction:
+
+```
+  Card tap at retail terminal
+            │
+            ▼
+  ┌─────────────────────────────────────────────┐
+  │  Local edge node (on-premise, sub-1ms)      │
+  │                                             │
+  │  Velocity check: > 3 transactions/minute?   │
+  │  Geo check: impossible travel?              │
+  │  Card-present / device fingerprint check    │
+  │  Rule engine decision: approve / challenge  │
+  └─────────────────────────────────────────────┘
+            │
+  ┌─────────┴────────┐
+  │ Approve          │ Challenge / Deny
+  ▼                  ▼
+ Process          Escalate to fraud
+                  platform in cloud
+```
+
+The local edge node runs a fast rule engine (not a full ML model — that runs in the cloud for model training and periodic rule updates). This adds <5 ms to the transaction path while catching the most common fraud patterns without a cloud round-trip.
+
+### Autonomous Vehicle Sensor Fusion
+
+An autonomous vehicle generates sensor data (LiDAR, cameras, radar) at ~1 GB/s. Sending this to the cloud for decision-making is impossible: the latency budget for a braking decision at highway speed is ~50 ms, and bandwidth costs would be enormous.
+
+**Three-tier processing model:**
+
+```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                  Autonomous Vehicle Processing Tiers             │
+  │                                                                 │
+  │  Tier 1: On-vehicle (real-time, <1ms)                          │
+  │  ┌────────────────────────────────────────────────────┐        │
+  │  │  Raw sensor fusion → immediate control decisions   │        │
+  │  │  "Is there an obstacle in my path RIGHT NOW?"      │        │
+  │  └────────────────────────────────────────────────────┘        │
+  │                          │ 5G (aggregated events)              │
+  │                          ▼                                     │
+  │  Tier 2: MEC node on roadside (10–50ms)                        │
+  │  ┌────────────────────────────────────────────────────┐        │
+  │  │  Multi-vehicle coordination (intersection logic)   │        │
+  │  │  Real-time HD map updates                          │        │
+  │  │  Traffic flow optimisation for local area          │        │
+  │  └────────────────────────────────────────────────────┘        │
+  │                          │ (aggregated telemetry)              │
+  │                          ▼                                     │
+  │  Tier 3: Cloud region (seconds to minutes)                     │
+  │  ┌────────────────────────────────────────────────────┐        │
+  │  │  Fleet analytics, model retraining                 │        │
+  │  │  Map database updates                              │        │
+  │  │  Long-term route planning                          │        │
+  │  └────────────────────────────────────────────────────┘        │
+  └─────────────────────────────────────────────────────────────────┘
+```
+
+Each tier handles the latency class it is physically capable of meeting. Nothing that requires <50 ms is allowed to depend on the cloud tier.
+
+---
+
+## 5. Trade-offs and Limits
+
+Edge computing solves real problems but introduces a new class of engineering challenges. Be clear-eyed about these before over-engineering a solution.
+
+**Cold start latency:** Edge functions that have not been invoked recently incur a startup penalty. Cloudflare Workers, using V8 isolates, start in ~0.5 ms. AWS Lambda@Edge, using containers, can take 100–500 ms on a cold start. For latency-sensitive paths, confirm the cold start behaviour of your chosen platform under realistic traffic patterns.
+
+**Debugging difficulty:** A bug in a Cloudflare Worker is executing in one of 300+ locations simultaneously. Reproducing the exact PoP that served a failing request requires good distributed tracing. Local development environments imperfectly simulate the edge environment. Observability tooling (Cloudflare's Logpush, distributed tracing via Honeycomb or Datadog) is not optional.
+
+**Deployment complexity:** A single application now has code running in: your cloud region (origin), CDN edge (workers), possibly a MEC tier, and potentially on-device. Each has different deployment pipelines, different secret management, different rollback procedures. This operational overhead is real.
+
+**Consistency challenges:** When an edge worker caches data at a PoP, that cache is eventually consistent with your origin. A user in one city may see stale data for seconds after a write. Designing around this requires explicit cache invalidation strategies and, for sensitive data, bypassing the cache entirely (at the cost of edge latency benefits).
+
+**Limited runtime:** Edge functions are not suitable for long-running processes. You cannot run a background job, hold a WebSocket connection open for minutes, or maintain an in-memory scheduler. These must live in the cloud origin.
+
+**Vendor lock-in:** Cloudflare Workers' API is not identical to AWS Lambda@Edge. Code written for one does not trivially port to the other. WinterCG is a standards effort toward convergence, but full portability is not yet reality.
+
+---
+
+## 6. When NOT to Use Edge
+
+The pattern is powerful enough that teams sometimes try to push everything to the edge. Resist this.
+
+**Do not use edge for:**
+
+- **Heavy computation.** Model inference on large neural networks, video encoding pipelines, complex simulations — these need GPU clusters or high-memory machines. Edge runtimes have tight CPU and memory limits.
+- **Stateful workflows.** Multi-step processes that need to maintain state across many requests (order fulfilment workflows, long-running approval chains) belong in origin services with proper databases.
+- **Complex business logic.** Your pricing engine, subscription management, or compliance validation logic should not live in an edge function. Business logic changes frequently, requires full test coverage, and benefits from the full observability stack available at your origin.
+- **Database write paths.** Writing to a central database from an edge worker re-introduces the latency you were trying to eliminate (the write still has to reach the origin database). Edge is effective for read paths and for decisions that do not require durable persistence.
+- **When your users are already co-located with your region.** If 90% of your users are in the same AWS region as your servers, adding an edge tier provides negligible latency benefit and significant operational cost.
+
+The phrase **"over-edging"** describes architectures that moved too much to the edge and now have: distributed state management nightmares, inconsistent business logic in two places, edge functions that are mostly proxy code relaying requests to the origin anyway, and debugging workflows that require a specialist.
+
+---
+
+## 7. State Management at the Edge
+
+The fundamental tension of edge computing is that its latency benefits come from geographic distribution, but distribution makes consistency hard. If each of 300 PoPs has its own copy of data, any write to one must eventually propagate to all others — and during that propagation window, reads are inconsistent.
+
+**Cloudflare KV (Key-Value Store):** A globally replicated key-value store. Writes propagate across all PoPs within ~60 seconds. This makes it suitable for data that changes infrequently: feature flag states, static configuration, user session metadata. It is not suitable for data requiring immediate global consistency (inventory counts, rate limit counters).
+
+**Cloudflare Durable Objects:** The most architecturally interesting edge state primitive. A Durable Object is a single-instance, strongly consistent stateful object with a JS runtime. Rather than distributing state across all PoPs, requests that need consistent state for a given entity (say, a chat room, or a rate limit key) are routed to a single Durable Object instance (which may live in the nearest PoP to whoever first accessed it). Strong consistency is guaranteed because all access goes through one instance.
+
+```
+                    Traditional edge state problem:
+  PoP-A ──► KV shard A ──► write propagates slowly ──► PoP-B reads stale
+
+                    Durable Objects:
+  PoP-A ──────────────────────────────────────────────► Single DO instance
+  PoP-B ──────────────────────────────────────────────► (all reads/writes serialised)
+  PoP-C ──────────────────────────────────────────────► Strong consistency
+```
+
+Durable Objects are the right choice when you genuinely need per-entity strong consistency at the edge: rate limiters, collaborative document editing, gaming session state, websocket connection coordinators.
+
+**When you genuinely need stickiness:** Some problems require all requests from a session to reach the same edge node. Cloudflare Workers' routing and Durable Objects handle this. For other CDN platforms, session affinity (sticky routing) can be configured, though it sacrifices some of the geo-distribution benefit.
+
+---
+
+## 8. Decision Framework: Should This Run at the Edge?
+
+Use this table to evaluate whether a specific workload belongs at the edge, in the cloud origin, or on-device. For each criterion, score the workload. If the majority of criteria point to edge, it is a good candidate. If most point to origin, keep it there.
+
+| Criterion | Strong case for Edge | Strong case for Origin / Device |
+|---|---|---|
+| **Latency sensitivity** | User-perceptible response time, <50 ms required | Background processing, async job, batch workload |
+| **Request frequency** | High-traffic path (home page, auth check, asset serving) | Low-frequency admin operations |
+| **Payload size** | Small request/response (<100 KB) | Large file upload/download, video stream |
+| **Personalisation needs** | Light personalisation (locale, A/B bucket, auth header) | Deep personalisation requiring full user profile and history |
+| **Statefulness** | Stateless or very simple state (cookie, KV lookup) | Complex transactional state, multi-step workflows |
+| **Business logic complexity** | Simple rules (JWT check, URL rewrite, geo-block) | Complex pricing, compliance rules, ML inference |
+| **Consistency requirements** | Eventual consistency acceptable | Strong consistency required (financial transactions) |
+| **Compliance / data residency** | No raw PII processing; or explicitly permitted by policy | PII must stay in a specific jurisdiction |
+| **Offline requirement** | Network available assumed | Must function without internet (use on-device instead) |
+| **Operational maturity** | Team has edge debugging/tracing toolchain | Team is not yet familiar with distributed edge debugging |
+
+**Rule of thumb:** Edge is excellent at being a fast, smart HTTP intermediary. It is poor at being a miniature application server. Every time you find yourself saying "we just need to add one more thing to the edge worker," pause and ask whether the logic is genuinely latency-sensitive or whether it simply drifted there because it was convenient.
+
+---
+
+## Summary
+
+Edge computing is not a replacement for cloud architecture — it is an additional tier that solves the specific problem of reducing the distance between computation and the event or user that triggered it. The spectrum runs from CDN edge functions (stateless, lightweight, globally distributed) through MEC nodes (telco-managed, low single-digit milliseconds) to on-device inference (zero network latency, maximum privacy).
+
+The canonical use cases — auth validation, A/B testing, image transformation, point-of-transaction fraud detection, autonomous vehicle sensor fusion — share a common structure: the decision needs to be made faster than a cloud round-trip permits, or the data cannot leave the local environment. Outside that pattern, origin services remain the correct home for stateful, complex, or compliance-sensitive logic.
+
+The decision framework collapses to two questions: **Is this workload genuinely latency-constrained in a way that edge geography solves?** And: **Can it run within the memory, CPU, and statefulness limits of an edge runtime?** If both answers are yes, edge is worth the operational investment. If either answer is no, the edge layer becomes an expensive pass-through that adds complexity without removing latency.
+
+---
+
+*Next: Module 7 — Reliability & Fault Tolerance*

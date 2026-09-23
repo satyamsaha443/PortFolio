@@ -1,0 +1,230 @@
+<h1>Replication: Leader-Follower &amp; Multi-Master</h1>
+<blockquote>
+<p><strong>Lesson 2.7</strong> · Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<h2>Why Replicate?</h2>
+<p>A single database is a single point of failure. If it dies, your entire application goes down. And a single database can only handle so many reads before becoming a bottleneck.</p>
+<p><strong>Replication</strong> keeps copies of your data on multiple database nodes. This provides:</p>
+<ol>
+<li><strong>Availability:</strong> If the primary fails, a replica can take over</li>
+<li><strong>Read scalability:</strong> Distribute read traffic across multiple nodes</li>
+<li><strong>Reduced latency:</strong> Replicas in different regions serve local users faster</li>
+<li><strong>Backup:</strong> A replica is a live backup</li>
+</ol>
+<hr>
+<h2>Leader-Follower Replication (Primary-Replica)</h2>
+<p>The most common replication model. One node is the <strong>leader</strong> (primary) and accepts all writes. One or more <strong>followers</strong> (replicas) receive a copy of every write and handle read queries.</p>
+<pre><code>           ┌─────────────┐
+Writes ──► │   Leader    │
+           └──────┬──────┘
+                  │  replication stream
+         ┌────────┴────────┐
+         ▼                 ▼
+  ┌──────────┐      ┌──────────┐
+  │Follower 1│      │Follower 2│
+  └──────────┘      └──────────┘
+      ▲                  ▲
+      Reads              Reads
+</code></pre>
+<h3>How Replication Works</h3>
+<p>The leader writes every change to a <strong>replication log</strong> (WAL in PostgreSQL, binlog in MySQL). Followers continuously read this log and apply the same changes to their local copy.</p>
+<h3>Synchronous vs Asynchronous Replication</h3>
+<p><strong>Synchronous:</strong></p>
+<pre><code>Write arrives → Leader writes → Waits for Follower to confirm → Returns success to client
+</code></pre>
+<ul>
+<li>Follower is always up to date</li>
+<li>Writes are slower (wait for follower acknowledgement)</li>
+<li>If the follower is slow or down, writes are blocked</li>
+</ul>
+<p><strong>Asynchronous:</strong></p>
+<pre><code>Write arrives → Leader writes → Returns success to client immediately
+                              → Sends to Follower in background
+</code></pre>
+<ul>
+<li>Writes are fast (no waiting)</li>
+<li>Follower may lag behind (replication lag)</li>
+<li>If leader fails before follower catches up, some writes are lost</li>
+</ul>
+<p><strong>Semi-synchronous</strong> (PostgreSQL <code>synchronous_commit = remote_write</code>): wait for at least one follower to receive the write (not necessarily apply it). Balance between durability and latency.</p>
+<h3>Replication Lag</h3>
+<p>The time between a write on the leader and its appearance on followers. Typically milliseconds, but can grow to seconds or minutes under high load or network issues.</p>
+<p>During lag, reading from a follower may return stale data:</p>
+<pre><code>Leader: user.email = &quot;new@example.com&quot;  (written 500ms ago)
+Follower: user.email = &quot;old@example.com&quot;  (lag = 500ms)
+
+App reads from follower → sees stale email → sends to old address
+</code></pre>
+<p><strong>Handling replication lag:</strong></p>
+<ul>
+<li><strong>Read-your-writes consistency:</strong> After a write, read from the leader for a short period</li>
+<li><strong>Monotonic reads:</strong> Always read from the same follower (using sticky routing)</li>
+<li><strong>Time-based:</strong> Do not route to a follower whose lag exceeds a threshold</li>
+</ul>
+<hr>
+<h2>Failover</h2>
+<p>When the leader fails, one follower must be promoted to leader. This process is <strong>failover</strong>.</p>
+<h3>Manual Failover</h3>
+<p>An engineer detects the failure, selects a follower, promotes it, and updates the application configuration. Slow (minutes), but safe.</p>
+<h3>Automatic Failover</h3>
+<p>A monitoring system (like Patroni for PostgreSQL, or MHA for MySQL) detects leader failure and automatically promotes a follower.</p>
+<pre><code>Time 0: Leader dies
+Time 1: Monitor detects no heartbeat for 30 seconds
+Time 2: Monitor selects follower with least lag
+Time 3: Follower promoted to leader
+Time 4: Application config updated (via DNS or etcd)
+Time 5: Application reconnects to new leader
+Total downtime: ~60 seconds
+</code></pre>
+<h3>The Split-Brain Problem</h3>
+<p>During network partition, the old leader (still alive but isolated) and the new leader (just promoted) both believe they are the leader. Both accept writes. When the network heals, the databases have diverged.</p>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li><strong>STONITH</strong> (Shoot The Other Node In The Head): When promoting a follower, send a command to forcibly shut down the old leader before it can accept writes</li>
+<li><strong>Fencing tokens:</strong> The leader has a token; writes are only accepted if the token is the latest one</li>
+<li><strong>Quorum-based consensus</strong> (Raft, Paxos): Require a majority of nodes to agree on who the leader is</li>
+</ul>
+<hr>
+<h2>Multi-Master Replication</h2>
+<p>Multiple nodes accept writes simultaneously. Every write on any master is replicated to all other masters.</p>
+<pre><code>         ┌──────────┐
+Writes ──► Master 1 │ ◄──► Writes
+         └──────────┘
+              ▲ ▼  replication
+         ┌──────────┐
+Writes ──► Master 2 │ ◄──► Writes
+         └──────────┘
+</code></pre>
+<h3>Use Cases</h3>
+<ol>
+<li><p><strong>Multi-region writes:</strong> Users in the US write to the US master; users in Europe write to the EU master; both replicate to each other. Users write to their nearest datacenter with low latency.</p>
+</li>
+<li><p><strong>Offline-first applications:</strong> Mobile apps write locally while offline. When online, sync to the server. The server is one &quot;master&quot; and the device is another.</p>
+</li>
+<li><p><strong>Conflict-tolerant data:</strong> Applications where conflicting writes can be merged (collaborative documents, shopping carts).</p>
+</li>
+</ol>
+<h3>The Write Conflict Problem</h3>
+<p>With multiple masters, two clients can write to the same row simultaneously:</p>
+<pre><code>User A (US master): UPDATE posts SET title = &quot;Hello World&quot;  WHERE id = 42
+User B (EU master): UPDATE posts SET title = &quot;Goodbye World&quot; WHERE id = 42
+</code></pre>
+<p>Both writes succeed locally. When replicated, there is a conflict. Which value wins?</p>
+<p><strong>Conflict resolution strategies:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Description</th>
+<th>Suitable when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Last-write-wins (LWW)</strong></td>
+<td>Higher timestamp wins</td>
+<td>Clocks are synchronized; some data loss is OK</td>
+</tr>
+<tr>
+<td><strong>First-write-wins</strong></td>
+<td>Earlier timestamp wins</td>
+<td>Immutable-ish data</td>
+</tr>
+<tr>
+<td><strong>Application-level merge</strong></td>
+<td>Application code merges conflicting values</td>
+<td>Custom business logic</td>
+</tr>
+<tr>
+<td><strong>CRDT</strong></td>
+<td>Data structures that always merge safely</td>
+<td>Counters, sets, collaborative text</td>
+</tr>
+<tr>
+<td><strong>User resolution</strong></td>
+<td>Show user both versions, ask to pick</td>
+<td>Collaborative docs</td>
+</tr>
+</tbody></table>
+<p>Multi-master replication introduces fundamental consistency challenges. Most teams avoid it except for specific use cases.</p>
+<hr>
+<h2>Leaderless Replication</h2>
+<p>Some databases (Cassandra, DynamoDB) use <strong>leaderless replication</strong> — any node can accept any write. There is no single leader.</p>
+<p>Writes are sent to multiple nodes simultaneously. Reads are also sent to multiple nodes. The client compares responses and takes the most recent.</p>
+<h3>Quorum Reads and Writes</h3>
+<p>With N replicas, W write acknowledgements required, R read acknowledgements required:</p>
+<p><strong>Consistency guaranteed when: W + R &gt; N</strong></p>
+<p>Example: N=3 replicas, W=2 writes, R=2 reads (W + R = 4 &gt; 3)</p>
+<ul>
+<li>Every write goes to 2 nodes</li>
+<li>Every read comes from 2 nodes</li>
+<li>At least 1 node must be in both sets — always returns the latest write</li>
+</ul>
+<pre><code>Common configurations:
+N=3, W=3, R=1 → Very durable writes, fast reads, no write availability during failure
+N=3, W=1, R=3 → Fast writes, slow reads
+N=3, W=2, R=2 → Balanced (used by Cassandra QUORUM)
+N=3, W=1, R=1 → Fastest, but may return stale data
+</code></pre>
+<h3>Sloppy Quorum and Hinted Handoff</h3>
+<p>When nodes in the quorum are unavailable (network partition), a <strong>sloppy quorum</strong> allows other nodes to temporarily accept writes with a <strong>hint</strong> to forward to the original node when it recovers.</p>
+<hr>
+<h2>Replication in Practice</h2>
+<h3>PostgreSQL Streaming Replication</h3>
+<pre><code class="language-sql">-- On primary: postgresql.conf
+wal_level = replica
+max_wal_senders = 3
+synchronous_standby_names = &#39;replica1&#39;  -- for synchronous replication
+
+-- On replica: recovery.conf (or postgresql.auto.conf in PG12+)
+primary_conninfo = &#39;host=primary-db port=5432 user=replicator password=...&#39;
+hot_standby = on  -- allows reads on replica
+</code></pre>
+<h3>Read vs Write Splitting</h3>
+<pre><code class="language-python">class DatabaseRouter:
+    def get_connection(self, operation):
+        if operation == &#39;write&#39;:
+            return self.primary_connection  # always primary
+        else:
+            # Round-robin across replicas
+            return self.replica_connections[self.next_replica % len(replicas)]
+</code></pre>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Writes</th>
+<th>Reads</th>
+<th>Conflict risk</th>
+<th>Complexity</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Leader-follower</td>
+<td>Leader only</td>
+<td>Any node</td>
+<td>None</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>Multi-master</td>
+<td>Any master</td>
+<td>Any node</td>
+<td>High</td>
+<td>High</td>
+</tr>
+<tr>
+<td>Leaderless</td>
+<td>Any node</td>
+<td>Any node</td>
+<td>Medium</td>
+<td>Medium</td>
+</tr>
+</tbody></table>
+<p><strong>Default choice:</strong> Leader-follower with async replication + automated failover. Add read replicas as read load grows. Multi-master only for specific geographic or offline use cases.</p>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./08-indexes.md">Lesson 2.8 — Indexes: B-Tree &amp; LSM Tree</a></p>
+</blockquote>

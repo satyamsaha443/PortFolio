@@ -1,0 +1,279 @@
+<h1>Design 15: Global Job Scheduler (Cron-as-a-Service)</h1>
+<blockquote>
+<p><strong>Lesson 3.15</strong> · Senior · 85 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a distributed job scheduler that:</p>
+<ul>
+<li>Accepts cron-style schedules (e.g. <code>0 9 * * 1</code> = Monday 9am)</li>
+<li>Executes jobs at the scheduled time, reliably and exactly once</li>
+<li>Supports one-time jobs (execute at a specific time)</li>
+<li>Scales to millions of jobs across multiple regions</li>
+<li>Handles failures: retry failed jobs with backoff</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Register a job with a schedule (cron or one-time datetime)</li>
+<li>Execute an HTTP callback (webhook) or run a containerized task at the scheduled time</li>
+<li>Retry on failure (configurable: 3 retries with exponential backoff)</li>
+<li>Job history: last 100 executions with status and output</li>
+<li>Pause, resume, delete jobs</li>
+<li>Cross-timezone support</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>10M registered jobs</li>
+<li>100K job executions/minute (1,667/second)</li>
+<li>Execution must trigger within 1 second of scheduled time</li>
+<li>At-least-once execution (may fire twice on failure; job must be idempotent)</li>
+<li>99.95% uptime (missed executions must be detected and replayed)</li>
+</ul>
+<hr>
+<h2>Step 2: Capacity Estimates</h2>
+<pre><code>Registered jobs: 10M
+  - 10M rows in DB, manageable
+
+Job executions:
+  100K/minute = 1,667/second
+  Each execution: ~100 bytes of metadata = 167 KB/s writes
+  History (last 100 per job): 10M × 100 × 200 bytes = 200 GB
+
+Scheduler polling:
+  Need to scan upcoming jobs every second
+  10M jobs, find those due in the next 60 seconds
+  Must be efficient (not a full table scan)
+</code></pre>
+<hr>
+<h2>Step 3: The Core Scheduling Algorithm</h2>
+<p><strong>Naive approach:</strong> Every second, scan all 10M jobs to find those due.</p>
+<pre><code class="language-sql">SELECT * FROM jobs WHERE next_run_at &lt;= NOW() AND status = &#39;active&#39;;
+</code></pre>
+<p>At 10M jobs, this is a sequential scan every second. Catastrophically slow.</p>
+<p><strong>Better: index on next_run_at</strong></p>
+<pre><code class="language-sql">CREATE INDEX idx_jobs_next_run ON jobs (next_run_at) WHERE status = &#39;active&#39;;
+</code></pre>
+<p>Now the query uses an index range scan: fetch only jobs where <code>next_run_at</code> is in the past or next 60 seconds. This is O(k) where k is the number of due jobs, not O(N) over all 10M jobs.</p>
+<p><strong>Even better: time-bucketed shards</strong></p>
+<p>Partition jobs into 1-minute buckets:</p>
+<pre><code>Bucket 2024-01-15T09:00 → list of job IDs due in that minute
+Bucket 2024-01-15T09:01 → list of job IDs due in that minute
+</code></pre>
+<p>Use Redis sorted sets:</p>
+<pre><code>ZADD scheduled_jobs {unix_timestamp} {job_id}
+ZRANGEBYSCORE scheduled_jobs 0 {now+60}  → jobs due in next 60 seconds
+</code></pre>
+<p>Every second, scan the current 60-second window. Fast, regardless of total job count.</p>
+<hr>
+<h2>Step 4: Exactly-Once Execution — The Hard Problem</h2>
+<p>At 99.95% uptime and 1,667 executions/second, occasional duplicates are likely:</p>
+<ul>
+<li>Scheduler node crashes after triggering job but before marking it executed</li>
+<li>Two scheduler nodes claim the same job simultaneously</li>
+</ul>
+<p><strong>Distributed lock using database row locking:</strong></p>
+<pre><code class="language-sql">-- Claim job atomically
+UPDATE jobs
+SET status = &#39;running&#39;, worker_id = &#39;worker-abc&#39;, started_at = NOW()
+WHERE id = {job_id}
+  AND status = &#39;scheduled&#39;   -- only if not already claimed
+  AND next_run_at &lt;= NOW();
+
+-- 0 rows updated = another worker claimed it first
+</code></pre>
+<p>This uses a database-level lock. Only one worker can transition <code>scheduled → running</code>.</p>
+<p><strong>Optimistic locking with version:</strong></p>
+<pre><code class="language-sql">UPDATE jobs
+SET status = &#39;running&#39;, version = version + 1
+WHERE id = {job_id} AND version = {expected_version};
+</code></pre>
+<p>If another worker already incremented the version, this fails with 0 rows updated.</p>
+<hr>
+<h2>Step 5: System Architecture</h2>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                    API Service                          │
+│  CRUD for jobs, pause/resume, view history              │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │  Job Store    │
+              │ (PostgreSQL)  │
+              └───────┬───────┘
+                      │
+                ┌─────┴──────┐
+                ▼            ▼
+        ┌──────────┐   ┌──────────┐
+        │Scheduler │   │Scheduler │  ← multiple, for HA
+        │Node 1    │   │Node 2    │
+        └─────┬────┘   └─────┬────┘
+              │              │
+              └──────┬───────┘
+                     ▼
+              ┌──────────────┐
+              │  Job Queue   │  ← Kafka
+              │  (Kafka)     │
+              └──────┬───────┘
+                     │
+          ┌──────────┼──────────┐
+          ▼          ▼          ▼
+      Worker 1   Worker 2   Worker 3
+    (executes   (executes   (executes
+     HTTP call)  HTTP call)  container)
+</code></pre>
+<hr>
+<h2>Step 6: Scheduler Nodes — High Availability</h2>
+<p>There must be multiple scheduler nodes. If one crashes, others continue. But two nodes must not claim the same job.</p>
+<p><strong>Leader election with distributed lock:</strong></p>
+<ul>
+<li>One scheduler node is the &quot;leader&quot; (holds a Redis/ZooKeeper lock)</li>
+<li>Only the leader polls for due jobs and enqueues them</li>
+<li>If the leader crashes, a follower wins the lock and becomes new leader</li>
+<li>Failover time: ~30 seconds (lock TTL)</li>
+</ul>
+<p><strong>Alternative — partitioned scheduling:</strong>
+Shard jobs by <code>job_id % N</code> across N scheduler nodes. Each node is responsible for its partition. If a node crashes, redistribute its partition to surviving nodes (using consistent hashing).</p>
+<hr>
+<h2>Step 7: Worker Execution and Retry</h2>
+<p>Workers consume from the Kafka &quot;due_jobs&quot; topic:</p>
+<pre><code class="language-python">def execute_job(job):
+    try:
+        if job.execution_type == &#39;http&#39;:
+            response = http.post(job.callback_url, json=job.payload, timeout=30)
+            if response.status_code &gt;= 200 and &lt; 300:
+                mark_success(job)
+            else:
+                mark_failed(job, f&quot;HTTP {response.status_code}&quot;)
+        elif job.execution_type == &#39;container&#39;:
+            container_id = docker.run(job.image, job.command)
+            wait_for_completion(container_id)
+            mark_success(job)
+    except TimeoutError:
+        mark_failed(job, &quot;timeout&quot;)
+    except Exception as e:
+        mark_failed(job, str(e))
+</code></pre>
+<p><strong>Retry logic (exponential backoff):</strong></p>
+<pre><code class="language-python">def mark_failed(job, reason):
+    if job.retry_count &lt; job.max_retries:
+        next_retry = now + 2 ** job.retry_count * 30  # 30s, 60s, 120s
+        update_job(job.id, retry_count+1, next_run_at=next_retry, status=&#39;scheduled&#39;)
+    else:
+        update_job(job.id, status=&#39;failed&#39;)
+        send_alert(job)  # notify user
+</code></pre>
+<hr>
+<h2>Step 8: Next-Run Calculation</h2>
+<p>After a successful execution, compute the next run time from the cron schedule.</p>
+<pre><code class="language-python">import croniter
+
+def compute_next_run(cron_expression, after=datetime.now()):
+    cron = croniter.croniter(cron_expression, after)
+    return cron.get_next(datetime)
+
+# &quot;0 9 * * 1&quot; (Mondays at 9am)
+next_run = compute_next_run(&quot;0 9 * * 1&quot;)
+# → 2024-01-22 09:00:00 (next Monday)
+</code></pre>
+<p>Timezone handling: store all times in UTC in the database. Convert to user&#39;s timezone only for display and schedule entry. Cron expressions are interpreted in the user&#39;s timezone.</p>
+<hr>
+<h2>Step 9: Database Schema</h2>
+<pre><code class="language-sql">CREATE TABLE jobs (
+    id              UUID PRIMARY KEY,
+    owner_id        BIGINT NOT NULL,
+    name            TEXT NOT NULL,
+    status          VARCHAR(20) DEFAULT &#39;active&#39;,  -- active, paused, deleted
+    schedule_type   VARCHAR(10),                   -- cron, once
+    cron_expression TEXT,
+    run_at          TIMESTAMP,                     -- for one-time jobs
+    timezone        VARCHAR(50) DEFAULT &#39;UTC&#39;,
+    execution_type  VARCHAR(10),                   -- http, container
+    callback_url    TEXT,
+    container_image TEXT,
+    container_cmd   TEXT,
+    payload         JSONB,
+    max_retries     INT DEFAULT 3,
+    timeout_seconds INT DEFAULT 30,
+    next_run_at     TIMESTAMP,
+    last_run_at     TIMESTAMP,
+    version         BIGINT DEFAULT 0,             -- for optimistic locking
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_jobs_next_run ON jobs (next_run_at) WHERE status = &#39;active&#39;;
+
+CREATE TABLE job_executions (
+    id              UUID PRIMARY KEY,
+    job_id          UUID NOT NULL REFERENCES jobs(id),
+    started_at      TIMESTAMP,
+    completed_at    TIMESTAMP,
+    status          VARCHAR(20),  -- success, failed, timeout, running
+    attempt         INT DEFAULT 1,
+    error_message   TEXT,
+    response_code   INT,
+    worker_id       TEXT
+);
+CREATE INDEX idx_executions_job ON job_executions (job_id, started_at DESC);
+</code></pre>
+<hr>
+<h2>Step 10: Missed Executions</h2>
+<p>If the scheduler was down, some executions were missed.</p>
+<p>On startup, the scheduler checks:</p>
+<pre><code class="language-sql">SELECT * FROM jobs
+WHERE next_run_at &lt; NOW() - INTERVAL &#39;5 minutes&#39;
+  AND status = &#39;active&#39;;
+</code></pre>
+<p><strong>Policy options (configurable per job):</strong></p>
+<ol>
+<li><strong>Skip missed executions:</strong> Just compute next future run time. Good for periodic reports.</li>
+<li><strong>Execute once now (catch-up):</strong> Run once immediately for the most recent missed execution. Good for critical jobs.</li>
+<li><strong>Execute all missed:</strong> Run once per missed window. Good for billing/reconciliation jobs. Risky (explosion of executions after long outage).</li>
+</ol>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Finding due jobs</td>
+<td>Index on next_run_at; Redis sorted set by timestamp</td>
+</tr>
+<tr>
+<td>Exactly-once execution</td>
+<td>DB row lock with optimistic version; only claimed by one worker</td>
+</tr>
+<tr>
+<td>High availability</td>
+<td>Leader election (Redis/ZooKeeper); failover &lt; 30s</td>
+</tr>
+<tr>
+<td>Retry</td>
+<td>Exponential backoff; max_retries configurable per job</td>
+</tr>
+<tr>
+<td>Missed executions</td>
+<td>Detected on startup; policy: skip, catch-up, or execute all</td>
+</tr>
+<tr>
+<td>Next run calculation</td>
+<td>croniter library; all times stored in UTC</td>
+</tr>
+<tr>
+<td>Worker scale</td>
+<td>Kafka consumer group; add workers to scale throughput</td>
+</tr>
+<tr>
+<td>History</td>
+<td>job_executions table; keep last 100 per job; archive older</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Module 3 Complete!</strong> Next: <a href="../module-4-deep-dives/01-microservices-vs-monolith.md">Module 4 — Deep Dives (Working Professionals)</a></p>
+</blockquote>

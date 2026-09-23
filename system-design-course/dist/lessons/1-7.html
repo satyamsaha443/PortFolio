@@ -1,0 +1,290 @@
+<h1>Scalability: Vertical vs Horizontal (with Real Cost Numbers)</h1>
+<blockquote>
+<p><strong>Lesson 1.7</strong> · Beginner + Pro · 30 min</p>
+</blockquote>
+<hr>
+<h2>What Is Scalability?</h2>
+<p><strong>Scalability</strong> is a system&#39;s ability to handle increased load by adding resources. A scalable system grows gracefully — doubling the load should roughly double the capacity without requiring a full redesign.</p>
+<p>The load might be:</p>
+<ul>
+<li>More concurrent users</li>
+<li>More requests per second</li>
+<li>More data to store</li>
+<li>More complex computations</li>
+</ul>
+<p>There are two fundamental ways to scale: <strong>up</strong> (vertical) and <strong>out</strong> (horizontal).</p>
+<hr>
+<h2>Vertical Scaling (Scale Up)</h2>
+<p>Vertical scaling means making a <strong>single machine more powerful</strong> — more CPU, more RAM, faster storage.</p>
+<pre><code>Before:  1 server with 4 cores, 16 GB RAM
+After:   1 server with 32 cores, 256 GB RAM
+</code></pre>
+<h3>Real AWS Cost Numbers (2024, us-east-1)</h3>
+<table>
+<thead>
+<tr>
+<th>Instance</th>
+<th>vCPU</th>
+<th>RAM</th>
+<th>Price/month</th>
+<th>Relative cost</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>t3.medium</td>
+<td>2</td>
+<td>4 GB</td>
+<td>~$30</td>
+<td>1x</td>
+</tr>
+<tr>
+<td>t3.xlarge</td>
+<td>4</td>
+<td>16 GB</td>
+<td>~$120</td>
+<td>4x</td>
+</tr>
+<tr>
+<td>m6i.4xlarge</td>
+<td>16</td>
+<td>64 GB</td>
+<td>~$550</td>
+<td>18x</td>
+</tr>
+<tr>
+<td>m6i.16xlarge</td>
+<td>64</td>
+<td>256 GB</td>
+<td>~$2,200</td>
+<td>73x</td>
+</tr>
+<tr>
+<td>m6i.32xlarge</td>
+<td>128</td>
+<td>512 GB</td>
+<td>~$4,400</td>
+<td>146x</td>
+</tr>
+<tr>
+<td>u-24tb1.metal</td>
+<td>448</td>
+<td>24,576 GB</td>
+<td>~$218,000</td>
+<td>7,200x</td>
+</tr>
+</tbody></table>
+<p>The pricing is highly non-linear. 4x the CPU costs 4x at first, then 10x, then 73x.</p>
+<h3>Vertical Scaling Strengths</h3>
+<ul>
+<li><strong>Simple:</strong> No application changes needed. Upgrade the machine and restart.</li>
+<li><strong>No distribution complexity:</strong> No need for load balancers, distributed state, or network calls between instances.</li>
+<li><strong>ACID transactions remain easy:</strong> One database on one machine with no consistency challenges.</li>
+</ul>
+<h3>Vertical Scaling Weaknesses</h3>
+<ul>
+<li><strong>Hard ceiling:</strong> The biggest machines available are ~448 cores and ~24 TB RAM. You cannot scale beyond that.</li>
+<li><strong>Downtime:</strong> Upgrading usually requires a restart.</li>
+<li><strong>Single point of failure:</strong> One machine means one failure point. If it dies, the service is down.</li>
+<li><strong>Diminishing returns:</strong> The cost/performance ratio gets worse as you scale up. 10x more powerful costs 73x more.</li>
+</ul>
+<h3>When to Use Vertical Scaling</h3>
+<ul>
+<li><strong>Early stage:</strong> Start with a single large machine. Simpler to reason about.</li>
+<li><strong>Databases:</strong> Vertical scaling for the database is often the first move before the complexity of sharding.</li>
+<li><strong>Stateful services:</strong> Services that are hard to distribute.</li>
+</ul>
+<hr>
+<h2>Horizontal Scaling (Scale Out)</h2>
+<p>Horizontal scaling means adding <strong>more machines</strong> and distributing the load across them.</p>
+<pre><code>Before:  1 server handling 1,000 req/sec
+After:   10 servers, each handling 100 req/sec
+</code></pre>
+<pre><code>         ┌──────────────┐
+         │ Load Balancer│
+         └──────┬───────┘
+                │
+    ┌───────────┼───────────┐
+    ▼           ▼           ▼
+┌────────┐ ┌────────┐ ┌────────┐
+│Server 1│ │Server 2│ │Server 3│
+└────────┘ └────────┘ └────────┘
+</code></pre>
+<h3>Real Cost Numbers for Horizontal Scaling</h3>
+<p>If a <code>t3.medium</code> ($30/month, 2 vCPU, 4 GB RAM) handles 500 req/sec:</p>
+<table>
+<thead>
+<tr>
+<th>Load</th>
+<th>Vertical</th>
+<th>Horizontal</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>500 req/sec</td>
+<td>1x t3.medium ($30)</td>
+<td>1x t3.medium ($30)</td>
+</tr>
+<tr>
+<td>2,500 req/sec</td>
+<td>1x m6i.xlarge (~$150)</td>
+<td>5x t3.medium ($150)</td>
+</tr>
+<tr>
+<td>10,000 req/sec</td>
+<td>1x m6i.4xlarge (~$550)</td>
+<td>20x t3.medium ($600)</td>
+</tr>
+<tr>
+<td>50,000 req/sec</td>
+<td>1x m6i.16xlarge (~$2,200)</td>
+<td>100x t3.medium ($3,000)</td>
+</tr>
+<tr>
+<td>500,000 req/sec</td>
+<td>Not possible (hardware limit)</td>
+<td>1,000x t3.medium ($30,000)</td>
+</tr>
+</tbody></table>
+<p>The crossover point varies, but horizontal scaling&#39;s linear cost curve eventually beats vertical scaling&#39;s exponential curve — and horizontal scaling has no hard ceiling.</p>
+<h3>Horizontal Scaling Strengths</h3>
+<ul>
+<li><strong>No upper limit:</strong> Add machines indefinitely. Google and Amazon run millions of servers.</li>
+<li><strong>No downtime to scale:</strong> Add servers while the system runs.</li>
+<li><strong>Fault tolerance:</strong> If one server dies, the others absorb its traffic.</li>
+<li><strong>Better cost efficiency at scale:</strong> Linear cost scaling.</li>
+</ul>
+<h3>Horizontal Scaling Weaknesses</h3>
+<ul>
+<li><strong>Stateless requirement:</strong> Each server must be able to handle any request. Cannot store user sessions in server memory.</li>
+<li><strong>Consistency challenges:</strong> Data spread across machines is harder to keep consistent.</li>
+<li><strong>More infrastructure:</strong> Load balancers, service discovery, distributed tracing.</li>
+<li><strong>Network overhead:</strong> Servers talking to each other adds latency.</li>
+</ul>
+<hr>
+<h2>The Stateless Prerequisite</h2>
+<p>The most important requirement for horizontal scaling is that your application servers must be <strong>stateless</strong>. Every request must be completable by any server.</p>
+<p><strong>Wrong (stateful):</strong></p>
+<pre><code>User logs in → Server A stores session in memory
+User&#39;s next request → Server B → &quot;Who are you?&quot; → FAIL
+</code></pre>
+<p><strong>Right (stateless):</strong></p>
+<pre><code>User logs in → Server A creates session token, stores in Redis
+User&#39;s next request → Server B → checks Redis → &quot;You&#39;re Alice&quot; → OK
+</code></pre>
+<p>Move all state out of application servers:</p>
+<ul>
+<li><strong>Sessions</strong> → Redis or JWT tokens</li>
+<li><strong>User files</strong> → S3 or object storage</li>
+<li><strong>Uploaded images</strong> → CDN</li>
+<li><strong>Shared locks</strong> → Redis or ZooKeeper</li>
+</ul>
+<hr>
+<h2>Scaling Databases</h2>
+<p>The stateless pattern works easily for API servers. Databases are harder.</p>
+<h3>Read Replicas</h3>
+<p>Most applications are read-heavy (90%+ reads). Add <strong>read replicas</strong> — copies of the database that handle SELECT queries, while the primary handles writes:</p>
+<pre><code>           Primary DB (writes)
+               │    │
+        ┌──────┘    └──────┐
+        ▼                  ▼
+  Read Replica 1     Read Replica 2
+  (SELECT queries)   (SELECT queries)
+</code></pre>
+<p>This is vertical + horizontal: upgrade the primary for write throughput, add read replicas for read throughput.</p>
+<h3>CQRS (Command Query Responsibility Segregation)</h3>
+<p>For systems with very different read and write access patterns, CQRS takes read-write separation a step further — using <strong>completely different data models</strong> for reading and writing:</p>
+<ul>
+<li><strong>Command side (writes):</strong> Handles creates, updates, and deletes using a model optimized for writes (e.g., normalized relational DB with ACID transactions).</li>
+<li><strong>Query side (reads):</strong> Handles reads using a denormalized model optimized for the exact queries your UI needs (e.g., Elasticsearch for full-text search, Redis for precomputed feeds).</li>
+</ul>
+<p>Changes on the command side propagate asynchronously to the query side, typically via CDC (Change Data Capture) from the primary database&#39;s write-ahead log.</p>
+<p><strong>Example:</strong> A social platform uses MySQL as the source-of-truth write DB. Read queries for full-text search or analytics run against Elasticsearch, which is kept in sync via MySQL binlog CDC. Writes stay fast and consistent; reads stay fast and flexible.</p>
+<p>Use CQRS when: reads and writes have such different patterns that optimizing for one degrades the other.</p>
+<h3>Database Sharding</h3>
+<p>When even the primary becomes a bottleneck, <strong>shard</strong> — split the data across multiple independent databases, each handling a subset of the data. Covered in depth in Module 2.</p>
+<h3>Connection Pooling</h3>
+<p>Each database connection consumes memory. 1,000 API servers each opening 10 connections = 10,000 connections. Use a <strong>connection pooler</strong> (PgBouncer for PostgreSQL) that maintains a smaller pool of database connections and multiplexes many application requests through them.</p>
+<hr>
+<h2>Auto-Scaling</h2>
+<p>Cloud providers support <strong>auto-scaling</strong> — automatically adding or removing servers based on load metrics.</p>
+<pre><code class="language-yaml"># AWS Auto Scaling Policy
+- if CPU &gt; 70% for 2 minutes:
+    add 2 servers
+- if CPU &lt; 30% for 10 minutes:
+    remove 1 server
+- minimum: 2 servers
+- maximum: 20 servers
+</code></pre>
+<p>This is the default way modern cloud applications handle traffic spikes — a viral tweet sends 10x traffic at 2am and the system scales up automatically, then scales back down an hour later to save cost.</p>
+<hr>
+<h2>The Practical Progression</h2>
+<p>Real systems scale in stages:</p>
+<pre><code>Stage 1: Single server ($30/month)
+  → Everything on one machine: web server + app + database
+
+Stage 2: Separate database ($100/month)
+  → App server on one machine, database on another
+  → Now you can scale app servers independently
+
+Stage 3: Add a load balancer + multiple app servers ($300/month)
+  → Traffic distributed across multiple stateless app servers
+  → Database is still a single primary
+
+Stage 4: Read replicas ($500/month)
+  → Primary handles writes
+  → Replicas handle reads
+
+Stage 5: Caching layer + CDN ($700/month)
+  → Redis reduces database load by 80%+
+  → CDN serves static assets
+
+Stage 6: Database sharding + microservices ($3,000+/month)
+  → Only after you exhaust the simpler options
+</code></pre>
+<p><strong>Do not jump to stage 6 when you are at stage 1.</strong> Premature optimisation is the root of all evil in system design — and the root of all overspending.</p>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Vertical</th>
+<th>Horizontal</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>How</strong></td>
+<td>Bigger machine</td>
+<td>More machines</td>
+</tr>
+<tr>
+<td><strong>Ceiling</strong></td>
+<td>Hard limit (hardware max)</td>
+<td>Unlimited</td>
+</tr>
+<tr>
+<td><strong>Cost curve</strong></td>
+<td>Exponential (non-linear)</td>
+<td>Linear</td>
+</tr>
+<tr>
+<td><strong>Complexity</strong></td>
+<td>Low</td>
+<td>High (load balancers, stateless design)</td>
+</tr>
+<tr>
+<td><strong>Fault tolerance</strong></td>
+<td>Single point of failure</td>
+<td>Redundant</td>
+</tr>
+<tr>
+<td><strong>Best for</strong></td>
+<td>Databases (early stage), stateful services</td>
+<td>Stateless API servers, global scale</td>
+</tr>
+</tbody></table>
+<p>The real answer is <strong>both</strong>: start vertical (simple), then add horizontal scaling as needed (scale out before you hit the hardware ceiling).</p>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./08-latency-throughput.md">Lesson 1.8 — Latency vs Throughput</a></p>
+</blockquote>

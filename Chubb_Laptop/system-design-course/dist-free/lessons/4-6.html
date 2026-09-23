@@ -1,0 +1,191 @@
+<h1>Zero-Downtime Deployments (Blue-Green, Canary, Feature Flags)</h1>
+<blockquote>
+<p><strong>Lesson 4.6</strong> · Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<h2>The Problem With Naive Deployments</h2>
+<p>The simplest deployment: stop the server, replace the code, restart.</p>
+<pre><code class="language-bash">ssh web-01
+systemctl stop app
+cp new_app /usr/bin/app
+systemctl start app
+</code></pre>
+<p>During the stop/start window: downtime. Even 30 seconds of downtime is unacceptable for services with SLAs.</p>
+<p>At scale, you have many servers. If you update them one by one (rolling), some requests go to the old version and some to the new version simultaneously. This can break things if old and new versions are incompatible.</p>
+<hr>
+<h2>Rolling Deployments</h2>
+<p>Update servers one at a time. At any moment, some run the old version and some run the new.</p>
+<pre><code>Before:  v1  v1  v1  v1  v1  v1  v1  v1
+Step 1:  v2  v1  v1  v1  v1  v1  v1  v1
+Step 2:  v2  v2  v1  v1  v1  v1  v1  v1
+...
+After:   v2  v2  v2  v2  v2  v2  v2  v2
+</code></pre>
+<p>The load balancer health-checks each instance. As each instance starts the new version and passes health checks, it receives traffic.</p>
+<p><strong>Risk:</strong> During the rollout, v1 and v2 run simultaneously. If they are incompatible (different API contracts, different DB schema), you get errors.</p>
+<p><strong>Key principle:</strong> New version must be backward compatible with old version during the transition period.</p>
+<hr>
+<h2>Blue-Green Deployments</h2>
+<p>Maintain two identical production environments. Only one is live at a time.</p>
+<pre><code>Blue (v1, LIVE) ← all traffic
+Green (idle, ready for new deployment)
+
+Deploy v2 to Green:
+  → Run automated tests against Green
+  → Green passes
+
+Switch load balancer:
+Blue (v1, IDLE)
+Green (v2, LIVE) ← all traffic
+
+If problem detected:
+  → Switch back to Blue in seconds (instant rollback)
+
+After confidence period:
+  → Blue becomes the new staging for v3
+</code></pre>
+<p><strong>Advantages:</strong></p>
+<ul>
+<li>Zero downtime</li>
+<li>Instant rollback — just flip the load balancer</li>
+<li>Test on identical production infrastructure before going live</li>
+</ul>
+<p><strong>Disadvantages:</strong></p>
+<ul>
+<li>Double the infrastructure cost (two full environments)</li>
+<li>Database migrations are tricky (both environments share the database — see below)</li>
+</ul>
+<hr>
+<h2>Canary Deployments</h2>
+<p>Gradually shift a small percentage of traffic to the new version. Monitor. Increase if healthy.</p>
+<pre><code>Start:   v1 (100%), v2 (0%)
+Step 1:  v1 (95%),  v2 (5%)    ← 5% of real users on new version
+         Monitor: error rate, latency, business metrics (30 min)
+Step 2:  v1 (75%),  v2 (25%)
+Step 3:  v1 (50%),  v2 (50%)
+Step 4:  v1 (0%),   v2 (100%)  ← full rollout
+</code></pre>
+<p>If error rate spikes at any step → route 100% back to v1.</p>
+<p><strong>Key benefit:</strong> Bugs only affect a small percentage of users. If you catch a bug at 5%, only 5% were impacted.</p>
+<p><strong>Implementation:</strong> Load balancer weighted routing (AWS ALB, Nginx upstream weights, Istio VirtualService).</p>
+<hr>
+<h2>Feature Flags</h2>
+<p>Separate deployment from release. Deploy code to 100% of production, but hide the new feature behind a flag. Enable for specific users or percentages.</p>
+<pre><code class="language-python">if feature_flags.is_enabled(&quot;new-checkout-flow&quot;, user_id):
+    return new_checkout_page()
+else:
+    return old_checkout_page()
+</code></pre>
+<p><strong>Workflow:</strong></p>
+<ol>
+<li>Merge incomplete feature to main (behind a flag = off)</li>
+<li>QA team tests by turning flag on in staging</li>
+<li>Beta test: enable flag for internal users only</li>
+<li>Gradual rollout: enable for 1% → 10% → 50% → 100%</li>
+<li>Monitor at each step</li>
+<li>Full rollout: remove the flag from code</li>
+</ol>
+<p><strong>Feature flag types:</strong></p>
+<ul>
+<li><strong>Release flag:</strong> Enable when ready to release</li>
+<li><strong>Experiment flag (A/B test):</strong> Show version A to 50%, version B to 50%, measure which performs better</li>
+<li><strong>Ops flag:</strong> Kill switch for a feature that is causing problems</li>
+<li><strong>Permission flag:</strong> Enable premium features for paying users only</li>
+</ul>
+<p><strong>Tools:</strong> LaunchDarkly, Unleash, AWS AppConfig, Flipt (open source)</p>
+<hr>
+<h2>Database Migrations: The Hard Part</h2>
+<p>Deployments are hard when the database schema changes. You cannot atomically change both code and schema across all servers.</p>
+<h3>The Expand-Contract Pattern</h3>
+<p>Never rename or remove a column in one deployment. Use three deployments.</p>
+<p><strong>Example: Rename column <code>user_name</code> to <code>username</code></strong></p>
+<p><strong>Phase 1 — Expand (add new column):</strong></p>
+<pre><code class="language-sql">ALTER TABLE users ADD COLUMN username VARCHAR(100);
+-- Copy data: UPDATE users SET username = user_name;
+</code></pre>
+<p>Deploy code that writes to both <code>user_name</code> AND <code>username</code>. Reads from <code>user_name</code> (old).</p>
+<p><strong>Phase 2 — Migrate reads:</strong>
+Deploy code that writes to both columns but reads from <code>username</code> (new). Verify all data is correct.</p>
+<p><strong>Phase 3 — Contract (remove old column):</strong></p>
+<pre><code class="language-sql">ALTER TABLE users DROP COLUMN user_name;
+</code></pre>
+<p>Deploy code that only uses <code>username</code>.</p>
+<p>This takes three deployments but zero downtime. At no point does old code encounter a column that does not exist.</p>
+<h3>Backward-Compatible Migrations</h3>
+<p>Always make migrations backward-compatible with the running version:</p>
+<ul>
+<li><strong>Safe:</strong> Add a nullable column, add an index, add a table</li>
+<li><strong>Safe:</strong> Add a new enum value (careful with some ORMs)</li>
+<li><strong>Unsafe:</strong> Drop a column (old code still references it)</li>
+<li><strong>Unsafe:</strong> Rename a column (old code uses old name)</li>
+<li><strong>Unsafe:</strong> Add a NOT NULL column without a default (old code does not set it)</li>
+<li><strong>Risky:</strong> Adding an index on a large table (locks the table — use <code>CREATE INDEX CONCURRENTLY</code> in PostgreSQL)</li>
+</ul>
+<hr>
+<h2>Health Checks and Readiness Probes</h2>
+<p>A new server must not receive traffic until it is ready to handle requests.</p>
+<p><strong>Kubernetes probes:</strong></p>
+<pre><code class="language-yaml">livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  # If this fails: restart the container
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 3
+  # If this fails: remove from load balancer (but don&#39;t restart)
+</code></pre>
+<p><strong><code>/health/live</code>:</strong> Returns 200 if the process is running. Returns non-200 only if the app is in a broken state that requires a restart (deadlock, OOM, etc.).</p>
+<p><strong><code>/health/ready</code>:</strong> Returns 200 only when the app has finished startup (database connections established, caches warmed, dependencies available). Until this returns 200, no traffic is sent.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rolling deployment risk</td>
+<td>v1 and v2 run simultaneously; must be backward compatible</td>
+</tr>
+<tr>
+<td>Blue-green advantage</td>
+<td>Instant rollback; test on production infrastructure</td>
+</tr>
+<tr>
+<td>Blue-green cost</td>
+<td>Double infrastructure during deployment</td>
+</tr>
+<tr>
+<td>Canary benefit</td>
+<td>Limit blast radius; 5% of users affected by a bug</td>
+</tr>
+<tr>
+<td>Feature flag benefit</td>
+<td>Decouple deployment from release; instant kill switch</td>
+</tr>
+<tr>
+<td>DB rename strategy</td>
+<td>Expand-contract over three deployments</td>
+</tr>
+<tr>
+<td>Safe migrations</td>
+<td>Add nullable column, add index (CONCURRENTLY), add table</td>
+</tr>
+<tr>
+<td>Readiness probe</td>
+<td>Traffic only sent when app is fully initialized</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./07-api-gateway-patterns.md">Lesson 4.7 — API Gateway Patterns (BFF, Aggregation, Auth)</a></p>
+</blockquote>

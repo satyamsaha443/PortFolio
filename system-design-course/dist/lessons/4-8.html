@@ -1,0 +1,206 @@
+<h1>Data Pipelines &amp; Analytics (Lambda / Kappa Architecture)</h1>
+<blockquote>
+<p><strong>Lesson 4.8</strong> · Senior · 45 min</p>
+</blockquote>
+<hr>
+<h2>The Analytics Problem</h2>
+<p>Your application generates events constantly: page views, purchases, clicks, search queries, errors. You need to answer questions like:</p>
+<ul>
+<li>&quot;How many orders were placed in the last hour, broken down by country?&quot;</li>
+<li>&quot;What is the 7-day rolling average revenue?&quot;</li>
+<li>&quot;Which product pages have the highest bounce rate today?&quot;</li>
+</ul>
+<p>Your operational PostgreSQL database handles transactions — not analytics. Running a 7-day aggregate query over a billion rows while users are checking out will kill performance for both workloads.</p>
+<p>You need a separate <strong>analytical data pipeline</strong>.</p>
+<hr>
+<h2>Batch Processing</h2>
+<p>The simplest approach: run queries on a copy of the data, once per hour/day.</p>
+<pre><code>Operational DB (PostgreSQL)
+         │  (nightly ETL export)
+         ▼
+Data Warehouse (BigQuery, Redshift, Snowflake)
+         │
+         ▼
+BI Tools (Tableau, Looker, Metabase)
+</code></pre>
+<p><strong>ETL (Extract, Transform, Load):</strong></p>
+<ul>
+<li><strong>Extract:</strong> Read data from source (PostgreSQL, S3, APIs)</li>
+<li><strong>Transform:</strong> Clean, join, aggregate (Python/SQL)</li>
+<li><strong>Load:</strong> Write to data warehouse</li>
+</ul>
+<p>Works well for daily reports. Does not work for &quot;real-time&quot; dashboards.</p>
+<hr>
+<h2>Streaming Processing</h2>
+<p>Instead of batch processing every hour, process each event as it happens.</p>
+<pre><code>Application → Kafka (event stream)
+                      │
+                      ▼
+              Stream Processor (Flink / Spark Streaming)
+                      │
+                      ▼
+              Aggregated results (Redis / ClickHouse)
+                      │
+                      ▼
+              Real-time dashboard
+</code></pre>
+<p><strong>Example: count orders per minute, in real time</strong></p>
+<pre><code class="language-python"># Flink pseudocode
+events.filter(lambda e: e.type == &#39;order.placed&#39;)
+      .window(TumblingWindow(60_seconds))
+      .group_by(&#39;country&#39;)
+      .aggregate(count)
+      .sink_to(redis_timeseries)
+</code></pre>
+<p>Every minute, this outputs: <code>{country: &quot;US&quot;, orders: 1247, window: &quot;2024-01-15 09:00&quot;}</code>.</p>
+<hr>
+<h2>Lambda Architecture</h2>
+<p>Lambda architecture combines batch and streaming to get both accuracy and real-time results.</p>
+<pre><code>         ┌────────── Source Events ──────────┐
+         │                                   │
+         ▼                                   ▼
+  Batch Layer                          Speed Layer
+  (process all historical data)        (process recent data in real-time)
+  Runs every hour/day                  Running continuously
+  Accurate, slow                       Approximate, fast
+         │                                   │
+         ▼                                   ▼
+  Batch Views                          Real-time Views
+  (correct, up to 1 day old)           (minutes-old, slightly approx)
+         │                                   │
+         └─────────────┬─────────────────────┘
+                       ▼
+              Serving Layer (merge)
+              (query returns batch result for old data,
+               real-time result for recent data)
+</code></pre>
+<p><strong>Why batch at all if you have streaming?</strong>
+Streaming can lose events (network failures). Batch reprocesses all historical data from the canonical store, guaranteeing correctness. The batch layer &quot;corrects&quot; any errors the speed layer made.</p>
+<hr>
+<h2>Kappa Architecture</h2>
+<p>Lambda is complex: two separate processing systems to maintain. Kappa simplifies by using only streaming.</p>
+<pre><code>Events → Kafka (retained for 30 days)
+              │
+              ▼
+    Stream Processor (Flink)
+              │
+              ▼
+    Aggregated Results
+</code></pre>
+<p><strong>Key insight:</strong> Kafka retains events for a configurable period (days to months). When you want to reprocess historical data (fix a bug in your aggregation logic), you replay from the beginning of the Kafka topic.</p>
+<pre><code>Normal operation: process events as they arrive
+Bug in aggregation: 
+  1. Deploy fixed processor
+  2. Replay Kafka topic from 30 days ago
+  3. Recompute all aggregations
+  4. Results converge to correct values
+</code></pre>
+<p><strong>Kappa works when:</strong></p>
+<ul>
+<li>Streaming framework is mature (Flink handles reprocessing well)</li>
+<li>Kafka retention is long enough for historical replay</li>
+<li>Real-time accuracy is sufficient (no batch correction needed)</li>
+</ul>
+<p><strong>Lambda works when:</strong></p>
+<ul>
+<li>Event pipeline reliability is critical</li>
+<li>Historical replay must be byte-perfect</li>
+<li>Organization has separate batch and streaming teams</li>
+</ul>
+<p>In practice: most modern data teams use Kappa architecture.</p>
+<hr>
+<h2>The Modern Data Stack</h2>
+<pre><code>Events → Kafka → Flink (real-time aggregations) → ClickHouse
+                                                       │
+                                                  Grafana
+                                              (real-time metrics)
+
+Events → Kafka → S3 (raw data lake) → dbt (transformation) → BigQuery
+                                                                   │
+                                                              Looker / Metabase
+                                                              (business reports)
+</code></pre>
+<p><strong>ClickHouse:</strong> Columnar database optimized for analytical queries. Ingests millions of rows/second. Queries over billions of rows in seconds. Perfect for real-time metrics and dashboards.</p>
+<p><strong>BigQuery / Snowflake / Redshift:</strong> Cloud data warehouses. Process petabytes. Used for complex analytical queries run by analysts, not for real-time dashboards.</p>
+<p><strong>dbt (Data Build Tool):</strong> SQL-based transformation tool. Transforms raw data in the warehouse into clean, modeled tables. Version-controlled SQL with documentation and testing.</p>
+<hr>
+<h2>Change Data Capture (CDC)</h2>
+<p>Instead of custom event publishing in every service, CDC captures every database write as an event automatically.</p>
+<pre><code>PostgreSQL
+  │ WAL (write-ahead log)
+  ▼
+Debezium (CDC connector)
+  │
+  ▼
+Kafka topic: &quot;postgres.public.orders&quot;
+  │
+  ├──► Stream Processor (aggregate orders in real time)
+  └──► S3 (full history for batch processing)
+</code></pre>
+<p>Every INSERT/UPDATE/DELETE on the orders table becomes a Kafka event. Zero application code changes. Any downstream system that wants order data subscribes to the Kafka topic.</p>
+<p><strong>This is how microservices sync data without shared databases.</strong> One service owns the data in PostgreSQL; others subscribe to CDC events and maintain their own materialized views.</p>
+<hr>
+<h2>Materialized Views</h2>
+<p>A pre-computed view updated incrementally as data changes.</p>
+<pre><code class="language-sql">-- Expensive query run every time:
+SELECT country, COUNT(*) as order_count, SUM(total) as revenue
+FROM orders
+WHERE created_at &gt; NOW() - INTERVAL &#39;7 days&#39;
+GROUP BY country;
+
+-- Materialized view: pre-computed, refreshed every minute
+CREATE MATERIALIZED VIEW orders_by_country_7d AS
+SELECT country, COUNT(*) as order_count, SUM(total) as revenue
+FROM orders WHERE created_at &gt; NOW() - INTERVAL &#39;7 days&#39;
+GROUP BY country;
+
+-- Query is instant:
+SELECT * FROM orders_by_country_7d;
+</code></pre>
+<p>In stream processors, materialized views update in real time as events arrive.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Batch processing</td>
+<td>ETL to data warehouse; accurate but stale (hours/days)</td>
+</tr>
+<tr>
+<td>Stream processing</td>
+<td>Real-time aggregations; Kafka + Flink; minutes-fresh</td>
+</tr>
+<tr>
+<td>Lambda architecture</td>
+<td>Batch layer (correct) + speed layer (real-time) + merge</td>
+</tr>
+<tr>
+<td>Kappa architecture</td>
+<td>Streaming only; replay Kafka for corrections; simpler</td>
+</tr>
+<tr>
+<td>Modern stack</td>
+<td>Kafka → Flink → ClickHouse (real-time) + Kafka → S3 → BigQuery (analytical)</td>
+</tr>
+<tr>
+<td>CDC</td>
+<td>Capture DB writes as events via Debezium + Kafka WAL; no app code changes</td>
+</tr>
+<tr>
+<td>ClickHouse vs BigQuery</td>
+<td>ClickHouse: sub-second real-time queries; BigQuery: complex batch analytics</td>
+</tr>
+<tr>
+<td>dbt</td>
+<td>SQL transformations on data warehouse; version-controlled; tested</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./09-event-driven-architecture.md">Lesson 4.9 — Event-Driven Architecture</a></p>
+</blockquote>

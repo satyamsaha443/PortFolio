@@ -1,0 +1,62 @@
+<h1>Designing for Scale</h1>
+<blockquote>
+<p><strong>Lesson 10.7</strong> · All levels · 30 min</p>
+</blockquote>
+<hr>
+<p>Scaling systems effectively is one of the most critical aspects of satisfying non-functional requirements. Scalability is often a top priority. Below are various strategies to achieve scalable system architecture.</p>
+<h2>Estimating the Load</h2>
+<p>Before choosing a strategy, put numbers on the problem. Estimation reveals which
+quantity shapes the design — reads, writes, storage, or peak burst. Derive the
+numbers from usage rather than asserting them. Move the sliders to see how a few
+assumptions produce the load.</p>
+<p>The pattern is always the same. Daily actions divided by 86,400 seconds gives an
+average rate. Multiply by a peak factor for the burst you must survive. Reads
+usually dwarf writes, so the read path is where caching and replicas go. See
+Back-of-the-Envelope Estimation.</p>
+<h2>Decomposition</h2>
+<p>Decomposition breaks down requirements into microservices. The key principle is dividing systems into smaller, independent services based on specific business capabilities or requirements. Each microservice should focus on single responsibilities to enhance scalability and maintainability.</p>
+<h2>Vertical Scaling</h2>
+<p>Vertical scaling represents the brute force approach to scaling. Scale up by using more powerful machines. Thanks to cloud computing advancements, this approach has become much more feasible. In the past, organizations waited for new machines to be built and shipped. Today they spin up new instances in seconds.</p>
+<p>Modern cloud providers offer impressive vertical scaling options. AWS provides Amazon EC2 High Memory instances with up to 24 TB of memory. Google Cloud offers Tau T2D instances specifically optimized for compute-intensive workloads.</p>
+<h2>Horizontal Scaling</h2>
+<p>Horizontal scaling focuses on scaling out by running multiple identical instances of stateless services. The stateless nature of these services enables seamless distribution of requests across instances using load balancers.</p>
+<h2>Partitioning</h2>
+<p>Partitioning splits requests and data into shards and distributes them across services or databases. This can be accomplished by partitioning data based on user ID, geographical location, or another logical key. Many systems implement consistent hashing to ensure balanced partitioning.</p>
+<p>Plain hash-mod-N partitioning has a painful failure mode: change the shard count and
+almost every key moves. Consistent hashing fixes this by placing both nodes and
+keys on a ring, where each key belongs to the next node clockwise. Add or remove a
+node and only the keys in that one arc move — about 1/N of them. Add and remove
+nodes below.</p>
+<p>See Database Partitioning and
+Consistent Hashing for details.</p>
+<h2>Caching</h2>
+<p>Caching improves query read performance by storing frequently accessed data in faster memory storage, such as in-memory caches. Popular tools like Redis or Memcached effectively store hot data to reduce database load.</p>
+<p>The hit rate is everything. Because origin load equals total load times the miss
+rate, the last few percent matter most: going from 90% to 99% cuts database traffic
+by another 10×. Drag the hit rate below and watch how much load reaches the database.</p>
+<p>See Caching for details.</p>
+<h2>Buffer with Message Queues</h2>
+<p>High-concurrency scenarios often encounter write-intensive operations. Frequent database writes can overload systems due to disk I/O bottlenecks. Message queues buffer write requests, changing synchronous operations into asynchronous ones, thereby limiting database write requests to manageable levels and preventing system crashes.</p>
+<p>Try it below. Start in Direct to server mode and push incoming traffic above the
+server&#39;s capacity — the single server is overwhelmed and starts dropping requests.
+Switch to Buffer with a queue and the same burst piles into the queue instead,
+draining at the server&#39;s steady rate. The queue trades a little latency for zero
+dropped requests, until a sustained overload eventually fills even the buffer.</p>
+<p>See Message Queues for details.</p>
+<h2>Separating Read and Write</h2>
+<p>Whether systems are read-heavy or write-heavy depends on business requirements. Social media platforms are read-heavy because users read more than they write. IoT systems are write-heavy because users write more than they read. This is why we separate read and write operations to treat them differently.</p>
+<p>Read and write separation typically involves two main strategies. First, replication implements leader-follower architecture where writes occur on the leader and followers provide read replicas.</p>
+<p>Second, the CQRS (Command Query Responsibility Segregation) pattern takes read-write separation further by using completely different models for reading and writing data. In CQRS, systems split into two parts: the command side (write side) handles all write operations (create, update, delete) using data models optimized for writes, and the query side (read side) handles all read operations using denormalized data models optimized for reads.</p>
+<p>Changes from the command side asynchronously propagate to the query side.</p>
+<p>For example, systems might use MySQL as source-of-truth databases while employing Elasticsearch for full-text search or analytical queries, and asynchronously sync changes from MySQL to Elasticsearch using MySQL binlog Change Data Capture (CDC).</p>
+<h2>Combining Techniques</h2>
+<p>Effective scaling usually requires multi-faceted approaches combining several techniques. Start with decomposition to break down monolithic services for independent scaling. Then, partitioning and caching work together to distribute load efficiently while enhancing performance. Read/write separation ensures fast reads and reliable writes through leader-replica setups. Finally, business logic adjustments help design strategies that mitigate operational bottlenecks without compromising user experience.</p>
+<p>A combined architecture puts each technique against a different pressure — the load
+balancer spreads traffic, the cache absorbs reads, the queue buffers writes, and the
+sharded primary-replica database scales storage and reads.</p>
+<h2>Adapting to Changing Business Requirements</h2>
+<p>Adapting business requirements offers practical ways to handle large traffic loads. While not strictly technical approaches, understanding these strategies demonstrates valuable experience and critical thinking skills in interview settings.</p>
+<p>Consider weekly sales event scenarios. Instead of running all sales simultaneously for all users, distribute load by allocating specific days for different product categories for specific regions. Baby products might feature on Day 1, followed by electronics on Day 2. This approach ensures more predictable traffic patterns and enables better resource allocation such as pre-loading cache for upcoming days and scaling out read replicas for specific regions.</p>
+<p>Another example involves handling consistency challenges during high-stakes events like eBay auctions. By temporarily displaying bid success messages on frontends, systems can provide seamless user experiences while backends resolve consistency issues asynchronously. Users eventually see correct bid status after auctions end.</p>
+<p>While not technical solutions, bringing these up in interviews demonstrates your ability to think through problems and provide practical solutions.</p>
+<hr>

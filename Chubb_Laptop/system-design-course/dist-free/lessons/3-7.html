@@ -1,0 +1,276 @@
+<h1>Design 07: E-Commerce Platform (like Amazon)</h1>
+<blockquote>
+<p><strong>Lesson 3.7</strong> · Pro · 80 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design an e-commerce platform where:</p>
+<ul>
+<li>Sellers list products with inventory</li>
+<li>Buyers search, browse, and purchase products</li>
+<li>Cart and checkout with payment</li>
+<li>Order management and tracking</li>
+<li>Flash sales with high burst traffic</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Product catalog: list, search, filter, view details</li>
+<li>Inventory management: stock levels, reservations</li>
+<li>Cart: add/remove items, persist across sessions</li>
+<li>Checkout: address, payment, order confirmation</li>
+<li>Order management: status tracking, returns</li>
+<li>Seller portal: list products, manage inventory, view orders</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>500M DAU, 1M active sellers</li>
+<li>10M orders/day</li>
+<li>Product catalog: 500M products</li>
+<li>Inventory accuracy: never oversell (strong consistency)</li>
+<li>Search: &lt; 200ms</li>
+<li>Checkout: &lt; 2 seconds</li>
+</ul>
+<hr>
+<h2>Step 2: The Inventory Problem</h2>
+<p>The hardest problem in e-commerce: <strong>prevent overselling</strong>.</p>
+<p>If 1,000 users simultaneously buy the last unit of a product, only one should succeed.</p>
+<h3>Naive approach (wrong)</h3>
+<pre><code class="language-python"># Race condition:
+qty = SELECT quantity FROM inventory WHERE product_id = X
+if qty &gt; 0:
+    UPDATE inventory SET quantity = quantity - 1 WHERE product_id = X
+    CREATE order
+</code></pre>
+<p>Two threads both read <code>qty = 1</code>, both pass the check, both decrement → <code>quantity = -1</code>. Oversold.</p>
+<h3>Correct approach: database atomic decrement</h3>
+<pre><code class="language-sql">-- Atomic: only succeeds if quantity &gt; 0
+UPDATE inventory
+SET quantity = quantity - 1
+WHERE product_id = 123 AND quantity &gt; 0;
+-- If 0 rows updated → out of stock
+</code></pre>
+<p>At high concurrency, this works but creates a write bottleneck on popular items.</p>
+<h3>For flash sales: Redis + queue</h3>
+<pre><code>Flash sale: 1,000 units, 100,000 simultaneous requests
+
+1. Pre-load inventory to Redis: SET inventory:product:123 1000
+2. Atomic decrement: DECR inventory:product:123
+   - Returns new count; if &lt; 0: INCR (rollback) and return &quot;sold out&quot;
+3. &quot;Sold&quot; requests go to an order queue (Kafka)
+4. Order queue processed sequentially; orders created in DB
+5. Periodic sync: Redis count → DB inventory
+</code></pre>
+<p>Redis handles 100,000 DECR operations/second. No contention, no DB lock.</p>
+<hr>
+<h2>Step 3: Product Catalog Service</h2>
+<p>500M products cannot live in a single PostgreSQL table efficiently. The catalog is:</p>
+<ul>
+<li>Read-heavy (1,000:1 read/write)</li>
+<li>Needs full-text search</li>
+<li>Products have variable attributes (a book has ISBN; a shoe has size/color)</li>
+</ul>
+<p><strong>Architecture:</strong></p>
+<pre><code>PostgreSQL: products (id, seller_id, name, price, category, status)
+Elasticsearch: full product index for search
+Redis: hot product details cache (TTL = 1 hour)
+S3: product images
+</code></pre>
+<p><strong>Variable attributes:</strong> Use JSONB in PostgreSQL or a flexible document model:</p>
+<pre><code class="language-json">{
+  &quot;product_id&quot;: 42,
+  &quot;name&quot;: &quot;Running Shoe&quot;,
+  &quot;price&quot;: 89.99,
+  &quot;attributes&quot;: {
+    &quot;brand&quot;: &quot;Nike&quot;,
+    &quot;sizes&quot;: [&quot;7&quot;, &quot;8&quot;, &quot;9&quot;, &quot;10&quot;, &quot;11&quot;],
+    &quot;colors&quot;: [&quot;black&quot;, &quot;white&quot;, &quot;red&quot;],
+    &quot;material&quot;: &quot;mesh upper&quot;
+  }
+}
+</code></pre>
+<p>Each (product, size, color) combination is a separate SKU (Stock Keeping Unit) with its own inventory record.</p>
+<hr>
+<h2>Step 4: Cart Service</h2>
+<p>Cart is ephemeral — it exists before checkout. It does NOT need ACID guarantees.</p>
+<p><strong>Redis is ideal:</strong></p>
+<pre><code>Key: cart:{user_id}
+Value: Hash of {sku_id: quantity}
+
+HSET cart:user123 sku:42:red:10 2    // 2 units of SKU 42, red, size 10
+HSET cart:user123 sku:99:blue:8  1   // 1 unit of SKU 99
+EXPIRE cart:user123 604800           // 7-day TTL
+</code></pre>
+<p><strong>Merge on login:</strong> Guest user adds items → logs in → merge guest cart with existing user cart. Resolve conflicts by keeping the higher quantity.</p>
+<p><strong>Cart → checkout validation:</strong> At checkout time, re-validate that items are still in stock and prices haven&#39;t changed. Show the user any discrepancies before charging.</p>
+<hr>
+<h2>Step 5: Checkout Flow</h2>
+<pre><code>User clicks &quot;Place Order&quot;
+         │
+         ▼
+1. Validate cart (items available, prices current)
+         │
+         ▼
+2. Reserve inventory (tentative hold, 10-minute TTL)
+   UPDATE inventory SET reserved = reserved + qty
+   WHERE available - reserved &gt;= qty
+         │
+         ▼
+3. Calculate total (items + shipping + tax)
+         │
+         ▼
+4. Charge payment (Stripe)
+   If FAIL → release reservation → show error
+         │
+         ▼
+5. Create order record (CONFIRMED status)
+   Decrement inventory: available = available - qty
+   Release reservation
+         │
+         ▼
+6. Publish order.created event to Kafka
+   → Fulfillment service (warehouse picks items)
+   → Email service (confirmation)
+   → Analytics service
+</code></pre>
+<p><strong>Why reserve first?</strong>
+Between &quot;check availability&quot; and &quot;charge payment&quot; there are several seconds. Reservation prevents another user from buying the last unit while payment is processing.</p>
+<p><strong>Idempotency key:</strong> Same as food delivery — prevents double-charging on payment retry.</p>
+<hr>
+<h2>Step 6: Order Management</h2>
+<pre><code class="language-sql">CREATE TABLE orders (
+    id              BIGSERIAL PRIMARY KEY,
+    customer_id     BIGINT NOT NULL,
+    status          VARCHAR(30),  -- confirmed, processing, shipped, delivered, returned
+    subtotal        DECIMAL(10,2),
+    tax             DECIMAL(8,2),
+    shipping_fee    DECIMAL(6,2),
+    total           DECIMAL(10,2),
+    shipping_address JSONB,
+    payment_intent_id TEXT,       -- Stripe payment ID
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE order_items (
+    id          BIGSERIAL PRIMARY KEY,
+    order_id    BIGINT REFERENCES orders(id),
+    product_id  BIGINT,
+    sku_id      BIGINT,
+    name        TEXT,           -- snapshot at order time
+    price       DECIMAL(8,2),
+    quantity    INT,
+    seller_id   BIGINT
+);
+
+CREATE TABLE shipments (
+    id              BIGSERIAL PRIMARY KEY,
+    order_id        BIGINT,
+    tracking_number TEXT,
+    carrier         TEXT,
+    status          VARCHAR(30),
+    shipped_at      TIMESTAMP,
+    estimated_delivery TIMESTAMP,
+    delivered_at    TIMESTAMP
+);
+</code></pre>
+<hr>
+<h2>Step 7: Search</h2>
+<p>Product search needs:</p>
+<ul>
+<li>Text matching on name, description, brand</li>
+<li>Filtering by category, price range, ratings, attributes</li>
+<li>Sorting by relevance, price, rating</li>
+<li>Faceted navigation (count of products per filter)</li>
+</ul>
+<pre><code>GET /search?q=running+shoes&amp;category=footwear&amp;price_min=50&amp;price_max=200
+            &amp;brand=Nike&amp;size=10&amp;sort=rating_desc&amp;page=1
+</code></pre>
+<p>Elasticsearch handles all of this with a single query:</p>
+<pre><code class="language-json">{
+  &quot;query&quot;: {
+    &quot;bool&quot;: {
+      &quot;must&quot;: [{ &quot;match&quot;: { &quot;name&quot;: &quot;running shoes&quot; }}],
+      &quot;filter&quot;: [
+        { &quot;term&quot;: { &quot;category&quot;: &quot;footwear&quot; }},
+        { &quot;range&quot;: { &quot;price&quot;: { &quot;gte&quot;: 50, &quot;lte&quot;: 200 }}},
+        { &quot;term&quot;: { &quot;attributes.brand&quot;: &quot;Nike&quot; }},
+        { &quot;term&quot;: { &quot;attributes.sizes&quot;: &quot;10&quot; }}
+      ]
+    }
+  },
+  &quot;sort&quot;: [{ &quot;rating&quot;: &quot;desc&quot; }],
+  &quot;aggs&quot;: {
+    &quot;brands&quot;: { &quot;terms&quot;: { &quot;field&quot;: &quot;attributes.brand&quot; }},
+    &quot;price_ranges&quot;: { &quot;histogram&quot;: { &quot;field&quot;: &quot;price&quot;, &quot;interval&quot;: 50 }}
+  }
+}
+</code></pre>
+<p>Aggregations return facet counts in the same query — no separate DB calls.</p>
+<hr>
+<h2>Step 8: Handling Flash Sales</h2>
+<p>Flash sales (Prime Day, Black Friday) have 100x normal traffic.</p>
+<p><strong>Pre-game:</strong></p>
+<ul>
+<li>Pre-warm Redis with flash sale inventory</li>
+<li>Pre-scale servers (auto-scaling group target 10x normal)</li>
+<li>CDN-cache product pages (reduce origin requests)</li>
+</ul>
+<p><strong>During sale:</strong></p>
+<ul>
+<li>Rate limiting per user (1 checkout attempt per second)</li>
+<li>Queue-based checkout: requests placed in queue, processed in order</li>
+<li>Circuit breaker: if payment service is overwhelmed, return &quot;try again in 10 seconds&quot;</li>
+</ul>
+<p><strong>Virtual queue:</strong>
+Rather than letting all users hammer checkout simultaneously:</p>
+<pre><code>User clicks &quot;Buy Now&quot; → placed in virtual queue → given a position number
+When their position is reached → sent to checkout form
+</code></pre>
+<p>This smooths the burst and prevents most users from getting errors.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Prevent overselling</td>
+<td>Atomic DB decrement; Redis DECR for flash sales</td>
+</tr>
+<tr>
+<td>Cart storage</td>
+<td>Redis HASH with TTL</td>
+</tr>
+<tr>
+<td>Inventory reservation</td>
+<td>Optimistic hold during checkout; release on failure</td>
+</tr>
+<tr>
+<td>Product search</td>
+<td>Elasticsearch with faceted aggregations</td>
+</tr>
+<tr>
+<td>Variable attributes</td>
+<td>JSONB column; separate SKU per variant</td>
+</tr>
+<tr>
+<td>Checkout atomicity</td>
+<td>Reserve → charge → confirm; idempotency key</td>
+</tr>
+<tr>
+<td>Flash sale scale</td>
+<td>Redis queue + virtual waiting room</td>
+</tr>
+<tr>
+<td>Order events</td>
+<td>Kafka fan-out to fulfillment, email, analytics</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./08-payments.md">Design 08 — Payment &amp; Wallet System</a></p>
+</blockquote>

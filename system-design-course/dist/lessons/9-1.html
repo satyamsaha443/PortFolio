@@ -1,0 +1,146 @@
+<h1>Scaling Reads and Writes: Copy, Split, or Defer</h1>
+<blockquote>
+<p><strong>Lesson 9.1</strong> · All levels · 30 min</p>
+</blockquote>
+<hr>
+<p>Reads and writes reach their scaling limits for opposite reasons, and the fix for one rarely helps the other. A read-heavy service strains because the same data is fetched over and over. A write-heavy service strains because every write must be accepted and made durable. Copying data relieves the first and does nothing for the second.</p>
+<p>The asymmetry is concrete. A popular product page might take 50,000 reads a minute against data that changes weekly, while an event-tracking endpoint takes 20,000 writes a second and almost no reads. Both saturate a single database, but the levers that save them point in different directions.</p>
+<hr>
+<h2>Reads and Writes Are Not Symmetric</h2>
+<p>A read just needs an answer. Any copy of the data that is current enough will do. Nothing changes, so you can serve the same value from ten places at once.</p>
+<p>A write changes the truth. It must land in an agreed order, survive a crash, and eventually reach every copy. You cannot casually run the same write in ten places and hope they agree.</p>
+<p>That asymmetry sets the whole strategy:</p>
+<ul>
+<li><strong>Reads scale by copying.</strong> Copies never disagree about a value nobody is changing.</li>
+<li><strong>Writes scale by splitting or deferring.</strong> Two copies taking writes at once diverge.</li>
+</ul>
+<hr>
+<h2>Start with the Ratio</h2>
+<p>Before choosing any technique, estimate the <strong>read:write ratio</strong>. The ratio tells you which side to spend effort on.</p>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Ratio</th>
+<th>Bottleneck</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Social feed / product catalog</td>
+<td>~100:1 read-heavy</td>
+<td>Read path</td>
+</tr>
+<tr>
+<td>Metrics pipeline / location tracker</td>
+<td>~1:86,000 write-heavy</td>
+<td>Write path</td>
+</tr>
+<tr>
+<td>Comment feed</td>
+<td>~1000:1 read-heavy</td>
+<td>Read path</td>
+</tr>
+<tr>
+<td>IoT sensor</td>
+<td>writes every second, reads once/day</td>
+<td>Write path</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>Read:write ratio</strong> — Reads divided by writes over the same window. The ratio, not raw volume, points to the bottleneck.</p>
+</blockquote>
+<p>Say the ratio out loud when you design. <em>&quot;This is roughly 100:1 read-heavy, so I optimize the read path first&quot;</em> is a decision an interviewer can follow.</p>
+<hr>
+<h2>Scaling Reads: Copy</h2>
+<p>Every read technique is a form of copying — put a current-enough copy of the data closer to the reader, or in a faster store, so most reads never touch the source. The cheapest read is the one that never reaches the database.</p>
+<h3>In-Memory Cache</h3>
+<p>Keep hot data in an in-memory store (Redis, Memcached) in front of the database. Repeat reads hit RAM and skip the disk query entirely.</p>
+<ul>
+<li>A 90% hit rate means the database sees one read in ten.</li>
+<li>For a product page, caching the rendered item turns 50,000 queries/min into a few hundred.</li>
+<li><strong>Trade-off:</strong> Invalidation — when the source changes, stale cache entries must be evicted or expired.</li>
+</ul>
+<h3>Read Replicas</h3>
+<p>Run copies of the database that take reads only. The primary handles writes and streams changes to each replica; reads fan out across replicas.</p>
+<ul>
+<li>Multiplies read capacity without touching the write path.</li>
+<li><strong>Trade-off:</strong> Replica lag — a read right after a write may miss it. Route reads that must see their own write back to the primary.</li>
+</ul>
+<h3>CDN Edge Caching</h3>
+<p>For content that is the same for everyone — images, video, static pages, public API responses — cache at CDN edge locations near users.</p>
+<ul>
+<li>The read never reaches your origin at all; served from a nearby edge.</li>
+<li><strong>Trade-off:</strong> Only fits non-personalized, cacheable content. Freshness question: an edge holds a copy until its TTL expires or you purge it.</li>
+</ul>
+<h3>Precomputed Read Models</h3>
+<p>Instead of assembling the answer on every read, assemble it once at write time and store it ready to serve.</p>
+<ul>
+<li>A user&#39;s home feed, expensive to build per request, is precomputed: when a source changes, update the stored feed so the read is a single lookup.</li>
+<li><strong>Trade-off:</strong> Moves cost from read time to write time — good when reads vastly outnumber writes. The precomputed copy must be rebuilt when its inputs change.</li>
+</ul>
+<hr>
+<h2>Scaling Writes: Split or Defer</h2>
+<p>Writes cannot be scaled by copying because copies taking writes independently diverge. Two paths remain:</p>
+<h3>Sharding by Key</h3>
+<p>Split data across machines by a partition key so each machine owns one slice and its writes.</p>
+<ul>
+<li>Shard user data by user ID: writes for different users land on different shards; total write capacity grows with shard count.</li>
+<li><strong>Hot-key problem:</strong> One viral item overloads a single shard while others idle.</li>
+<li><strong>Cross-shard queries:</strong> Must gather from several machines and merge.</li>
+</ul>
+<h3>Async Writes Through a Queue</h3>
+<p>Accept the write onto a durable queue and return immediately; workers apply it to the database later.</p>
+<ul>
+<li>The write path absorbs bursts: a spike of 20,000 writes/sec lands on the queue at its own pace; workers drain it steadily.</li>
+<li><strong>Trade-off:</strong> Eventual consistency — the write is durably accepted but not yet visible; a read moments later may not see it.</li>
+</ul>
+<h3>Batching Small Writes</h3>
+<p>Coalesce many small writes into one larger operation.</p>
+<ul>
+<li>1,000 individual inserts/sec become 10 batches of 100 — one round trip, one index update, one commit instead of a hundred.</li>
+<li><strong>Trade-off:</strong> Latency (waits for batch to fill) and partial failure risk.</li>
+</ul>
+<h3>CQRS: Separate the Paths</h3>
+<p>When the shape cheap to write differs from the shape cheap to read, split them.</p>
+<ul>
+<li><strong>Command side (writes):</strong> Write-optimized model — normalized relational DB, ACID transactions.</li>
+<li><strong>Query side (reads):</strong> Read-optimized model — Elasticsearch for search, Redis for precomputed feeds.</li>
+<li>Changes propagate asynchronously from write to read side via CDC from the write-ahead log.</li>
+<li><strong>Trade-off:</strong> Two models to run and keep synchronized.</li>
+</ul>
+<hr>
+<h2>The Transferable Pattern</h2>
+<p>Any scaling question reduces to the same first move: <strong>separate reads from writes</strong>, because they scale in opposite directions.</p>
+<table>
+<thead>
+<tr>
+<th>Direction</th>
+<th>Technique</th>
+<th>Trade-off</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Reads → copy</td>
+<td>Cache, replica, CDN edge, precomputed model</td>
+<td>Each copy trades freshness for capacity</td>
+</tr>
+<tr>
+<td>Writes → split</td>
+<td>Shard, CQRS</td>
+<td>Hot-key or cross-shard complexity</td>
+</tr>
+<tr>
+<td>Writes → defer</td>
+<td>Queue, batch</td>
+<td>Eventual consistency</td>
+</tr>
+</tbody></table>
+<p>Hold the one line and the rest follows: <strong>reads → copy; writes → split or defer</strong>.</p>
+<p>Feeds, catalogs, metrics pipelines, and event logs all fall out of this once you know their ratio.</p>
+<hr>
+<h2>Sources and Further Reading</h2>
+<ul>
+<li><strong>Amazon RDS read replicas</strong> — AWS docs — how replicas offload read traffic from a primary and the lag that follows.</li>
+<li><strong>Designing Data-Intensive Applications, Ch. 5–6</strong> — Martin Kleppmann — replication and partitioning: the trade-offs behind copying reads and splitting writes.</li>
+<li><strong>CQRS</strong> — Martin Fowler — separating the read and write models, and when the added complexity is worth it.</li>
+</ul>

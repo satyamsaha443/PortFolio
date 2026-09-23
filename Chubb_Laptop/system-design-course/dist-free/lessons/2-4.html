@@ -1,0 +1,283 @@
+<h1>Rate Limiting &amp; Throttling (Token Bucket, Leaky Bucket)</h1>
+<blockquote>
+<p><strong>Lesson 2.4</strong> · Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<h2>Why Rate Limiting Exists</h2>
+<p>Without rate limiting, a single client can:</p>
+<ul>
+<li>Send 100,000 requests per second and take down your service</li>
+<li>Scrape your entire database overnight</li>
+<li>Exhaust your third-party API quota in minutes</li>
+<li>Launch a brute-force attack against your login endpoint</li>
+</ul>
+<p>Rate limiting is a <strong>protective boundary</strong> between your service and the outside world. It enforces fair usage and prevents abuse.</p>
+<hr>
+<h2>Types of Rate Limits</h2>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Per user / API key</strong></td>
+<td>Each API key gets 1,000 requests/minute</td>
+</tr>
+<tr>
+<td><strong>Per IP address</strong></td>
+<td>Each IP gets 100 requests/minute (unauthenticated)</td>
+</tr>
+<tr>
+<td><strong>Per endpoint</strong></td>
+<td><code>/login</code> gets 5 attempts/minute regardless of user</td>
+</tr>
+<tr>
+<td><strong>Global</strong></td>
+<td>Total service throughput capped at 50,000 req/sec</td>
+</tr>
+<tr>
+<td><strong>Tenant / plan</strong></td>
+<td>Free plan: 100/day; Pro: 10,000/day; Enterprise: unlimited</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>The Token Bucket Algorithm</h2>
+<p>The most common rate limiting algorithm. Intuition: a bucket that holds tokens. Each request consumes a token. Tokens refill at a fixed rate.</p>
+<h3>How It Works</h3>
+<pre><code>Bucket capacity: 10 tokens
+Refill rate: 2 tokens/second
+
+Time 0:   Bucket = 10 tokens
+Request:  consume 1 → Bucket = 9 tokens  ✓ allowed
+Request:  consume 1 → Bucket = 8 tokens  ✓ allowed
+...
+10 requests in 1 second: Bucket = 0 tokens
+Request:  0 tokens available → ✗ rejected (429 Too Many Requests)
+
+Time 0.5s: refill 1 token → Bucket = 1 token
+Request:  consume 1 → Bucket = 0 tokens  ✓ allowed
+
+Time 1s: refill 2 tokens → Bucket = 2 tokens
+</code></pre>
+<h3>Key Properties</h3>
+<ul>
+<li><strong>Allows bursting:</strong> A client can use all 10 tokens at once (a sudden spike is OK)</li>
+<li><strong>Smooth long-term rate:</strong> Over time, average rate is capped at the refill rate</li>
+<li><strong>Forgiveness:</strong> Unused tokens accumulate (up to bucket capacity), allowing a client to burst after a quiet period</li>
+</ul>
+<h3>Implementation with Redis</h3>
+<pre><code class="language-python">def is_allowed(user_id: str, capacity: int, refill_rate: float) -&gt; bool:
+    key = f&quot;rate_limit:{user_id}&quot;
+    now = time.time()
+
+    # Fetch current state
+    pipe = redis.pipeline()
+    pipe.hgetall(key)
+    tokens_data = pipe.execute()[0]
+
+    if tokens_data:
+        tokens = float(tokens_data[b&#39;tokens&#39;])
+        last_refill = float(tokens_data[b&#39;last_refill&#39;])
+        # Add tokens based on elapsed time
+        elapsed = now - last_refill
+        tokens = min(capacity, tokens + elapsed * refill_rate)
+    else:
+        tokens = capacity  # first request
+        last_refill = now
+
+    if tokens &lt; 1:
+        return False  # rate limited
+
+    # Consume one token
+    tokens -= 1
+    redis.hset(key, mapping={&#39;tokens&#39;: tokens, &#39;last_refill&#39;: now})
+    redis.expire(key, 3600)
+    return True
+</code></pre>
+<hr>
+<h2>The Leaky Bucket Algorithm</h2>
+<p>Imagine a bucket with a hole in the bottom. Water (requests) pours in at any rate. Water leaks out at a constant rate. If the bucket overflows, requests are rejected.</p>
+<pre><code>Incoming requests (any rate) → [  Bucket  ] → Processing (fixed rate)
+                                  overflow → rejected
+</code></pre>
+<h3>How It Differs from Token Bucket</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Token Bucket</th>
+<th>Leaky Bucket</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Burst handling</strong></td>
+<td>Allows bursts (up to bucket capacity)</td>
+<td>Smooths bursts into constant output rate</td>
+</tr>
+<tr>
+<td><strong>Output rate</strong></td>
+<td>Variable (up to refill rate avg)</td>
+<td>Strictly constant</td>
+</tr>
+<tr>
+<td><strong>Use case</strong></td>
+<td>APIs allowing occasional bursts</td>
+<td>Network traffic shaping, strict SLAs</td>
+</tr>
+</tbody></table>
+<p>Leaky bucket is used for <strong>traffic shaping</strong> — ensuring a downstream service never receives more than X requests/second regardless of upstream spikes. Token bucket is used for <strong>rate limiting</strong> — allowing bursts while preventing sustained overload.</p>
+<hr>
+<h2>Fixed Window Counter</h2>
+<p>The simplest algorithm. Count requests in fixed time windows.</p>
+<pre><code>Window: 1 minute
+Limit: 100 requests/minute
+
+Minute 1: 99 requests → OK
+Minute 2: 100 requests → OK (counter resets)
+</code></pre>
+<p><strong>The edge case problem:</strong></p>
+<pre><code>11:59:55 — 99 requests (minute 1 window)
+12:00:01 — 99 requests (minute 2 window)
+
+In 10 seconds around midnight: 198 requests. Double the limit.
+</code></pre>
+<p>Fixed window allows 2x the intended rate at window boundaries.</p>
+<hr>
+<h2>Sliding Window Log</h2>
+<p>Store a timestamp for each request. Count requests within the last N seconds.</p>
+<pre><code>Request arrives at T=100
+Look back to T=40 (last 60 seconds)
+Count requests in [40, 100] → 87 requests &lt; 100 limit → allow
+Add T=100 to the log
+</code></pre>
+<p><strong>Strengths:</strong> No boundary problem. Precise.</p>
+<p><strong>Weakness:</strong> Memory-intensive. Storing every request timestamp for every user is expensive at scale.</p>
+<hr>
+<h2>Sliding Window Counter</h2>
+<p>Hybrid: combine fixed window counters with a smooth approximation.</p>
+<pre><code>Current window: 0:45–1:45 (a 60-second rolling window)
+Previous window count: 80 requests
+Current window count: 20 requests (so far, 45/60 seconds elapsed)
+
+Weighted estimate = 80 × (15/60) + 20 = 80 × 0.25 + 20 = 40 requests
+40 &lt; 100 limit → allow
+</code></pre>
+<p>This approximation is accurate within ~1% and requires only two counters per user.</p>
+<hr>
+<h2>Distributed Rate Limiting</h2>
+<p>A single server tracking rate limits is simple. Across 100 API servers, it is harder.</p>
+<h3>The Problem</h3>
+<pre><code>Server 1: User A has made 80/100 requests → OK
+Server 2: User A has made 80/100 requests → OK (it does not know about Server 1)
+</code></pre>
+<p>User A actually made 160 requests but was allowed through by both servers.</p>
+<h3>Solution 1: Centralized Redis</h3>
+<p>All servers check and update limits in a shared Redis instance:</p>
+<pre><code>Any API server → Redis: &quot;Check and increment user:123:rate_limit&quot;
+                Redis: atomic INCR + check against limit
+</code></pre>
+<p>Redis operations are atomic. All servers share the same counter. Cons: Redis is a single point of failure; adds latency to every request.</p>
+<h3>Solution 2: Approximate Local + Global Sync</h3>
+<p>Each server tracks local counts and periodically syncs to a central store. Allows some overage in exchange for lower latency. Acceptable for many use cases.</p>
+<h3>Solution 3: Rate Limit at the Gateway</h3>
+<p>Move rate limiting to the API gateway or load balancer — one component that sees all traffic:</p>
+<pre><code>All requests → API Gateway (rate limit check) → Backend servers
+</code></pre>
+<p>Kong, AWS API Gateway, nginx-plus all have built-in rate limiting.</p>
+<hr>
+<h2>Response Headers</h2>
+<p>When rate limiting, return headers so clients know their status:</p>
+<pre><code>HTTP/1.1 200 OK
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 850
+X-RateLimit-Reset: 1712345678  (Unix timestamp when limit resets)
+Retry-After: 30                (seconds until they can retry, on 429)
+</code></pre>
+<p>When a client is rate limited, return <code>429 Too Many Requests</code>, not <code>503 Service Unavailable</code>. 503 implies a server problem; 429 tells the client it is the problem.</p>
+<hr>
+<h2>Throttling vs Rate Limiting</h2>
+<p>These terms are often used interchangeably, but have a useful distinction:</p>
+<ul>
+<li><strong>Rate limiting:</strong> Hard stop — once the limit is hit, requests are <strong>rejected</strong> with 429</li>
+<li><strong>Throttling:</strong> Soft slowdown — requests are <strong>queued and delayed</strong> rather than rejected</li>
+</ul>
+<pre><code>Rate limiting:
+Burst of 1000 requests → first 100 accepted → remaining 900 rejected (429)
+
+Throttling:
+Burst of 1000 requests → all 1000 accepted → but processed at max 100/second
+                          → some requests wait in queue → higher latency
+</code></pre>
+<p>Throttling is kinder to clients but requires a queue — which can grow without bound if the burst is sustained.</p>
+<hr>
+<h2>Real-World Examples</h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Rate limit</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>GitHub API</td>
+<td>5,000 requests/hour (authenticated)</td>
+</tr>
+<tr>
+<td>Twitter API</td>
+<td>15 requests/15 min (search); varies by endpoint</td>
+</tr>
+<tr>
+<td>Stripe API</td>
+<td>100 reads/second, 100 writes/second</td>
+</tr>
+<tr>
+<td>OpenAI API</td>
+<td>Varies by tier; token-based limits per minute</td>
+</tr>
+<tr>
+<td>Twilio</td>
+<td>1 request/second per account (some endpoints)</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Best for</th>
+<th>Trade-off</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Token Bucket</td>
+<td>API rate limiting, allows bursts</td>
+<td>Slightly complex state tracking</td>
+</tr>
+<tr>
+<td>Leaky Bucket</td>
+<td>Traffic shaping, constant output rate</td>
+<td>No burst allowance</td>
+</tr>
+<tr>
+<td>Fixed Window</td>
+<td>Simple counters, easy to implement</td>
+<td>2x overage at window boundaries</td>
+</tr>
+<tr>
+<td>Sliding Window Log</td>
+<td>Precise per-user limits</td>
+<td>High memory usage</td>
+</tr>
+<tr>
+<td>Sliding Window Counter</td>
+<td>Best practical balance</td>
+<td>Approximate (within ~1%)</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./05-consistent-hashing.md">Lesson 2.5 — Consistent Hashing</a></p>
+</blockquote>

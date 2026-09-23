@@ -1,0 +1,25 @@
+<h1>Problem Decomposition Framework</h1>
+<blockquote>
+<p><strong>Lesson 10.11</strong> · All levels · 25 min</p>
+</blockquote>
+<hr>
+<p>System design problems often arrive as vague statements: &quot;Design Twitter&quot; or &quot;Design Uber.&quot; The first challenge is decomposing these into concrete technical requirements. Instead of guessing what the interviewer wants, use keywords in the problem statement as anchors.</p>
+<p>The framework has three steps, each extracting different information from the problem description.</p>
+<h2>Step 0: Verbs → Use Cases</h2>
+<p>Verbs reveal operations. &quot;Users can post tweets&quot; contains the verb &quot;post.&quot; &quot;Users view their feed&quot; contains &quot;view.&quot; Extract all verbs to identify use cases.</p>
+<p>Common verbs map to CRUD operations: create, read, update, delete, search, notify, process. Each verb becomes a functional requirement.</p>
+<p>Beyond identifying operations, define what &quot;correct&quot; means for each. Does &quot;post tweet&quot; require deduplication? Should followers see tweets immediately or eventually? Must tweets persist forever? These questions transform vague verbs into precise contracts.</p>
+<h2>Step 1: Nouns → Entities and Ownership</h2>
+<p>Nouns reveal data models. &quot;Users post tweets&quot; contains two nouns: &quot;users&quot; and &quot;tweets.&quot; &quot;Users follow other users&quot; reveals a relationship entity.</p>
+<p>List all entities and their relationships. For each entity, identify the source of truth. Who owns user profile data? Where do tweets live? Which service controls the follow relationship?</p>
+<p>Ownership matters because it determines write authority. Only the User Service updates user profiles. Only the Tweet Service creates tweets. Clear ownership prevents conflicting writes and establishes consistency boundaries.</p>
+<h2>Step 2: Adjectives → Constraints and Add-ons</h2>
+<p>Adjectives reveal non-functional requirements that force architectural choices. &quot;Instant notifications&quot; contains &quot;instant&quot;—this requires real-time push mechanisms or precomputation. &quot;Highly available feed&quot; contains &quot;highly available&quot;—this requires replication and stateless services.</p>
+<p>Common adjectives and their implications:</p>
+<p>instant/realtime → push notifications, WebSockets, caching, precomputation</p>
+<p>reliable → retries, idempotency, dead letter queues, write-ahead logs</p>
+<p>highly available → replication, stateless services, health checks</p>
+<p>auditable/secure → encryption, access control, audit logs, compliance</p>
+<p>scalable → partitioning, read replicas, message queues, horizontal scaling</p>
+<p>Each adjective adds components to your architecture. The goal is not cramming in every technology. The goal is justifying each addition by tying it back to a specific constraint.</p>
+<hr>

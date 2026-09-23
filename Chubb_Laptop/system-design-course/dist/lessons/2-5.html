@@ -1,0 +1,179 @@
+<h1>Consistent Hashing — Visual Ring Examples</h1>
+<blockquote>
+<p><strong>Lesson 2.5</strong> · Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<h2>The Problem: Adding or Removing Servers</h2>
+<p>You have a cache cluster of 3 servers. You distribute keys using modular hashing:</p>
+<pre><code>server = hash(key) % 3
+</code></pre>
+<p>This works perfectly. Then you add a 4th server.</p>
+<pre><code>Before: server = hash(key) % 3
+After:  server = hash(key) % 4
+</code></pre>
+<p><strong>Almost every key maps to a different server.</strong> Your cache is invalidated. Every request becomes a cache miss. Your database gets 100% of the traffic. Production incident.</p>
+<pre><code>Key &quot;user:123&quot;  → hash = 999  → 999 % 3 = 0 → Server 0  (before)
+                              → 999 % 4 = 3 → Server 3  (after — different!)
+</code></pre>
+<p>With 3 → 4 servers, approximately 75% of keys must be remapped. With 3 → 100 servers, almost 97% of keys must be remapped.</p>
+<hr>
+<h2>Consistent Hashing: The Solution</h2>
+<p>Consistent hashing remaps only <strong>1/n of keys</strong> when a node is added or removed (where n is the number of nodes), regardless of the total number of keys.</p>
+<h3>The Ring</h3>
+<p>Imagine a circular ring (a hash space from 0 to 2³² − 1):</p>
+<pre><code>                    0
+               ┌────┴────┐
+          330° │         │ 30°
+               │         │
+          300° │    Ring  │ 60°
+               │         │
+          270° ──────────── 90°
+               │         │
+          240° │         │ 120°
+               │         │
+          210° │         │ 150°
+               └────┬────┘
+                   180°
+</code></pre>
+<p><strong>Map each server to a position on the ring</strong> by hashing its identifier:</p>
+<pre><code>hash(&quot;Server-A&quot;) = position 90°
+hash(&quot;Server-B&quot;) = position 210°
+hash(&quot;Server-C&quot;) = position 330°
+</code></pre>
+<pre><code>                    0
+               ┌────┴────┐
+               │         │
+               │         │ Server-A (90°)
+               │         ●
+               ──────────── 
+               │         │
+  Server-B     ●         │
+   (210°)      │         │
+               └────┬────┘
+                Server-C
+                 (330°)
+</code></pre>
+<p><strong>To find which server handles a key:</strong></p>
+<ol>
+<li>Hash the key to get its position on the ring</li>
+<li>Walk clockwise until you hit the first server</li>
+<li>That server owns the key</li>
+</ol>
+<pre><code>hash(&quot;user:123&quot;) = 150°  → walk clockwise → first server hit = Server-B (210°)
+hash(&quot;user:456&quot;) = 50°   → walk clockwise → first server hit = Server-A (90°)
+hash(&quot;user:789&quot;) = 300°  → walk clockwise → first server hit = Server-C (330°)
+</code></pre>
+<hr>
+<h2>Adding a Node</h2>
+<p>Add Server-D at position 270°:</p>
+<pre><code>Before:
+hash(&quot;session:xyz&quot;) = 240°  → walk clockwise → Server-C (330°) ✓
+
+After adding Server-D at 270°:
+hash(&quot;session:xyz&quot;) = 240°  → walk clockwise → Server-D (270°) — only this key moved!
+</code></pre>
+<p>Only keys between 210° and 270° need to move from Server-C to Server-D. All other keys remain on their current servers.</p>
+<p><strong>With N servers and adding 1 more:</strong></p>
+<ul>
+<li>Simple modular hash: <del>(N/(N+1)) of all keys remapped (</del>75% for 3→4)</li>
+<li>Consistent hash: <del>(1/N) of all keys remapped (</del>25% for 3→4 — much better!)</li>
+</ul>
+<hr>
+<h2>Removing a Node</h2>
+<p>Server-B (210°) fails:</p>
+<pre><code>Before:
+hash(&quot;user:123&quot;) = 150° → Server-B (210°)
+
+After Server-B removed:
+hash(&quot;user:123&quot;) = 150° → walk clockwise → Server-C (330°)
+</code></pre>
+<p>Only keys that were on Server-B move to Server-C. All other keys are unaffected.</p>
+<hr>
+<h2>Virtual Nodes (Vnodes)</h2>
+<p>With three physical servers, each occupies exactly 1/3 of the ring. But what if Server-A is twice as powerful as the others? And what if — by chance — Server-A&#39;s ring arc covers only 10% of the key space?</p>
+<p><strong>Virtual nodes</strong> solve both problems: each physical server is mapped to <strong>multiple positions</strong> on the ring.</p>
+<pre><code>Physical: Server-A, Server-B, Server-C
+Virtual (3 vnodes each):
+  Server-A → positions at 30°, 150°, 270°
+  Server-B → positions at 90°, 210°, 330°
+  Server-C → positions at 60°, 180°, 300°
+</code></pre>
+<pre><code>                    0
+               ┌────┴────┐
+          B    ●         ● A (30°)
+          (330°)         
+               ●         ● C (60°)
+     C         │         B (90°)
+    (300°)     │
+               ──────────────
+               │         │
+    B (210°) ● │         ● A (150°)
+               │         │
+     C (180°) ●           ● C (60°, already shown)
+               └────┬────┘
+               A (270°) ●
+</code></pre>
+<p>Benefits:</p>
+<ul>
+<li><strong>Even key distribution:</strong> More vnodes = more even spread of keys</li>
+<li><strong>Weighted nodes:</strong> A server with 3x the capacity gets 3x the vnodes, so it handles 3x the keys</li>
+<li><strong>Better rebalancing:</strong> When a node fails, its keys are distributed across all remaining nodes (not just one)</li>
+</ul>
+<p>In practice, 100–200 vnodes per physical server is common.</p>
+<hr>
+<h2>Real-World Use</h2>
+<h3>Amazon DynamoDB and S3</h3>
+<p>DynamoDB uses consistent hashing to distribute data partitions across nodes. Adding new storage nodes only moves a fraction of data.</p>
+<h3>Apache Cassandra</h3>
+<p>Cassandra uses consistent hashing with vnodes to distribute rows across its cluster. Each row&#39;s partition key is hashed to determine which nodes store it.</p>
+<h3>Redis Cluster</h3>
+<p>Redis Cluster divides the key space into 16,384 <strong>hash slots</strong>, not a ring, but the concept is similar: adding or removing nodes requires moving only the affected hash slots.</p>
+<h3>Content Delivery Networks</h3>
+<p>CDNs use consistent hashing to determine which cache server in a cluster stores a given URL.</p>
+<hr>
+<h2>Handling Hotspots</h2>
+<p>Consistent hashing distributes keys uniformly on average. But some keys are &quot;hot&quot; — accessed much more frequently.</p>
+<p>Example: Twitter has 100 million users, but Elon Musk has 100 million followers. Any tweet from Elon might generate 1 million requests in the first minute. All of these go to the server that owns Elon&#39;s user data — a hotspot.</p>
+<p><strong>Mitigation strategies:</strong></p>
+<ol>
+<li><strong>Key-level caching:</strong> Cache hot keys in a separate layer (Redis in front of Cassandra)</li>
+<li><strong>Key splitting:</strong> <code>user:elon:shard:1</code>, <code>user:elon:shard:2</code> — split the hot key across multiple nodes</li>
+<li><strong>Read replicas:</strong> Route reads for hot keys to replicas</li>
+<li><strong>Application-level awareness:</strong> Handle celebrity accounts differently in code</li>
+</ol>
+<hr>
+<h2>Consistent Hashing vs Rendezvous Hashing</h2>
+<p><strong>Rendezvous hashing</strong> (also called Highest Random Weight, HRW) is an alternative that also provides consistent hashing properties:</p>
+<p>For each key, score every server as <code>hash(key + server_name)</code>. Assign the key to the highest-scoring server.</p>
+<pre><code>For key &quot;user:123&quot;:
+  score(Server-A) = hash(&quot;user:123Server-A&quot;) = 0.73  ← winner
+  score(Server-B) = hash(&quot;user:123Server-B&quot;) = 0.41
+  score(Server-C) = hash(&quot;user:123Server-C&quot;) = 0.58
+
+&quot;user:123&quot; → Server-A
+</code></pre>
+<p>When Server-A is removed, each key independently recalculates and moves to the next highest-scoring server. Only ~1/N keys move.</p>
+<p>Rendezvous hashing is simpler to implement (no ring, no vnodes) but slightly slower for large N (requires O(N) computation per lookup vs O(log N) for a ring with sorted positions).</p>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Keys remapped on node change</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Modular hashing (<code>% N</code>)</td>
+<td>~(N-1)/N (most keys)</td>
+</tr>
+<tr>
+<td>Consistent hashing</td>
+<td>~1/N (minimal keys)</td>
+</tr>
+</tbody></table>
+<p>Consistent hashing is essential whenever you distribute data or load across a pool of nodes that can grow or shrink — caches, database shards, CDN clusters, microservice instances.</p>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./06-sharding-partitioning.md">Lesson 2.6 — SQL Sharding &amp; Partitioning Strategies</a></p>
+</blockquote>

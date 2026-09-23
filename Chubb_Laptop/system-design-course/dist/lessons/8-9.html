@@ -1,0 +1,50 @@
+<h1>Design Twitter</h1>
+<blockquote>
+<p><strong>Lesson 8.9</strong> · Pro · 75 min</p>
+</blockquote>
+<hr>
+<p>We aim to design a simplified version of Twitter, a popular social media platform where users can post tweets, follow or unfollow other users, and view the tweets of the people they follow. The platform also includes a recommendation algorithm that suggests content to users based on their preferences and interactions.</p>
+<h2>Functional Requirements</h2>
+<p>Tweeting: Users should be able to write and post new tweets.</p>
+<p>Follow/Unfollow: Users should have the ability to follow or unfollow other users.</p>
+<p>Timeline: Users should be able to view a list of tweets from the people they follow, as well as content recommended by the recommendation algorithm.</p>
+<h2>Non-Functional Requirements</h2>
+<p>300M DAUs</p>
+<p>Each tweet is approximately 140 characters (or 280 bytes)</p>
+<p>Retain data for five years.</p>
+<p>Assuming each user posts one tweet per day.</p>
+<p>High availability</p>
+<p>Low latency</p>
+<p>High durability</p>
+<p>Security</p>
+<h2>Resource Estimation</h2>
+<p>Assuming a read-write ratio of 100:1.</p>
+<p>Using the resource estimator, we get the following results:</p>
+<h2>API Endpoint Design</h2>
+<p>The API endpoints could include:</p>
+<p>POST /tweets for creating a new tweet. Request body as below:
+{
+  &quot;content&quot;: &quot;The content of the new tweet.&quot;
+}</p>
+<p>GET /tweets/{userId}?last={timestamp}&amp;size={size} for retrieving a user&#39;s tweets.</p>
+<p>POST /follow/{userId} for following a user.</p>
+<p>DELETE /follow/{userId} for unfollowing a user.</p>
+<p>GET /timeline?last={timestamp} for retrieving timeline tweets.</p>
+<h2>High-Level Design</h2>
+<p>Twitter is the perfect example of designing scalable system using our system design template.</p>
+<p>The system could be designed with distinct components, specifically the Tweet Service, Follow Service, and Timeline Service. The Design Diagram is as below:</p>
+<p>The Tweet Service and Follow Service are used to handle requests for sending tweets, following, and unfollowing. Considering the need for response speed to the client and support for high concurrency, these two services do not directly write into the database, but write the request data into the Message Queue. The Database Updater component reads the request data from the Message Queue, genuinely processes the business logic, writes into the server, and updates the cache.</p>
+<p>The Timeline Service is used to handle requests for loading Twitter lists. Based on considerations of response speed and improving system efficiency, this service reads data from the cache, rather than accessing the database.</p>
+<h3>Fan-out-on-write</h3>
+<p>Each user has their own &quot;inbox&quot; inside the cache that stores the tweets to be displayed in its timeline. When a user it follows posts a tweet, the tweet is sent to its &quot;inbox&quot;. This is often called &quot;fan-out-on-write&quot; because it replicates (&quot;fans out&quot;) a piece of information to multiple destinations at the time of its creation or update. The advantage of this is it significantly enhances the read performance since the tweets are already present in a timeline cache when a user logs in. It reduces the need for complex and time-consuming queries at the time of read. However, for celebrities with m</p>
+<h2>Detailed Design</h2>
+<h3>Database Type</h3>
+<p>Considering the scale requirement of 300M DAU and assuming that each user sends one tweet per day, this would generate 300M tweets per day, which is a tremendous amount of data. At the same time, this system does not have complex query requirements. Considering these two points, NoSQL could be used as the database.</p>
+<p>A NoSQL database like Cassandra could be used due to its ability to handle large amounts of data and its high write speed.</p>
+<h3>Data Schema</h3>
+<h2>Grasping the building blocks (&quot;the lego pieces&quot;)</h2>
+<p>This part of the guide will focus on the various components that are often used to construct a system (the building blocks), and the design templates that provide a framework for structuring these blocks.</p>
+<h2>Working through problems and building solutions using the building blocks</h2>
+<p>Finally, we have a series of practical problems for you to work through. You can find the problem in /problems. This hands-on practice will not only help you apply the principles learned but will also enhance your understanding of how to use the building blocks to construct effective solutions. The list of questions grow. We are actively adding more questions to the list.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

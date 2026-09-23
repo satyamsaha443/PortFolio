@@ -1,0 +1,233 @@
+<h1>Design 12: Distributed File Storage (like Google Drive)</h1>
+<blockquote>
+<p><strong>Lesson 3.12</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a cloud file storage service where:</p>
+<ul>
+<li>Users upload and download files of any type and size</li>
+<li>Files sync across devices automatically</li>
+<li>Multiple users can share files/folders</li>
+<li>Version history: restore previous versions</li>
+<li>Collaborative editing for documents</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Upload files (any size up to 50GB)</li>
+<li>Download/preview files</li>
+<li>Sync: changes on one device appear on all devices</li>
+<li>Share files/folders with other users (view/edit permissions)</li>
+<li>Version history (last 30 versions)</li>
+<li>Desktop sync client (watches local folder for changes)</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>1B users, 500M DAU</li>
+<li>Average user stores 15GB → 15 EB total storage</li>
+<li>Files uploaded: 10M/day, average 10MB = 100TB/day new storage</li>
+<li>Sync latency &lt; 5 seconds (change on device A appears on device B within 5s)</li>
+<li>99.9% durability (files never lost)</li>
+<li>Strong consistency within a device; eventual consistency across devices</li>
+</ul>
+<hr>
+<h2>Step 2: Capacity Estimates</h2>
+<pre><code>Storage:
+  1B users × 15 GB = 15 EB total
+  100 TB new uploads/day
+
+Metadata:
+  1B users × average 1,000 files = 1T file records
+  Each record ~200 bytes = 200 TB metadata
+
+Sync operations:
+  500M DAU × 5 changes/day = 2.5B sync operations/day = 29,000/second
+</code></pre>
+<hr>
+<h2>Step 3: Chunking Large Files</h2>
+<p>A 50GB file cannot be uploaded as a single HTTP request reliably. Network interruptions are common. The entire upload would fail and need to restart.</p>
+<p><strong>Chunking:</strong> Split large files into 4MB chunks. Upload each chunk independently.</p>
+<pre><code>50GB file → 12,800 chunks of 4MB each
+
+Chunk 1:    bytes 0 – 4MB         hash: a3f2...
+Chunk 2:    bytes 4MB – 8MB       hash: b7e1...
+...
+Chunk 12800: bytes 49.9GB – 50GB  hash: c4d9...
+</code></pre>
+<p><strong>Benefits:</strong></p>
+<ol>
+<li><strong>Resume interrupted uploads:</strong> Only re-upload failed chunks</li>
+<li><strong>Deduplication:</strong> If chunk A3F2 is already stored (same bytes, different file), don&#39;t re-upload. This is content-addressed storage.</li>
+<li><strong>Parallel upload:</strong> Upload 4 chunks simultaneously → 4x speed</li>
+</ol>
+<p><strong>Content-addressed storage (CAS):</strong>
+Each chunk is stored by its SHA-256 hash. If two users upload the same file (or any file with identical chunks), the chunks are stored once.</p>
+<pre><code>PUT /chunks/a3f2b9c1...  (body = 4MB of data)
+</code></pre>
+<p>The server checks: is chunk <code>a3f2b9c1...</code> already stored? If yes, skip. This is &quot;client-side deduplication.&quot;</p>
+<hr>
+<h2>Step 4: System Architecture</h2>
+<pre><code>Desktop/Mobile Client
+         │ detects file changes (inotify / fsevents)
+         │
+         ▼
+Sync Client Library
+  1. Compute file hash + chunk boundaries
+  2. Query metadata service: which chunks already uploaded?
+  3. Upload only missing chunks
+  4. Notify metadata service: file is ready
+         │
+         ▼
+┌────────────────────────────────────────────────┐
+│              API Layer (stateless)             │
+└────────────────────────────────────────────────┘
+         │                    │
+         ▼                    ▼
+Metadata Service          Chunk Store Service
+(PostgreSQL/Spanner)       │
+                           ▼
+                        S3 / GCS (actual bytes)
+                        Content-addressed by hash
+</code></pre>
+<hr>
+<h2>Step 5: Metadata Schema</h2>
+<pre><code class="language-sql">-- Files and folders
+CREATE TABLE files (
+    id              UUID PRIMARY KEY,
+    owner_id        BIGINT NOT NULL,
+    parent_folder_id UUID,                    -- NULL = root
+    name            TEXT NOT NULL,
+    type            VARCHAR(10),              -- file, folder
+    size_bytes      BIGINT,
+    mime_type       TEXT,
+    current_version INT DEFAULT 1,
+    created_at      TIMESTAMP,
+    updated_at      TIMESTAMP,
+    is_deleted      BOOLEAN DEFAULT false     -- soft delete (trash)
+);
+
+-- File versions
+CREATE TABLE file_versions (
+    file_id         UUID NOT NULL,
+    version         INT NOT NULL,
+    size_bytes      BIGINT,
+    chunk_hashes    TEXT[],                   -- ordered list of chunk SHA-256 hashes
+    created_at      TIMESTAMP,
+    PRIMARY KEY (file_id, version)
+);
+
+-- Chunks (deduplicated)
+CREATE TABLE chunks (
+    hash            CHAR(64) PRIMARY KEY,     -- SHA-256
+    size_bytes      INT,
+    storage_path    TEXT,                     -- S3 key
+    created_at      TIMESTAMP
+);
+
+-- Sharing
+CREATE TABLE file_permissions (
+    file_id         UUID NOT NULL,
+    user_id         BIGINT NOT NULL,
+    permission      VARCHAR(10),              -- viewer, editor, owner
+    PRIMARY KEY (file_id, user_id)
+);
+</code></pre>
+<p>To reconstruct a file: fetch <code>file_versions</code> to get <code>chunk_hashes</code>, then fetch each chunk from S3 by hash, concatenate in order.</p>
+<hr>
+<h2>Step 6: Sync Protocol</h2>
+<p>The desktop client watches for file changes using OS-level APIs (Linux <code>inotify</code>, macOS <code>fsevents</code>, Windows <code>ReadDirectoryChangesW</code>).</p>
+<pre><code>File changes on Device A:
+  1. OS notifies sync client: &quot;file.txt modified&quot;
+  2. Sync client reads file, computes new chunks
+  3. Compute diff: which chunks changed vs previous version?
+  4. Upload only changed chunks to chunk store
+  5. POST /metadata/files/{id}/versions { new_chunk_hashes }
+  6. Server creates new file version, publishes event to Kafka
+
+Sync to Device B (long polling or WebSocket):
+  1. Device B maintains long-poll connection: GET /sync/changes?since={cursor}
+  2. Server responds when new events arrive: &quot;file.txt at version 5 changed&quot;
+  3. Device B fetches new chunk list, downloads changed chunks
+  4. Applies changes to local filesystem
+</code></pre>
+<p><strong>Conflict resolution:</strong>
+If both Device A and Device B modify the same file while offline:</p>
+<ul>
+<li>Device A uploads → version 2</li>
+<li>Device B uploads → conflict detected (expected base version was 1, but current is 2)</li>
+<li>Device B&#39;s file renamed to &quot;file (conflicted copy 2024-01-15).txt&quot;</li>
+<li>Both versions preserved. User resolves manually. (Same approach as Dropbox.)</li>
+</ul>
+<hr>
+<h2>Step 7: Version History</h2>
+<p>Naively storing 30 versions of a 1GB file = 30GB per file. Too expensive.</p>
+<p><strong>Delta compression:</strong>
+Store only the differences between versions. Version 2 of a document with one paragraph changed stores only the changed chunk(s), not the entire file.</p>
+<p>Since files are chunked, most chunks are identical between versions. Only changed chunks need new storage.</p>
+<pre><code>Version 1: chunks [A, B, C, D, E]
+Version 2: chunks [A, B, C&#39;, D, E]  (C&#39; = modified middle section)
+Version 3: chunks [A, B, C&#39;, D&#39;, E&#39;] (two more changes)
+
+Storage: chunks A, B, C, D, E, C&#39;, D&#39;, E&#39; — 8 chunks total
+Not: 3 full copies = 15 chunks
+</code></pre>
+<hr>
+<h2>Step 8: Handling Large File Downloads</h2>
+<p>For a 50GB file, the client needs to resume interrupted downloads too.</p>
+<p><strong>Range requests (HTTP Range header):</strong></p>
+<pre><code>GET /files/uuid/download
+Range: bytes=1000000-2000000
+</code></pre>
+<p>The server returns only the requested byte range from S3. The client can download multiple ranges in parallel and resume from any point.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Large file upload</td>
+<td>4MB chunks; content-addressed by SHA-256</td>
+</tr>
+<tr>
+<td>Deduplication</td>
+<td>Same chunk hash = stored once; across all users</td>
+</tr>
+<tr>
+<td>Resume upload</td>
+<td>Only missing chunks need uploading</td>
+</tr>
+<tr>
+<td>Storage backend</td>
+<td>S3/GCS with CAS keys</td>
+</tr>
+<tr>
+<td>Metadata</td>
+<td>PostgreSQL: files, versions, chunks, permissions</td>
+</tr>
+<tr>
+<td>Sync</td>
+<td>OS file watcher → diff → upload changed chunks → notify peers</td>
+</tr>
+<tr>
+<td>Conflict resolution</td>
+<td>Rename conflicted version; user resolves</td>
+</tr>
+<tr>
+<td>Version storage</td>
+<td>Chunk-level dedup; only changed chunks cost storage</td>
+</tr>
+<tr>
+<td>Scale</td>
+<td>15 EB total; S3 scales infinitely; metadata in distributed SQL</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./13-collab-docs.md">Design 13 — Real-Time Collaborative Docs (OT / CRDT)</a></p>
+</blockquote>

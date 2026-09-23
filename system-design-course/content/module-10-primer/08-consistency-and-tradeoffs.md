@@ -1,0 +1,84 @@
+# Consistency and Tradeoffs
+
+> **Lesson 10.8** · All levels · 25 min
+
+---
+
+Replication and asynchronous updates buy scale, but they let readers see stale or
+conflicting data. Challenge 4 above named this problem; this section is about
+choosing — deliberately — how correct the system must be, and paying only for what
+you need. Consistency questions dominate L6 interviews.
+
+
+## The CAP Theorem
+
+CAP says a distributed store can hold only two of three properties at once:
+Consistency (every read sees the latest write), Availability (every request
+gets a response), and Partition tolerance (it keeps working when the network
+drops messages between nodes). The diagram shows the three as overlapping circles.
+Each pairwise overlap is a combination you can actually have, with example databases
+that live there — highlight a pair to focus it.
+
+In a system that spans machines, partitions will happen, so P is not optional.
+That collapses the real choice to two edges: CP keeps data correct by refusing
+requests on the cut-off side, and AP stays up by serving possibly stale data.
+The CA corner exists only for a single node that never partitions.
+
+The widget below makes this concrete. It runs a leader and a replica that
+copies from it. Press play to send writes; the replica trails by the lag you set.
+Hit Simulate partition to cut the replica off, then toggle AP versus CP:
+AP keeps answering reads with stale data, CP refuses to answer on the stale side.
+
+Most consumer features pick AP: a slightly stale feed beats an error. Money picks
+CP: a wrong balance is worse than a spinner. See
+CAP and PACELC Theorem.
+
+
+## Consistency Models
+
+Consistency is a spectrum, not a switch. Strong consistency means every read
+sees the latest write. Eventual consistency means replicas converge over time,
+so reads may lag. Read-your-writes is a useful middle ground: you always see
+your own updates, even if others see them late.
+
+These levels differ only in what a read may return in the moments just after a
+write, while replicas are still catching up. The widget below commits a new value,
+then shows what two readers — the author who wrote it and another user — see as the
+replica syncs. Switch the level to compare.
+
+Stronger levels send reads to the leader or wait for replicas to confirm, which
+costs latency and availability; weaker levels read whichever replica is closest and
+may return stale data. Systems can tune this finely per read and write, but the
+level is the decision that matters.
+
+Pick the weakest model the feature tolerates. Stronger consistency costs latency and
+availability. See Data Consistency Models.
+
+
+## Contention and Concurrency
+
+When two clients update the same record at once, a naive read-modify-write loses
+one update — both read the old value and overwrite each other. Step through the race
+below, then switch to the optimistic-lock version.
+
+Optimistic locking adds a version column and writes with UPDATE … WHERE version = N. If another writer already bumped the version, the update matches zero
+rows; the loser re-reads and retries. It assumes conflicts are rare and pays only
+when they happen. Pessimistic locking takes a lock up front instead, trading
+throughput for certainty. See
+Database Transactions.
+
+
+## Multi-Step Workflows and Sagas
+
+A checkout spans several services: reserve inventory, charge payment, create a
+shipment. There is no single transaction across them. A saga runs the steps in
+order and, if one fails, runs compensating actions to undo the earlier ones.
+
+Choose where the saga fails and step through it. The steps commit in order; when one
+fails, each already-committed step is undone in reverse by its compensation.
+
+Compensation is not a rollback; it is a new action that reverses a completed one —
+refund a charge, release a hold. Each step and each compensation must be idempotent,
+because retries will repeat them. See Saga Pattern.
+
+---

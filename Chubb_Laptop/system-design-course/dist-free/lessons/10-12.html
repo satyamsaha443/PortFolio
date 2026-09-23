@@ -1,0 +1,114 @@
+<h1>Interview Step-by-Step</h1>
+<blockquote>
+<p><strong>Lesson 10.12</strong> · All levels · 30 min</p>
+</blockquote>
+<hr>
+<p>Success in system design interviews requires structured approaches. This section demonstrates the process by solving Design Twitter, a popular system design problem using the decomposition framework.</p>
+<h2>Step 0: Identify Use Cases from Verbs</h2>
+<p>Apply the first step of the decomposition framework. Extract verbs from the problem statement to identify operations.</p>
+<p>The problem is &quot;Design Twitter.&quot; What can users do? Users post tweets. Users view their feed. Users follow other users. Users like tweets. Users comment on tweets.</p>
+<p>Extract the verbs: post, view, follow, like, comment. Each verb maps to a use case:</p>
+<ul>
+<li>Post: create a new tweet</li>
+<li>View: read individual tweets or feeds</li>
+<li>Follow: create a relationship between users</li>
+<li>Like: increment engagement counter on a tweet</li>
+<li>Comment: create a response attached to a tweet</li>
+</ul>
+<p>Now define what &quot;correct&quot; means. Should the same tweet content posted twice create two separate tweets or deduplicate? Interviews assume no deduplication unless specified. Should followers see new tweets immediately? This depends on non-functional requirements covered in Step 2. Must deleted tweets be recoverable? Not required for this problem.</p>
+<p>Interviews last 45-60 minutes. Focus on core operations. Covering five use cases is sufficient.</p>
+<h2>Step 1: Identify Entities from Nouns</h2>
+<p>Apply the second step. Extract nouns from the use cases to identify entities and their relationships.</p>
+<p>From &quot;users post tweets,&quot; we get User and Tweet. From &quot;users follow other users,&quot; we get a Follow relationship. From &quot;users like tweets&quot; and &quot;users comment on tweets,&quot; we get Like and Comment (both are types of engagement).</p>
+<p>List the entities:</p>
+<ul>
+<li>User: represents an account with profile information</li>
+<li>Tweet: represents a message with content, timestamp, and author</li>
+<li>Follow: represents the relationship between follower and followee</li>
+<li>Engagement: represents interactions (likes and comments) on tweets</li>
+</ul>
+<p>For each entity, establish ownership:</p>
+<ul>
+<li>User entity: owned by User Service, stored in User Database</li>
+<li>Tweet entity: owned by Tweet Service, stored in Tweet Database</li>
+<li>Follow entity: owned by Follow Service, stored in Follow Database</li>
+<li>Engagement entity: owned by Engagement Service, stored in Engagement Database</li>
+</ul>
+<p>Clear ownership prevents conflicts. If two services try updating the same tweet, which write wins? Establishing the Tweet Service as the single source of truth eliminates ambiguity.</p>
+<h2>Step 2: Identify Constraints from Adjectives</h2>
+<p>Apply the third step. Extract adjectives from the problem description to identify non-functional requirements and their architectural implications.</p>
+<p>The problem states Twitter should have &quot;low latency&quot; responses, &quot;high availability,&quot; support &quot;scalable&quot; growth, and ensure &quot;durable&quot; storage. Extract the adjectives: low latency, highly available, scalable, durable.</p>
+<p>Map each adjective to technical solutions:</p>
+<p>Low latency: Users expect feeds to load in under 500ms. This forces caching strategies. Precompute feeds and store in Redis. Read from cache instead of querying the database for every request.</p>
+<p>Highly available: The system must handle partial failures. If the Tweet Service crashes after receiving a post request, the tweet should not be lost. This forces message queues. Buffer write requests in Kafka. Even if services go down, messages persist and process when services recover.</p>
+<p>Scalable: Twitter has 400 million monthly active users. A single server cannot handle this load. This forces horizontal scaling with load balancers distributing requests across multiple service instances. It also forces database partitioning to distribute data across shards.</p>
+<p>Durable: Tweets must never be lost. This forces distributed databases with replication. Store data across multiple nodes. If one node fails, replicas ensure data remains accessible.</p>
+<p>Each adjective added components to the architecture. Without &quot;low latency,&quot; we wouldn&#39;t need cache. Without &quot;highly available,&quot; we wouldn&#39;t need message queues. The constraints drive the design.</p>
+<h2>API Design</h2>
+<p>After defining requirements, design APIs. This stage takes a few minutes.</p>
+<p>Many people overcomplicate this. Turn functional requirements into API endpoints. One endpoint per functional requirement.</p>
+<p>Interviewers look for readable paths (easily understandable names like /tweet not /item), data types (know what data sends and receives with each API), and HTTP methods (POST for creating, GET for fetching).</p>
+<p>For Twitter:</p>
+<p>The author comes from the authenticated session, so it never appears in the request
+body. Users post tweets:</p>
+<p>Users view individual tweets:</p>
+<p>Users view feeds:</p>
+<p>Users follow other users:</p>
+<p>Users like tweets:</p>
+<p>Users comment on tweets:</p>
+<h2>High-Level Design</h2>
+<p>High-level design is the bulk of the interview. Combine work from earlier steps with system design knowledge. This takes around 15-20 minutes but varies by level. Juniors spend more time here. Seniors move to deep dives more quickly.</p>
+<p>We identified use cases (Step 0), entities (Step 1), and constraints (Step 2). Now build the architecture. Start with basic data flow supporting the use cases. Then layer in components addressing each constraint.</p>
+<blockquote>
+<p>Reading the diagrams below. Each step adds one component to solve one problem.
+A pink NEW badge marks the component added at that step; everything else was
+justified in an earlier step.</p>
+</blockquote>
+<h2>Basic Data Flow</h2>
+<p>Take API endpoints and map data flow with services. Show methodical, structured thinking. Start simple without complicated parts. This way, if you make mistakes, interviewers can correct them early.</p>
+<p>For microservices approaches, see Microservices and Monolithic Architecture.</p>
+<p>For Twitter, each use case maps to a service in front of its own database — post
+and read tweets, follow users, view feeds, like and comment:</p>
+<p>This creates many services. Even though separation of concerns matters, avoid turning everything into microservices. Consider combining services. Likes and comments are logically similar. Both are ways of engaging with tweets. Both are types of counters on tweets with different data. This similarity suggests merging them into a single Engagement Service and Engagement Database.</p>
+<p>With multiple services, add an API gateway (see Main Components section above).</p>
+<h2>Applying Constraints</h2>
+<p>We have basic data flow supporting the use cases. This system works but fails at scale. Now apply the constraints identified in Step 2.</p>
+<p>We identified four constraints: low latency, high availability, scalability, and durability. Address each constraint by adding the corresponding components. The biggest candidate mistake is adding components without justifying them.</p>
+<p>Start with scalability. This is relatively straightforward to address. Our goal is supporting horizontal scaling to handle user base growth and increased traffic seamlessly. Horizontal scaling adds more service instances to handle higher loads, ensuring consistent performance as demand increases.</p>
+<p>Deploy multiple instances of each service: Tweet Service, Feed Service, Follow Service, and Engagement Service. These instances operate independently, handling requests in parallel. To distribute traffic efficiently across instances, add a load balancer.</p>
+<p>A load balancer ensures incoming requests distribute evenly across available service instances. It performs health checks monitoring each instance&#39;s status and reroutes traffic away from unhealthy instances, ensuring high availability. This addresses another non-functional requirement and is a bonus from the load balancer. Scale each service dynamically based on traffic patterns. During peak hours, spin up more Feed Service instances to handle request surges, then scale back during lower activity to optimize resource usage.</p>
+<p>Move to another core non-functional requirement: low latency. With few users posting tweets, servers run fast. Each user&#39;s feed fetches a handful of tweets. As we scale to millions of users and billions of tweets, accessing the database for every feed request becomes exponentially slow. Users writing tweets to the database, then feeds re-pulling these from the database each time is redundant.</p>
+<p>Caches solve this.</p>
+<p>A cache is high-speed data storage storing frequently accessed data closer to applications. The Feed Service could leverage distributed caching like Redis or Memcached to store recent tweets for each user.</p>
+<p>When users post tweets, the Feed Service doesn&#39;t just update followers&#39; feeds in the database. It also pushes new tweets to cache, storing them as part of precomputed feeds for followers. When followers log in, the Feed Service fetches feed data directly from cache instead of querying the database or relying on real-time aggregation.</p>
+<p>Caches are ideal for storing hot data: data accessed frequently, like latest tweets for user feeds. Since caches operate in memory, they deliver data in milliseconds, reducing response times and improving user experiences.</p>
+<p>By offloading repeated reads to cache, we reduce database load. This makes systems more scalable and ensures databases are available for other critical write operations.</p>
+<p>To ensure cache stays fresh, set expiry times for cached items or use event-driven update models. When new tweets post, events trigger cache updates, ensuring followers see latest tweets without delays.</p>
+<p>When adding load balancers earlier, we touched on how health checks help maintain high availability. But what else maintains high availability? Consider a situation where we might not have availability with the current system. A user posts a tweet at 1:02pm. At 1:03pm, the tweet service goes down. At 1:04pm, their followers log onto the app. Are followers going to see this tweet in their feed? No. Another scenario: millions of active users publish tweets simultaneously. Trying to process them all simultaneously would overload servers. Message queues solve this.</p>
+<p>A message queue acts as a buffer between services, decoupling dependencies and ensuring messages (like new tweets) aren&#39;t lost even if services experience downtime. When users post tweets, the Tweet Service doesn&#39;t directly communicate with the Feed Service. Instead, it places tweets in a queue. Consumers process the queue and add to both database and cache. The Feed Service, which processes tweets to update user feeds, reads from this cache. Even if the Tweet Service goes offline, messages (tweets) are safely stored in the queue and processed by consumers. The Feed Service can still update followers&#39; feeds when they log in.</p>
+<p>Incorporating message queues ensures eventual consistency and high availability during partial system failures. In our scenario, followers would still see tweets in feeds thanks to queues ensuring no message loss. Decoupling services also helps scalability. Queues handle varying workloads and traffic spikes without overwhelming downstream services. Message queues like RabbitMQ, Kafka, or AWS SQS are built for durability and reliability, making them perfect for our use case.</p>
+<p>We&#39;ve addressed service non-functional requirements. One last critical requirement remains: data durability. In systems handling billions of tweets, likes, and follows, ensuring data is never lost is essential. Once lost, we cannot recover it. How do we prevent this? Use distributed databases.</p>
+<p>Distributed databases replicate and store data across multiple cluster nodes. Distributed databases like Amazon DynamoDB, Google Cloud Spanner, or Cassandra automatically replicate data across multiple nodes. Even if one node goes down, data remains accessible from other replicas. Additionally, distributed databases provide built-in mechanisms for point-in-time recovery and automated backups. Regular snapshots of Tweet DB, Follow DB, and Engagement DB can be taken and stored in separate backup systems. If complete failure occurs, data can be restored to its last consistent state.</p>
+<h2>Deep Dives</h2>
+<p>Deep dives are the last step of system design interviews. They focus on addressing higher-level, more specific challenges or edge cases in your system. They go beyond high-level architecture to test understanding of advanced features, domain-specific scenarios, and trade-offs.</p>
+<h2>How would you handle the Celebrity Problem?</h2>
+<p>The celebrity problem arises when users with millions of followers post tweets, creating massive fan-out as their tweets need adding to millions of follower feeds. This can overwhelm systems leading to latency and high write amplification.</p>
+<p>Toggle the strategy below. Push (fan-out-on-write) copies each post into every
+follower&#39;s timeline; above a follower threshold, hybrid switches that author to pull
+(fan-out-on-read) so one viral post costs zero timeline writes.</p>
+<p>Modify existing architecture to handle this efficiently. For normal users with manageable follower numbers, continue with standard fan-out-on-write. Tweets push to followers&#39; feeds as soon as posted.</p>
+<p>For users with large follower counts (more than 10,000), switch to fan-out-on-read. Celebrity tweets store in Tweet Database and Tweet Cache but aren&#39;t precomputed into individual follower feeds. When followers open feeds, the Feed Service dynamically fetches celebrity latest tweets from cache or database and merges them into user timelines.</p>
+<p>Implement thresholds (follower count or engagement volume) to dynamically decide between fan-out-on-write or fan-out-on-read for given users.</p>
+<h2>How would you efficiently support Trends and Hashtags?</h2>
+<p>Twitter trends and hashtags involve aggregating data across billions of tweets in real-time to identify popular topics. How can we compute and update trends efficiently?</p>
+<p>Enhance existing architecture. Each region or data center computes local trends by aggregating hashtags and keywords using sliding window algorithms (the past 15 minutes). Local results send to global aggregation services, which combine them to generate global trends.</p>
+<p>Modify the Tweet Service to index hashtags upon tweet creation. Maintain inverted indexes where hashtags are keys and associated tweet IDs are values. Use distributed search engines like Elasticsearch or Solr to store and query hashtag indexes efficiently.</p>
+<p>Trends calculate periodically (every minute) and cache in distributed caches like Redis for low-latency access. TTL (time-to-live) ensures trends refresh frequently without overwhelming systems.</p>
+<h2>How would you handle Tweet Search at Scale?</h2>
+<p>Search is a core Twitter feature, allowing users to search tweets, hashtags, and profiles. How can we support scalable, real-time search systems?</p>
+<p>Incorporate distributed search architecture. Modify the Tweet Service to send newly created tweets to search indexing services via message queues. Indexing services process tweets and update search indexes in distributed search engines like Elasticsearch or Apache Solr.</p>
+<p>Partition search indexes by time (daily indices) or hashtags to distribute load across multiple nodes. Older indices can store on slower storage systems to save costs while keeping recent indices on faster nodes.</p>
+<p>Use inverted indexing for efficient keyword and hashtag search. Employ ranking algorithms (BM25 or ML-based) to surface most relevant tweets based on user engagement, recency, or other factors.</p>
+<p>Cache popular search queries and results to reduce load on search engines.</p>
+<h2>Test Your Understanding</h2>
+<hr>

@@ -1,0 +1,232 @@
+<h1>Design 06: Food Delivery Platform (like DoorDash)</h1>
+<blockquote>
+<p><strong>Lesson 3.6</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a food delivery platform where:</p>
+<ul>
+<li>Customers browse restaurants and place orders</li>
+<li>Restaurants receive and prepare orders</li>
+<li>Dashers (drivers) pick up and deliver orders</li>
+<li>Real-time tracking from order placement to delivery</li>
+<li>The system optimally assigns dashers to orders</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Customer: browse restaurants, add to cart, checkout, track delivery</li>
+<li>Restaurant: receive order, update preparation status, manage menu</li>
+<li>Dasher: see available orders nearby, accept, pick up, deliver</li>
+<li>Three-way real-time tracking (customer ↔ restaurant ↔ dasher)</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>25M DAU customers, 1M active dashers</li>
+<li>2M orders/day = 23 orders/second (peak 5x = 115/s)</li>
+<li>Order-to-dasher assignment latency &lt; 30 seconds</li>
+<li>99.95% uptime (order failures lose money)</li>
+<li>Strong consistency for payments and order state</li>
+</ul>
+<hr>
+<h2>Step 2: Core Complexity — Three-Way Coordination</h2>
+<p>Unlike Uber (two parties: rider + driver), food delivery has three parties:</p>
+<pre><code>Customer places order
+    ↓
+Restaurant must acknowledge + set ETA
+    ↓
+Dasher assigned when food is nearly ready
+    ↓
+Dasher picks up at restaurant
+    ↓
+Dasher delivers to customer
+</code></pre>
+<p>The tricky part: the dasher should arrive at the restaurant when the food is ready — not 20 minutes early (dasher waits, inefficient) or 5 minutes late (food gets cold).</p>
+<hr>
+<h2>Step 3: Order State Machine</h2>
+<pre><code>PENDING           (order placed, waiting for restaurant to accept)
+    ↓
+ACCEPTED          (restaurant confirmed; estimated prep time set)
+    ↓
+PREPARING         (restaurant started cooking)
+    ↓
+READY_FOR_PICKUP  (food ready; system assigns dasher)
+    ↓
+DASHER_ASSIGNED   (dasher heading to restaurant)
+    ↓
+PICKED_UP         (dasher collected food)
+    ↓
+DELIVERED         (order complete)
+    ↓
+CANCELLED         (at any point before PICKED_UP)
+</code></pre>
+<p>State transitions are stored in an <code>order_events</code> table (append-only log). The current state is derived from the latest event. This provides a full audit trail.</p>
+<hr>
+<h2>Step 4: Database Schema</h2>
+<pre><code class="language-sql">-- Orders (source of truth)
+CREATE TABLE orders (
+    id              BIGSERIAL PRIMARY KEY,
+    customer_id     BIGINT NOT NULL,
+    restaurant_id   BIGINT NOT NULL,
+    dasher_id       BIGINT,
+    status          VARCHAR(30) NOT NULL,
+    subtotal        DECIMAL(8,2) NOT NULL,
+    delivery_fee    DECIMAL(6,2),
+    tip             DECIMAL(6,2),
+    total           DECIMAL(8,2),
+    delivery_address TEXT,
+    delivery_lat    DECIMAL(9,6),
+    delivery_lng    DECIMAL(9,6),
+    estimated_pickup_at  TIMESTAMP,
+    estimated_delivery_at TIMESTAMP,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+-- Order items
+CREATE TABLE order_items (
+    id          BIGSERIAL PRIMARY KEY,
+    order_id    BIGINT NOT NULL REFERENCES orders(id),
+    menu_item_id BIGINT NOT NULL,
+    name        TEXT NOT NULL,   -- snapshot of name at order time
+    price       DECIMAL(6,2) NOT NULL,
+    quantity    INT NOT NULL,
+    notes       TEXT
+);
+
+-- Order events (audit log)
+CREATE TABLE order_events (
+    id          BIGSERIAL PRIMARY KEY,
+    order_id    BIGINT NOT NULL,
+    event_type  VARCHAR(30) NOT NULL,
+    actor_type  VARCHAR(20),   -- customer, restaurant, dasher, system
+    actor_id    BIGINT,
+    metadata    JSONB,
+    occurred_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_order_events_order ON order_events (order_id, occurred_at);
+</code></pre>
+<hr>
+<h2>Step 5: Dasher Assignment Algorithm</h2>
+<p><strong>Naive approach:</strong> When food is ready, find the nearest available dasher.</p>
+<p><strong>Problem:</strong> The nearest dasher might be 15 minutes away, but a dasher finishing a delivery in 3 minutes is 2 blocks away. Assigning the &quot;nearest&quot; is suboptimal.</p>
+<p><strong>Better approach:</strong> Predict-then-assign</p>
+<pre><code>When restaurant sets estimated_ready_time:
+  1. Calculate target_pickup_time = estimated_ready_time + 2 minutes buffer
+  2. Find dashers who can arrive by target_pickup_time AND complete delivery by ETA:
+     - Currently idle dashers within radius
+     - Dashers about to complete a delivery nearby
+  3. Score each candidate:
+     score = f(travel_time_to_restaurant, distance_to_customer, dasher_rating)
+  4. Assign to highest-scored dasher
+</code></pre>
+<p>This is a <strong>batch assignment problem</strong> running every 30 seconds across all pending orders in a city. It uses linear programming or a greedy matching algorithm (similar to ride-sharing).</p>
+<p>At 115 orders/second across cities, each city&#39;s assignment service runs independently (sharded by geography).</p>
+<hr>
+<h2>Step 6: Real-Time Tracking</h2>
+<p>Three parties need real-time updates:</p>
+<pre><code>Dasher app → GPS update every 5 seconds → Location Service
+                                                │
+                                    ┌───────────┤
+                                    ▼           ▼
+                             Customer app   Restaurant app
+                          (track dasher    (see dasher
+                           heading to       coming to
+                           restaurant,      pick up)
+                           then to them)
+</code></pre>
+<p>Implementation:</p>
+<ul>
+<li>Dasher location stored in Redis GEO (same as Uber design)</li>
+<li>Order tracking service maintains WebSocket connections to all parties</li>
+<li>On dasher location update: push to subscribed customer and restaurant WebSockets</li>
+</ul>
+<p><strong>ETA recalculation:</strong>
+Every location update, recalculate ETA using current traffic data (Google Maps API or proprietary routing). Push updated ETA to customer.</p>
+<hr>
+<h2>Step 7: Restaurant Tablet Integration</h2>
+<p>Restaurants use a tablet app to manage orders. Key flows:</p>
+<p><strong>New order arrives:</strong></p>
+<pre><code>Order created → Kafka event &quot;order.created&quot; → Restaurant service
+             → Push to restaurant tablet via WebSocket
+             → Tablet shows order with accept/decline buttons
+             → Restaurant sets estimated prep time
+</code></pre>
+<p><strong>If restaurant does not respond in 3 minutes:</strong></p>
+<ul>
+<li>System auto-accepts (prevents customer abandonment)</li>
+<li>Or cancels with full refund (based on restaurant&#39;s configured preference)</li>
+</ul>
+<p><strong>Menu management:</strong>
+Restaurants mark items as &quot;86&#39;d&quot; (sold out) in real time. This immediately removes the item from the app for new orders. Implemented as a Redis key <code>unavailable:{restaurant_id}:{item_id}</code> checked at checkout.</p>
+<hr>
+<h2>Step 8: Cart and Checkout</h2>
+<pre><code>Cart: stored in Redis (key = &quot;cart:{customer_id}&quot;, TTL = 24 hours)
+  Value: {restaurant_id, items: [{item_id, qty, price}, ...]}
+
+Checkout:
+  1. Validate cart items still available (check restaurant&#39;s unavailable items)
+  2. Calculate subtotal, delivery fee, tax
+  3. Charge payment (Stripe/Braintree)
+     - If payment fails → return error, order not created
+     - If payment succeeds → create order atomically
+  4. Notify restaurant via Kafka event
+  5. Start dasher assignment process
+</code></pre>
+<p><strong>Idempotency:</strong> The checkout endpoint accepts an idempotency key (UUID generated client-side). If the network drops after payment but before the order is created, the client retries. The server checks: &quot;did I already process this idempotency key?&quot; If yes, return the existing order. This prevents double-charging.</p>
+<hr>
+<h2>Step 9: Handling Restaurant Cancellations</h2>
+<p>If a restaurant cancels after charging:</p>
+<ol>
+<li>Trigger full refund via payment provider (Stripe refund API)</li>
+<li>Attempt to find a replacement restaurant if available</li>
+<li>Notify customer with explanation and credit</li>
+<li>Update order status = CANCELLED</li>
+</ol>
+<p>Restaurant cancellations are tracked. High-cancellation restaurants are penalized in the ranking algorithm.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Three-party coordination</td>
+<td>Kafka events → each party&#39;s service</td>
+</tr>
+<tr>
+<td>Order state</td>
+<td>Finite state machine + append-only event log</td>
+</tr>
+<tr>
+<td>Dasher assignment</td>
+<td>Predict pickup time; score candidates on travel time + delivery distance</td>
+</tr>
+<tr>
+<td>Real-time tracking</td>
+<td>Redis GEO + WebSocket push to customer and restaurant</td>
+</tr>
+<tr>
+<td>Cart</td>
+<td>Redis (ephemeral, session-based)</td>
+</tr>
+<tr>
+<td>Checkout atomicity</td>
+<td>Payment first; order created only on success; idempotency key</td>
+</tr>
+<tr>
+<td>Restaurant offline</td>
+<td>Auto-accept after 3 minutes or cancel with refund</td>
+</tr>
+<tr>
+<td>Surge delivery fees</td>
+<td>Demand/dasher supply ratio per zone (same as Uber surge)</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./07-ecommerce.md">Design 07 — E-Commerce Platform (like Amazon)</a></p>
+</blockquote>

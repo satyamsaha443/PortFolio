@@ -1,0 +1,230 @@
+<h1>Design 08: Payment &amp; Wallet System</h1>
+<blockquote>
+<p><strong>Lesson 3.8</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a digital wallet and payment system where:</p>
+<ul>
+<li>Users can add money (top-up) from a bank/card</li>
+<li>Users can transfer money to other users (P2P)</li>
+<li>Users can pay merchants</li>
+<li>Full transaction history</li>
+<li>Never lose money (exactly-once processing, no double-charges)</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Add funds (link bank account or card)</li>
+<li>P2P transfer (send money to another user)</li>
+<li>Pay a merchant</li>
+<li>View transaction history</li>
+<li>Refunds</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>200M active wallets</li>
+<li>1M transactions/day</li>
+<li>Money must NEVER be lost or double-spent</li>
+<li>Transactions must be idempotent (retry-safe)</li>
+<li>Audit trail: every state change logged forever</li>
+<li>PCI-DSS compliance (no storing raw card numbers)</li>
+<li>99.999% availability (5 nines — payment downtime = lost revenue)</li>
+</ul>
+<hr>
+<h2>Step 2: The Fundamental Rule — Double-Entry Bookkeeping</h2>
+<p>Invented by merchants in 15th century Italy. Every transaction creates two entries that sum to zero. Money is never created or destroyed, only moved.</p>
+<pre><code>Alice sends Bob $50:
+
+Entry 1: Alice&#39;s account  DEBIT  $50   (balance decreases)
+Entry 2: Bob&#39;s account    CREDIT $50   (balance increases)
+
+Sum of all entries = $0  ✓  (money conserved)
+</code></pre>
+<p><strong>This is how banks actually work.</strong> Your &quot;bank balance&quot; is just the sum of all credit and debit entries for your account.</p>
+<p><strong>Advantage:</strong> If the system crashes mid-transfer, you can detect inconsistency: sum of all entries must always be $0. Any other result = data corruption.</p>
+<hr>
+<h2>Step 3: Database Schema</h2>
+<pre><code class="language-sql">-- Accounts (wallets)
+CREATE TABLE accounts (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT UNIQUE NOT NULL,
+    currency    CHAR(3) NOT NULL DEFAULT &#39;USD&#39;,
+    balance     DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+    created_at  TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT balance_non_negative CHECK (balance &gt;= 0)
+);
+
+-- Transactions (ledger entries)
+CREATE TABLE transactions (
+    id              BIGSERIAL PRIMARY KEY,
+    idempotency_key UUID UNIQUE NOT NULL,   -- prevent duplicates
+    type            VARCHAR(20),            -- topup, transfer, payment, refund
+    status          VARCHAR(20),            -- pending, completed, failed, reversed
+    amount          DECIMAL(18,2) NOT NULL,
+    currency        CHAR(3) NOT NULL,
+    description     TEXT,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    completed_at    TIMESTAMP
+);
+
+-- Ledger entries (double-entry accounting)
+CREATE TABLE ledger_entries (
+    id              BIGSERIAL PRIMARY KEY,
+    transaction_id  BIGINT NOT NULL REFERENCES transactions(id),
+    account_id      BIGINT NOT NULL REFERENCES accounts(id),
+    entry_type      CHAR(6) NOT NULL,   -- DEBIT or CREDIT
+    amount          DECIMAL(18,2) NOT NULL,
+    running_balance DECIMAL(18,2) NOT NULL,  -- balance AFTER this entry
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+</code></pre>
+<p>Account balance can be computed two ways:</p>
+<ol>
+<li><code>SELECT balance FROM accounts WHERE id = X</code> — fast, denormalized</li>
+<li><code>SELECT SUM(CASE WHEN entry_type=&#39;CREDIT&#39; THEN amount ELSE -amount END) FROM ledger_entries WHERE account_id = X</code> — slow but authoritative</li>
+</ol>
+<p>Both should agree. Periodic reconciliation verifies consistency.</p>
+<hr>
+<h2>Step 4: The Transfer Flow (with ACID)</h2>
+<pre><code class="language-sql">BEGIN TRANSACTION;
+
+-- Step 1: Idempotency check
+SELECT id FROM transactions WHERE idempotency_key = &#39;uuid-xxxx&#39;;
+-- If row exists → return existing transaction (do NOT re-execute)
+
+-- Step 2: Check sender balance
+SELECT balance FROM accounts WHERE id = sender_id FOR UPDATE;
+-- FOR UPDATE locks the row — prevents concurrent transfers from this account
+IF balance &lt; amount THEN ROLLBACK; RAISE &#39;insufficient funds&#39;;
+
+-- Step 3: Create transaction record
+INSERT INTO transactions (idempotency_key, type, status, amount, ...)
+VALUES (&#39;uuid-xxxx&#39;, &#39;transfer&#39;, &#39;pending&#39;, 50.00, ...);
+
+-- Step 4: Debit sender
+UPDATE accounts SET balance = balance - 50.00 WHERE id = sender_id;
+INSERT INTO ledger_entries (transaction_id, account_id, entry_type, amount, running_balance)
+VALUES (txn_id, sender_id, &#39;DEBIT&#39;, 50.00, new_sender_balance);
+
+-- Step 5: Credit recipient
+UPDATE accounts SET balance = balance + 50.00 WHERE id = recipient_id;
+INSERT INTO ledger_entries (transaction_id, account_id, entry_type, amount, running_balance)
+VALUES (txn_id, recipient_id, &#39;CREDIT&#39;, 50.00, new_recipient_balance);
+
+-- Step 6: Complete
+UPDATE transactions SET status = &#39;completed&#39;, completed_at = NOW() WHERE id = txn_id;
+
+COMMIT;
+</code></pre>
+<p>Either ALL of these steps succeed or NONE of them do (ACID atomicity). No partial states.</p>
+<hr>
+<h2>Step 5: Idempotency — The Most Important Pattern</h2>
+<p>Network calls fail. The client retries. Without idempotency, the retry creates a second transaction.</p>
+<p><strong>Idempotency key:</strong> A UUID generated by the client, sent with every transaction request. The server stores it and checks it before processing:</p>
+<pre><code class="language-python">def transfer(idempotency_key, sender_id, recipient_id, amount):
+    # Check if already processed
+    existing = db.query(&quot;SELECT * FROM transactions WHERE idempotency_key = ?&quot;, key)
+    if existing:
+        return existing  # return the SAME result as before
+    
+    # Process new transaction
+    ...
+</code></pre>
+<p>Client behavior:</p>
+<ol>
+<li>Generate idempotency key (UUID) before making the request</li>
+<li>If network times out → retry with the SAME key</li>
+<li>If already processed → server returns same result → client happy</li>
+</ol>
+<p><strong>The idempotency key must be unique per logical transaction attempt, not per retry.</strong> The client generates one UUID per &quot;I want to send $50 to Bob&quot; event.</p>
+<hr>
+<h2>Step 6: Handling External Payment Providers</h2>
+<p>Users top up wallets via card/bank. This involves Stripe/Braintree/ACH.</p>
+<pre><code>User charges card for $100 topup
+         │
+         ▼
+Payment Service → Stripe API (charge card)
+         │
+         ▼ Success
+Create transaction (type=topup, status=pending)
+         │
+         ▼
+Stripe webhook: payment_intent.succeeded
+         │
+         ▼
+Update transaction status = completed
+Credit user wallet +$100
+</code></pre>
+<p><strong>Why webhook?</strong></p>
+<p>The initial API call confirms the charge was initiated. The webhook confirms it actually cleared. Credit cards can be declined after initial authorization (fraud detection triggers late, bank goes offline).</p>
+<p>Never credit the wallet until the webhook confirms success. Handle the time between initial response and webhook with a &quot;pending&quot; state.</p>
+<hr>
+<h2>Step 7: Dealing with Failures</h2>
+<p><strong>What if the database crashes mid-transfer?</strong></p>
+<p>ACID guarantees rollback. The transaction is either fully committed or fully rolled back. Check <code>transactions.status</code> — if it is still &quot;pending&quot; after 5 minutes, the transaction failed to complete. Run compensation logic.</p>
+<p><strong>What if the external payment succeeds but our DB crashes before we credit the wallet?</strong></p>
+<p>This is the hardest case. The user was charged but the wallet was not credited.</p>
+<p><strong>Solution:</strong> Outbox pattern + idempotent webhook processing.</p>
+<ol>
+<li>When initiating topup, write to an <code>outbox</code> table in the same DB transaction</li>
+<li>A separate process reads the outbox and processes webhooks</li>
+<li>Webhook processing is idempotent (uses Stripe&#39;s <code>payment_intent</code> ID as idempotency key)</li>
+</ol>
+<hr>
+<h2>Step 8: Compliance and Security</h2>
+<p><strong>PCI-DSS:</strong> Never store raw card numbers. Use Stripe&#39;s tokenization — your system stores only a token (<code>tok_xxxx</code>) that references the card in Stripe&#39;s secure vault.</p>
+<p><strong>Audit log:</strong> Every state change is immutable. Ledger entries are never updated or deleted. This is the legal record.</p>
+<p><strong>Fraud detection:</strong></p>
+<ul>
+<li>Velocity checks: &gt; 5 transfers in 1 hour → flag for review</li>
+<li>Unusual amounts or recipients → ML model scores transaction</li>
+<li>Risky transactions: hold for 24-hour manual review</li>
+</ul>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Core data model</td>
+<td>Double-entry bookkeeping (ledger entries)</td>
+</tr>
+<tr>
+<td>Prevent double-spend</td>
+<td>ACID transaction with FOR UPDATE lock</td>
+</tr>
+<tr>
+<td>Prevent double-charge</td>
+<td>Idempotency key (UUID per transaction)</td>
+</tr>
+<tr>
+<td>Topup via card</td>
+<td>Stripe webhook confirms; only credit on webhook</td>
+</tr>
+<tr>
+<td>Crash recovery</td>
+<td>Pending transactions reconciled on restart</td>
+</tr>
+<tr>
+<td>Audit trail</td>
+<td>Append-only ledger_entries table</td>
+</tr>
+<tr>
+<td>Card storage</td>
+<td>PCI-DSS: never store; use Stripe tokens</td>
+</tr>
+<tr>
+<td>Fraud</td>
+<td>Velocity checks + ML scoring</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./09-notifications.md">Design 09 — Notification System at 100M Scale</a></p>
+</blockquote>

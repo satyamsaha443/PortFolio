@@ -1,0 +1,230 @@
+<h1>Design 05: Ride-Sharing App (like Uber)</h1>
+<blockquote>
+<p><strong>Lesson 3.5</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a ride-sharing platform where:</p>
+<ul>
+<li>Riders request a ride from their current location</li>
+<li>Nearby available drivers receive the request</li>
+<li>The system matches rider to the best driver</li>
+<li>Real-time location tracking during the trip</li>
+<li>Dynamic pricing (surge) based on supply/demand</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Rider requests a ride (from/to location)</li>
+<li>System finds available drivers nearby</li>
+<li>Match rider to driver (driver accepts/declines)</li>
+<li>Real-time tracking of driver during trip</li>
+<li>Trip completion and payment</li>
+<li>Dynamic pricing based on demand</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>100M DAU (combined riders + drivers)</li>
+<li>10M rides/day</li>
+<li>Driver location updates every 5 seconds</li>
+<li>Rider-to-driver match latency &lt; 5 seconds</li>
+<li>99.99% availability (people stranded without rides is critical)</li>
+</ul>
+<hr>
+<h2>Step 2: Capacity Estimates</h2>
+<pre><code>Driver location updates:
+  5M active drivers at peak × 1 update/5s = 1M location writes/second
+
+Ride requests:
+  10M rides/day = 116 rides/second (peak 5x = 580/s)
+
+Driver nearby queries:
+  For each ride request, query drivers in a ~2km radius
+  116 queries/second × ~10ms each = manageable if indexed correctly
+
+Trip data storage:
+  10M rides/day × 1KB per trip = 10GB/day = 3.6TB/year
+</code></pre>
+<hr>
+<h2>Step 3: Geolocation — The Core Challenge</h2>
+<p>Finding nearby drivers is a proximity query:</p>
+<blockquote>
+<p>&quot;Give me all drivers within 2km of (lat=37.7749, lng=-122.4194)&quot;</p>
+</blockquote>
+<p>A standard SQL <code>WHERE lat BETWEEN x AND y AND lng BETWEEN a AND b</code> query won&#39;t use an index efficiently in 2D. You need a <strong>geospatial index</strong>.</p>
+<h3>Geohash</h3>
+<p>Divide the Earth into a grid. Each cell has a string code. Nearby cells share a prefix.</p>
+<pre><code>Geohash precision:
+  Length 5 = ~5km × 5km cell
+  Length 6 = ~1.2km × 1.2km cell
+  Length 7 = ~150m × 150m cell
+</code></pre>
+<p>A driver at (37.7749, -122.4194) has geohash <code>9q8yy</code>. The cell and 8 surrounding cells cover the ~2km search radius.</p>
+<pre><code>To find nearby drivers:
+1. Compute geohash of rider&#39;s location: &quot;9q8yy&quot;
+2. Get the 9 surrounding geohash cells: [&quot;9q8yy&quot;, &quot;9q8yz&quot;, &quot;9q8yw&quot;, ...]
+3. Query: SELECT * FROM drivers WHERE geohash6 IN (&#39;9q8yy&#39;, &#39;9q8yz&#39;, ...)
+         AND status = &#39;available&#39;
+</code></pre>
+<h3>Redis GEO commands</h3>
+<p>Redis has built-in geospatial support:</p>
+<pre><code>GEOADD drivers_available 37.7749 -122.4194 driver:123
+GEORADIUS drivers_available 37.7749 -122.4194 2 km ASC COUNT 20
+</code></pre>
+<p><code>GEORADIUS</code> returns drivers sorted by distance. Very fast due to internal geohash indexing.</p>
+<p><strong>Approach:</strong> Store available driver locations in Redis GEO. Update every 5 seconds. Query on ride request.</p>
+<hr>
+<h2>Step 4: Driver Location Pipeline</h2>
+<pre><code>Driver app → location update every 5s
+         │
+         ▼
+Location Service (writes to Redis + Kafka)
+         │
+  ┌──────┴──────┐
+  ▼             ▼
+Redis GEO   Kafka topic &quot;driver-locations&quot;
+(live lookup)    │
+                 ▼
+            Location History DB (Cassandra)
+            (for trip replay, analytics)
+</code></pre>
+<p>1M writes/second to Redis is achievable with a Redis cluster (sharded by geohash region).</p>
+<hr>
+<h2>Step 5: Ride Matching</h2>
+<pre><code>Rider requests ride
+         │
+         ▼
+Ride Service
+  1. Create ride record (status = REQUESTING)
+  2. Query Redis: GEORADIUS → top 5 nearest available drivers
+  3. Send ride offer to Driver 1 (via WebSocket/push)
+         │
+         ▼ (10 second timeout)
+Driver 1 accepts?
+  YES → Match! Update ride status = MATCHED
+         Notify rider: driver ETA, driver info
+  NO / timeout → Try Driver 2, 3, 4, 5
+         │
+No drivers available → Notify rider, retry in 30s
+</code></pre>
+<h3>Preventing double-booking</h3>
+<p>Two riders might simultaneously get offered the same driver. Use <strong>optimistic locking</strong>:</p>
+<pre><code class="language-sql">-- Atomic claim: only succeeds if driver is still available
+UPDATE drivers
+SET status = &#39;dispatched&#39;, current_ride_id = &lt;ride_id&gt;
+WHERE id = &lt;driver_id&gt; AND status = &#39;available&#39;;
+-- Returns 0 rows updated = already taken, try next driver
+</code></pre>
+<p>Or use Redis distributed lock (SETNX) with a 10-second TTL.</p>
+<hr>
+<h2>Step 6: Real-Time Trip Tracking</h2>
+<p>Once matched, the rider needs to see the driver&#39;s location on the map in real-time.</p>
+<pre><code>Driver app → location update every 3s (more frequent during trip)
+         │
+         ▼
+Location Service → Kafka
+         │
+         ▼
+Trip Tracker Service
+  - Subscribes to driver location events
+  - Filters: only publish to riders currently in a trip with this driver
+         │
+         ▼
+Rider&#39;s app (via WebSocket)
+</code></pre>
+<p>The rider&#39;s WebSocket connection is to a stateful <strong>Trip Tracker Server</strong>. When a trip starts, the rider&#39;s server subscribes to events for that driver&#39;s location.</p>
+<hr>
+<h2>Step 7: Dynamic Pricing (Surge)</h2>
+<p>Surge pricing increases price when demand &gt; supply.</p>
+<pre><code>Surge calculation service (runs every minute):
+  For each city zone (geohash level 4 cell, ~20km × 20km):
+    demand = pending ride requests in last 5 minutes
+    supply = available drivers in zone
+    ratio = demand / supply
+    
+    surge_multiplier = max(1.0, ratio × 0.5)
+    -- ratio 2.0 → 2x surge
+    -- ratio 3.0 → 2x surge (capped to prevent gouging)
+
+Store surge_multiplier per zone in Redis (TTL 2 minutes)
+</code></pre>
+<p>When a rider requests a ride, the price is <code>base_fare × surge_multiplier</code> for their pickup zone.</p>
+<p>Surge is shown to the rider before they confirm, with a &quot;surge pricing is in effect&quot; warning.</p>
+<hr>
+<h2>Step 8: Database Design</h2>
+<pre><code class="language-sql">-- Trips
+CREATE TABLE trips (
+    id              BIGSERIAL PRIMARY KEY,
+    rider_id        BIGINT NOT NULL,
+    driver_id       BIGINT,
+    status          VARCHAR(20),  -- requesting, matched, in_progress, completed, cancelled
+    pickup_lat      DECIMAL(9,6),
+    pickup_lng      DECIMAL(9,6),
+    dropoff_lat     DECIMAL(9,6),
+    dropoff_lng     DECIMAL(9,6),
+    fare_estimate   DECIMAL(8,2),
+    final_fare      DECIMAL(8,2),
+    surge_mult      DECIMAL(4,2) DEFAULT 1.0,
+    requested_at    TIMESTAMP,
+    started_at      TIMESTAMP,
+    completed_at    TIMESTAMP
+);
+
+-- Drivers
+CREATE TABLE drivers (
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         BIGINT UNIQUE,
+    status          VARCHAR(20),  -- offline, available, dispatched, in_trip
+    current_lat     DECIMAL(9,6),
+    current_lng     DECIMAL(9,6),
+    vehicle_type    VARCHAR(20),
+    rating          DECIMAL(3,2)
+);
+</code></pre>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Location storage</td>
+<td>Redis GEO for live queries; Cassandra for history</td>
+</tr>
+<tr>
+<td>Nearby drivers</td>
+<td>GEORADIUS command; geohash cells</td>
+</tr>
+<tr>
+<td>Location update frequency</td>
+<td>Every 5s idle; every 3s in trip</td>
+</tr>
+<tr>
+<td>Matching algorithm</td>
+<td>Nearest available driver; optimistic locking to prevent double-booking</td>
+</tr>
+<tr>
+<td>Real-time tracking</td>
+<td>WebSocket; rider subscribes to driver location events</td>
+</tr>
+<tr>
+<td>Surge pricing</td>
+<td>Demand/supply ratio per zone; recalculated every minute</td>
+</tr>
+<tr>
+<td>1M location writes/second</td>
+<td>Redis cluster sharded by geohash region</td>
+</tr>
+<tr>
+<td>Trip state machine</td>
+<td>requesting → matched → in_progress → completed</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./06-food-delivery.md">Design 06 — Food Delivery Platform (like DoorDash)</a></p>
+</blockquote>

@@ -1,0 +1,256 @@
+<h1>Design 13: Real-Time Collaborative Docs (OT / CRDT)</h1>
+<blockquote>
+<p><strong>Lesson 3.13</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a real-time collaborative document editor (like Google Docs) where:</p>
+<ul>
+<li>Multiple users edit the same document simultaneously</li>
+<li>Each user sees others&#39; changes in real time</li>
+<li>Changes never conflict or corrupt the document</li>
+<li>Works with intermittent connectivity (offline edits merge correctly)</li>
+<li>Full revision history</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Multiple users edit a document simultaneously</li>
+<li>Changes propagate to all users in real time (&lt; 200ms)</li>
+<li>Conflict-free merging of concurrent edits</li>
+<li>Cursor/selection visibility: see where others are editing</li>
+<li>Offline editing: changes sync when reconnected</li>
+<li>Revision history: restore any previous version</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>100M documents, 50M DAU</li>
+<li>Up to 100 simultaneous editors per document</li>
+<li>Edit propagation &lt; 200ms</li>
+<li>Document size up to 10MB text</li>
+<li>Consistency: all clients must converge to the same document state</li>
+</ul>
+<hr>
+<h2>Step 2: The Core Problem — Concurrent Edits</h2>
+<p>Imagine Alice and Bob edit the same document simultaneously:</p>
+<pre><code>Initial text: &quot;Hello World&quot;
+
+Alice (offline): inserts &quot;Beautiful &quot; at position 6
+  Result: &quot;Hello Beautiful World&quot;
+
+Bob (offline): inserts &quot;Great &quot; at position 6
+  Result: &quot;Hello Great World&quot;
+</code></pre>
+<p>When they sync, there is a conflict. Naive merge:</p>
+<ul>
+<li>Apply Alice&#39;s insert first: &quot;Hello Beautiful World&quot;</li>
+<li>Apply Bob&#39;s insert at position 6: &quot;Hello Great Beautiful World&quot; ❌ (wrong)</li>
+</ul>
+<p>Bob&#39;s insert at position 6 is now in the wrong place because Alice&#39;s edit shifted everything.</p>
+<p>The correct result should be: &quot;Hello Beautiful Great World&quot; or &quot;Hello Great Beautiful World&quot; (either, but consistently across all clients).</p>
+<hr>
+<h2>Step 3: Operational Transformation (OT)</h2>
+<p>OT is the algorithm that powers Google Docs. The key insight:</p>
+<p><strong>Transform operations against concurrent operations before applying them.</strong></p>
+<p>An operation has a type, position, and content:</p>
+<ul>
+<li><code>Insert(pos=6, text=&quot;Beautiful &quot;)</code></li>
+<li><code>Insert(pos=6, text=&quot;Great &quot;)</code></li>
+</ul>
+<p>When applying Bob&#39;s operation after Alice&#39;s has already been applied, <strong>transform</strong> Bob&#39;s operation:</p>
+<pre><code>Alice&#39;s insert added 10 characters at position 6.
+Bob&#39;s insert was at position 6 (before Alice&#39;s change).
+After Alice&#39;s insert, Bob&#39;s insert should be at position 6 + 10 = 16.
+
+Transformed Bob&#39;s op: Insert(pos=16, text=&quot;Great &quot;)
+</code></pre>
+<p>Result: &quot;Hello Beautiful Great World&quot; ✓</p>
+<h3>OT rules for text:</h3>
+<pre><code>transform(Insert(p1, t1), Insert(p2, t2)):
+  if p2 &lt; p1:  return Insert(p1 + len(t2), t1)  # shift right
+  else:         return Insert(p1, t1)             # no change
+
+transform(Insert(p1, t1), Delete(p2, len)):
+  if p2 &lt; p1:  return Insert(p1 - len, t1)       # shift left
+  elif p2 &gt;= p1 + len(t1): return Insert(p1, t1) # no overlap
+  else: ...                                        # complex: deletion overlaps insert
+</code></pre>
+<p>OT is complex to implement correctly for all edge cases, especially with 3+ concurrent users.</p>
+<hr>
+<h2>Step 4: CRDT — Conflict-free Replicated Data Types</h2>
+<p>CRDTs are a more modern approach. Instead of transforming operations after the fact, CRDTs assign a <strong>permanent, globally unique position</strong> to each character.</p>
+<p><strong>Logoot / RGA (Replicated Growable Array):</strong></p>
+<p>Each character is assigned a unique ID: <code>(timestamp, site_id)</code>. Characters are sorted by this ID to determine order.</p>
+<pre><code>Alice inserts &quot;B&quot; between positions 5 and 6:
+  Character: {id: (t=10, site=alice), value: &quot;B&quot;, after: char_5_id}
+
+Bob inserts &quot;G&quot; at the same position:
+  Character: {id: (t=10, site=bob), value: &quot;G&quot;, after: char_5_id}
+</code></pre>
+<p>To merge: sort all characters by their position rules. Both characters have <code>after: char_5_id</code>. Tie-break by site ID (lexicographic). Alice &lt; Bob alphabetically, so Alice&#39;s &quot;B&quot; comes first.</p>
+<p>Result: consistent across all clients without transformation.</p>
+<p><strong>CRDT advantages:</strong></p>
+<ul>
+<li>No server coordination needed</li>
+<li>Works offline trivially (merge on reconnect)</li>
+<li>Simpler to reason about correctness</li>
+</ul>
+<p><strong>CRDT disadvantages:</strong></p>
+<ul>
+<li>Document grows as tombstones accumulate (deleted characters kept as &quot;tombstone&quot; markers)</li>
+<li>Requires periodic compaction</li>
+<li>More complex data structures than plain text</li>
+</ul>
+<hr>
+<h2>Step 5: Which to Use?</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>OT</th>
+<th>CRDT</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Complexity</strong></td>
+<td>Requires central server to order operations</td>
+<td>Decentralized; clients can sync P2P</td>
+</tr>
+<tr>
+<td><strong>Performance</strong></td>
+<td>O(n) per operation for n concurrent users</td>
+<td>O(1) per operation</td>
+</tr>
+<tr>
+<td><strong>Offline</strong></td>
+<td>Requires server to transform ops on reconnect</td>
+<td>Native: merge is automatic</td>
+</tr>
+<tr>
+<td><strong>Used by</strong></td>
+<td>Google Docs, Office 365</td>
+<td>Figma, Notion, Linear</td>
+</tr>
+<tr>
+<td><strong>Best for</strong></td>
+<td>Documents (sequential text)</td>
+<td>Complex data structures</td>
+</tr>
+</tbody></table>
+<p>For a Google Docs clone: <strong>OT with a central server</strong> is the classic approach and simpler to implement correctly.</p>
+<hr>
+<h2>Step 6: Architecture</h2>
+<pre><code>Browser (Alice)
+  │ WebSocket
+  ▼
+Collab Server (stateful, one per document)
+  │
+  ├── Maintains OT document state in memory
+  ├── Applies and transforms all operations
+  ├── Broadcasts transformed ops to all connected clients
+  └── Persists ops to append-only log (Kafka → DynamoDB)
+
+Other browsers connected to same Collab Server
+</code></pre>
+<p><strong>Sticky sessions:</strong> All users editing the same document must connect to the same collab server. Route by document_id. Use consistent hashing to assign documents to servers.</p>
+<hr>
+<h2>Step 7: Database Design</h2>
+<pre><code class="language-sql">-- Documents
+CREATE TABLE documents (
+    id              UUID PRIMARY KEY,
+    owner_id        BIGINT NOT NULL,
+    title           TEXT,
+    current_version BIGINT DEFAULT 0,
+    created_at      TIMESTAMP,
+    updated_at      TIMESTAMP
+);
+
+-- Operation log (append-only)
+CREATE TABLE document_operations (
+    document_id     UUID NOT NULL,
+    seq             BIGINT NOT NULL,   -- global sequence number for this document
+    user_id         BIGINT NOT NULL,
+    operation_type  VARCHAR(10),       -- insert, delete, retain
+    position        INT,
+    content         TEXT,
+    applied_at      TIMESTAMP,
+    PRIMARY KEY (document_id, seq)
+);
+</code></pre>
+<p>To reconstruct the document at any revision: replay all operations from seq=1 to N.</p>
+<p><strong>Snapshots for performance:</strong> Every 1,000 operations, store a document snapshot. To load a document, fetch the latest snapshot and replay only operations since then.</p>
+<hr>
+<h2>Step 8: Real-Time Cursor and Presence</h2>
+<p>Users want to see where other editors are working.</p>
+<p><strong>Cursor positions</strong> are ephemeral (not stored permanently):</p>
+<pre><code>Cursor update sent every 500ms while user is active:
+{ user_id, document_id, cursor_position, selection_start, selection_end }
+
+Collab server broadcasts to all other connected clients.
+Not persisted to DB — cursor state is transient.
+</code></pre>
+<p><strong>Presence</strong> (who is currently editing):</p>
+<pre><code>On WebSocket connect: publish &quot;user joined&quot; event
+On WebSocket disconnect: publish &quot;user left&quot; event
+Server maintains: { document_id → Set&lt;user_id&gt; } in memory
+</code></pre>
+<p>Color-coding: each user gets a unique color (assigned on join). Their cursor, selection highlight, and name label appear in that color for all other users.</p>
+<hr>
+<h2>Step 9: Handling Slow/Offline Clients</h2>
+<p>Client goes offline for 5 minutes, makes 100 edits, comes back online.</p>
+<pre><code>1. Client reconnects, sends: &quot;I was at version 100, I have operations 101-200&quot;
+2. Server has applied other users&#39; ops, now at version 350
+3. Server transforms client&#39;s ops 101-200 against ops 101-350
+4. Applies transformed ops as versions 351-450
+5. Returns versions 101-350 to client (what it missed)
+6. Client applies those ops to its local state
+7. Both server and client now at version 450 with identical document content ✓
+</code></pre>
+<p>This is the <strong>tombstone/rebase</strong> operation. OT guarantees convergence regardless of network partition duration.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Core algorithm</td>
+<td>OT (classic, Google Docs) or CRDT (modern, Figma)</td>
+</tr>
+<tr>
+<td>OT key insight</td>
+<td>Transform position of concurrent operations before applying</td>
+</tr>
+<tr>
+<td>CRDT key insight</td>
+<td>Assign permanent IDs to characters; merge by sorting</td>
+</tr>
+<tr>
+<td>Server routing</td>
+<td>Sticky sessions by document_id; consistent hashing</td>
+</tr>
+<tr>
+<td>Operation storage</td>
+<td>Append-only log; snapshots every 1,000 ops</td>
+</tr>
+<tr>
+<td>Offline merge</td>
+<td>OT: server transforms on reconnect; CRDT: automatic</td>
+</tr>
+<tr>
+<td>Cursor sharing</td>
+<td>Ephemeral, broadcast via WebSocket, not persisted</td>
+</tr>
+<tr>
+<td>3-way conflict</td>
+<td>OT total order: server is the authority on op sequence</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./14-social-feed.md">Design 14 — Social Media Feed / Timeline (Fanout Strategies)</a></p>
+</blockquote>

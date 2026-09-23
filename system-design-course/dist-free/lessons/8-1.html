@@ -1,0 +1,151 @@
+<h1>Design URL Shortener</h1>
+<blockquote>
+<p><strong>Lesson 8.1</strong> · Beginner · 60 min</p>
+</blockquote>
+<hr>
+<h2>Introduction</h2>
+<p>A URL Shortener is a service that takes a long URL and generates a shorter, unique alias that redirects users to the original URL. Popular examples include bit.ly, TinyURL, and Twitter&#39;s t.co.</p>
+<p>This alias is often a fixed-length string of characters. The system should be able to handle millions of URLs, allowing users to create, store, and retrieve shortened URLs efficiently. Each shortened URL needs to be unique and persistent. Additionally, the service should be able to handle high traffic, with shortened URLs redirecting to the original links in near real-time. In some cases, the service may include analytics to track link usage, such as click counts and user locations.</p>
+<h2>Functional Requirements</h2>
+<p>We extract verbs from the problem statement to identify core operations:</p>
+<p>&quot;takes a long URL and generates a shorter alias&quot; → CREATE operation (URL Shortening)</p>
+<p>&quot;redirects users to the original URL&quot; → READ operation (URL Redirection)</p>
+<p>&quot;track link usage&quot; → UPDATE/INCREMENT operation (Analytics)</p>
+<p>Each verb maps to a functional requirement that defines what the system must do.</p>
+<p>Users should be able to input a long URL and receive a unique, shortened alias. The shortened URL should use a compact format with English letters and digits to save space and ensure uniqueness.</p>
+<p>Users should be able to input a long URL and receive a unique, shortened alias. The shortened URL should use a compact format with English letters and digits to save space and ensure uniqueness.</p>
+<p>When users access a shortened URL, the service should redirect them seamlessly to the original URL with minimal delay.</p>
+<p>When users access a shortened URL, the service should redirect them seamlessly to the original URL with minimal delay.</p>
+<p>The system should be able to track the number of times each shortened URL is accessed to provide insights into link usage.</p>
+<p>The system should be able to track the number of times each shortened URL is accessed to provide insights into link usage.</p>
+<p>Out of Scope</p>
+<p>Scale Requirements</p>
+<p>100M Daily Active Users</p>
+<p>Read:write ratio = 100: 1</p>
+<p>Data retention for 5 years</p>
+<p>Assuming 1 million write requests per day</p>
+<p>Assuming each entry is about 500 bytes</p>
+<h2>Non-Functional Requirements</h2>
+<p>We extract adjectives and descriptive phrases from the problem statement to identify quality constraints:</p>
+<p>&quot;unique&quot; alias → System must guarantee no collisions</p>
+<p>&quot;millions of URLs&quot; + &quot;high traffic&quot; → System must handle large scale</p>
+<p>&quot;efficiently&quot; + &quot;near real-time&quot; → System must respond quickly</p>
+<p>&quot;persistent&quot; → System must not lose data</p>
+<p>&quot;handle high traffic&quot; → System must remain operational under load</p>
+<p>Each adjective becomes a non-functional requirement that constrains our design choices.</p>
+<p>High Availability: The service should ensure that all URLs are accessible 24/7, with minimal downtime, so users can reliably reach their destinations. (Derived from &#39;high traffic&#39;)</p>
+<p>Low Latency: URL redirections should occur almost instantly, ideally in under a few milliseconds, to provide a seamless experience for users. (Derived from &#39;near real-time&#39; and &#39;efficiently&#39;)</p>
+<p>High Durability: Shortened URLs should be stored reliably so they persist over time, even across server failures, ensuring long-term accessibility. (Derived from &#39;persistent&#39;)</p>
+<p>Uniqueness: Each shortened URL must map to exactly one original URL across all users. (Derived from &#39;unique&#39;)</p>
+<p>Security: The service must prevent malicious links from being created and protect user data, implementing safeguards against spam, abuse, and unauthorized access to sensitive information.</p>
+<h2>Data Model</h2>
+<p>The data model is derived from extracting nouns in the problem statement:</p>
+<p>&quot;URL&quot; and &quot;alias&quot; → URLMapping entity with short_url and original_url fields</p>
+<p>&quot;link usage&quot; and &quot;click counts&quot; → Analytics entity with click_count field</p>
+<p>&quot;persistent&quot; requirement → created_at timestamp for durability tracking</p>
+<p>Ownership is distributed across services to enable independent scaling. The URL Shortening Service owns URLMapping to ensure unique ID generation. The Analytics Service owns Analytics to handle high-volume write traffic without impacting redirection performance.</p>
+<h4>URLMapping</h4>
+<p>Stores the mapping between short URLs and original URLs. This is the core entity that enables the shortening and redirection operations.</p>
+<h4>Analytics</h4>
+<p>Tracks access metrics for each shortened URL. Supports the link tracking functional requirement.</p>
+<p>URLMapping and Analytics have a one-to-one relationship. Each shortened URL has exactly one analytics record. The relationship is optional - URLs can exist without analytics if tracking is disabled.</p>
+<h2>API Endpoints</h2>
+<p>We derive API endpoints directly from the functional requirements (verbs identified in Step 0):</p>
+<p>CREATE operation: &quot;takes a long URL and generates a shorter alias&quot; → POST /api/urls/shorten (accepts longUrl, returns shortUrl)</p>
+<p>CREATE operation: &quot;takes a long URL and generates a shorter alias&quot; → POST /api/urls/shorten (accepts longUrl, returns shortUrl)</p>
+<p>READ operation: &quot;redirects users to the original URL&quot; → GET /api/urls/{shortUrl} (accepts shortUrl, returns longUrl or 302 redirect)</p>
+<p>READ operation: &quot;redirects users to the original URL&quot; → GET /api/urls/{shortUrl} (accepts shortUrl, returns longUrl or 302 redirect)</p>
+<p>UPDATE operation: &quot;track link usage&quot; → Handled internally via event-driven architecture (not exposed as public API endpoint)</p>
+<p>UPDATE operation: &quot;track link usage&quot; → Handled internally via event-driven architecture (not exposed as public API endpoint)</p>
+<p>Each endpoint maps to exactly one core operation, following RESTful conventions where HTTP methods indicate operation type.</p>
+<p>Shorten a given long URL and return the shortened URL.</p>
+<p>Redirect to the original long URL using the shortened URL.</p>
+<h2>High Level Design</h2>
+<h3>1. URL Shortening</h3>
+<p>Users should be able to input a long URL and receive a unique, shortened alias. The shortened URL should use a compact format with English letters and digits to save space and ensure uniqueness.</p>
+<p>The design for URL shortening follows a basic two-tier architecture that processes requests quickly and scales to handle high volumes:</p>
+<ol>
+<li><p>Client: The frontend application sends HTTP POST requests containing long URLs to the URL Shortening service.</p>
+</li>
+<li><p>URL Shortening Service: The backend receives requests and is responsible for creating and returning shortened URLs. It performs these key functions:</p>
+</li>
+</ol>
+<p>Generates a unique, short alias by encoding the URL or using hashing techniques to ensure uniqueness.</p>
+<p>Stores the mapping of long URLs to short aliases in the database.</p>
+<p>Manages errors and ensures each short URL is unique across all users.</p>
+<ol start="3">
+<li>Database: A highly available database (e.g., DynamoDB or Cassandra) is used to persist mappings between long URLs and short aliases.</li>
+</ol>
+<p>This design supports efficient and quick URL shortening with minimal data storage requirements per URL entry.</p>
+<h3>2. URL Redirection</h3>
+<p>When users access a shortened URL, the service should redirect them seamlessly to the original URL with minimal delay.</p>
+<p>The URL redirection service ensures that users accessing a shortened URL are quickly redirected to the original URL with minimal delay. This design focuses on high read throughput and low latency, as the read traffic will be significantly higher than URL creation.</p>
+<ol>
+<li><p>API Gateway: As we now have two request types, we need an API Gateway. This acts as the entry point for all incoming requests, routing POST requests to the URL Shortening Service and GET requests to the URL Redirection Handler.</p>
+</li>
+<li><p>URL Redirection Request Handler: Accepts GET requests with the shortened URL, queries the cache for the original URL, and responds with a 302 Found status and the original URL in the Location header to facilitate seamless redirection.</p>
+</li>
+<li><p>Caching Layer: To reduce latency and offload read requests from the database, we implement a read-through caching layer (e.g., Redis with cache libraries) that stores frequently accessed URL mappings in memory. When a URL is not found in the cache, the cache itself automatically retrieves it from the database and stores it for future requests, making the process transparent to the Request Handler.</p>
+</li>
+<li><p>Database: The database stores all URL mappings. The cache layer automatically queries the database when needed, without requiring the Request Handler to manage cache misses directly.</p>
+</li>
+</ol>
+<p>This setup ensures efficient and reliable URL redirection at scale by combining the API Gateway, Request Handler, Caching Layer, and Database.</p>
+<h3>3. Link Analytics</h3>
+<p>The system should be able to track the number of times each shortened URL is accessed to provide insights into link usage.</p>
+<p>To track the number of accesses for each shortened URL, we introduce an Analytics Service that counts and stores access events in real time. This setup provides useful insights into link usage patterns and is designed to scale for high traffic.</p>
+<ol>
+<li><p>API Gateway: Routes GET requests to both the URL Redirection Handler (for redirection) and the Analytics Service (for tracking access).</p>
+</li>
+<li><p>Analytics Service: Tracks each URL access by incrementing a counter associated with the short URL. This service logs access events and can be optimized by using a lightweight in-memory counter before periodically updating the database.</p>
+</li>
+<li><p>In-Memory Database: For high-speed access counting, we use an in-memory data store like Redis to cache the counters for each short URL. This enables real-time tracking and reduces the load on the main database.</p>
+</li>
+<li><p>Database: Periodically, the Analytics Service flushes the in-memory counters to the main database to ensure persistent storage of access counts.</p>
+</li>
+</ol>
+<p>This architecture enables efficient, real-time analytics collection, combining the speed of in-memory storage with the durability of a database.</p>
+<h2>Deep Dive Questions</h2>
+<h3>What are the two properties we need for the IDs?</h3>
+<p>The two properties we need for the IDs are:</p>
+<p>Global Uniqueness: It has to be globally unique across our system. We obviously do not want two long URLs to map the same the short URL.</p>
+<p>Shortness: It has to be &quot;short&quot;. This is a relative concept. The URL shorteners used in production are around 5-8 characters long. For example, <a href="https://shorturl.at/xLMPr">https://shorturl.at/xLMPr</a>, <a href="https://t.ly/ecgGp">https://t.ly/ecgGp</a> and <a href="https://tinyurl.com/e9enh3uz">https://tinyurl.com/e9enh3uz</a>.</p>
+<p>The basic idea behind URL generation involves creating a unique integer ID for each URL, followed by encoding that ID into a shorter, human-readable format. Let&#39;s discuss each one in detail.</p>
+<h3>How can we generate unique IDs for each URL?</h3>
+<p>There are several options for generating unique integer IDs:</p>
+<p>Note that when we say &quot;integer&quot; in programming and computer science, we typically mean a whole number that can be represented in different number systems. For example, 123456 in decimal is 123456 in decimal, 123456 in hexadecimal is 0x1e240, and 123456 in binary is 0b1111000100100000.</p>
+<h3>Option 1: Hash Functions</h3>
+<h3>Option 2: UUID</h3>
+<h3>Option 3: Snowflake IDs</h3>
+<h3>Option 4: Machine ID + Sequence Number (Chosen Solution)</h3>
+<h3>How can we encode the unique IDs into short, user-friendly URLs?</h3>
+<p>After generating a unique integer ID for each URL, we need to encode it into a shorter, readable string to create a user-friendly shortened URL. The encoding method must balance shortness with usability, avoiding special characters that might be confusing or hard to type.</p>
+<p>Several encoding options were considered:</p>
+<h3>Option 1: Hexadecimal (Base16)</h3>
+<h3>Option 2: Base64</h3>
+<h3>Option 3: Base62 (Chosen Solution)</h3>
+<h3>How can we scale the system to handle high traffic?</h3>
+<p>To support high traffic and ensure scalability, we implement a sharding strategy that distributes data and load across multiple machines. Sharding allows us to scale horizontally, so as traffic increases, we can add more machines without reconfiguring the entire system.</p>
+<h4>Scaling with Sharding</h4>
+<p>With ID generation in place, the next step is to scale the system. Request handlers can be easily scaled as they function as independent HTTP servers. However, scaling the ID generator requires a bit more consideration.</p>
+<h4>Machine ID (Prefix) as Shard Key</h4>
+<p>To horizontally scale the system, we need to shard the service. We already have a solution from the previous section: using 1 character for the machine ID. This &quot;prefix&quot; serves as the shard key for our ID Generator service. By sharding the database and ID Generator using the same shard key, each machine corresponds to exactly one database shard. This is a common design pattern. The approach ensures that write paths are completely independent and concurrent so we can scale the entire system by adding more servers without affecting existing ones.</p>
+<p>The primary benefits of this approach:</p>
+<p>Scalability: Adding more machines to the system is straightforward. Each new machine is assigned a unique prefix, allowing it to generate IDs and write to its own shard without impacting the existing setup. This allows the system to handle increased load seamlessly.</p>
+<p>Concurrency: Independent write paths mean that multiple machines can perform write operations simultaneously without conflicting with each other. This parallelism enhances the system&#39;s overall throughput and efficiency.</p>
+<p>Additionally, we also get some nice side benefits.</p>
+<p>Isolation: Each machine and its corresponding database shard operate independently, minimizing the risk of system-wide failures. If one machine or shard encounters an issue, it does not affect the others, ensuring higher system reliability.</p>
+<p>Simplicity in Data Management: With each machine handling a distinct shard, data management becomes simpler. Maintenance tasks such as backups, indexing, and scaling can be performed on individual shards without disrupting the entire system.</p>
+<p>For the read request, if there is a cache miss, we can use the prefix in the short url to find the proper database shard to find the data. For example, if the short url is a82c7w, the request handler would go to shard a to find the long url. We could go even further to shard the cache using the same shard key if it becomes necessary</p>
+<h4>Scaling Request Handlers and ID Generator Independently</h4>
+<h4>What about pre-generate unique IDs in bulk?</h4>
+<h3>Staff-Level Discussion Topics</h3>
+<p>The following topics contain open-ended architectural questions without prescriptive solutions. They are designed for staff+ conversations where you demonstrate systems thinking, trade-off analysis, and strategic decision-making.</p>
+<p>301 vs 302 Redirect Strategy</p>
+<p>Multi-Region Deployment and Global Consistency</p>
+<p>Service Health Monitoring and Failure Detection</p>
+<p>Malicious URL Detection and Prevention</p>
+<h2>Level Expectations</h2>
+<p>The following table summarizes what interviewers typically expect at each level when discussing URL shortener design. Use this as a guide for calibrating depth of discussion.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

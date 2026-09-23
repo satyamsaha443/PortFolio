@@ -1,0 +1,591 @@
+<h1>Multi-Region Architecture: Latency Zones and Data Residency</h1>
+<blockquote>
+<p><strong>Lesson 6.1</strong> · Pro + Senior · 40 min</p>
+</blockquote>
+<hr>
+<h2>Why Single-Region Fails Globally</h2>
+<p>Build your service in <code>us-east-1</code> and call it a day. Forty million users in the United States will be happy. Then your product launches in Australia. You watch the support tickets arrive: &quot;the app is slow,&quot; &quot;it times out,&quot; &quot;we gave up.&quot;</p>
+<p>Here is what is happening physically. A packet leaving Sydney for a server in Northern Virginia travels roughly 16,000 kilometres — most of it across undersea fibre cables. The <strong>speed of light in fibre</strong> is approximately 200,000 km/s (roughly two-thirds of the vacuum speed of light). The raw propagation delay alone is:</p>
+<pre><code>Distance:  16,000 km one-way
+Speed:     200,000 km/s in fibre
+
+One-way propagation: 16,000 / 200,000 = 80ms
+Round-trip (RTT):    ~160ms bare minimum
+
+Add TCP handshake overhead, TLS negotiation, queuing at routers:
+Realistic RTT Sydney → us-east-1:  150–200ms
+</code></pre>
+<p>For comparison, a Sydney user hitting a server in Sydney (<code>ap-southeast-2</code>) sees 1–5ms RTT.</p>
+<p>The difference is not academic. <strong>150ms RTT destroys user experience in ways that 20ms does not.</strong> Google&#39;s research found that a 100ms delay reduces search clicks by 1%. Amazon found every 100ms of added latency costs 1% of revenue. Netflix&#39;s playback success rate drops measurably when round-trip latency to their API exceeds 100ms. For interactive applications — real-time collaboration, trading, gaming, ride-hailing — 150ms is the difference between usable and broken.</p>
+<p>The latency also compounds. A page that makes five sequential API calls adds <code>5 × 150ms = 750ms</code> of pure network wait on top of all server processing time. Connection pooling and HTTP/2 multiplexing help, but they do not eliminate the physics.</p>
+<p><strong>The latency budget reality:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Typical RTT</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>New York → New York</td>
+<td>1–5 ms</td>
+<td>Same metro area</td>
+</tr>
+<tr>
+<td>New York → London</td>
+<td>70–90 ms</td>
+<td>Transatlantic cable</td>
+</tr>
+<tr>
+<td>New York → Frankfurt</td>
+<td>80–100 ms</td>
+<td>Transatlantic + overland</td>
+</tr>
+<tr>
+<td>New York → Sydney</td>
+<td>150–200 ms</td>
+<td>Trans-Pacific cable</td>
+</tr>
+<tr>
+<td>New York → Mumbai</td>
+<td>180–220 ms</td>
+<td>Multiple cable hops</td>
+</tr>
+<tr>
+<td>London → Singapore</td>
+<td>160–180 ms</td>
+<td>Multiple cable hops</td>
+</tr>
+<tr>
+<td>Tokyo → Sydney</td>
+<td>80–100 ms</td>
+<td>Short trans-Pacific hop</td>
+</tr>
+</tbody></table>
+<p>There is a second reason single-region fails: <strong>blast radius</strong>. When <code>us-east-1</code> has an outage — and it has, multiple times — every one of your users is affected simultaneously. A multi-region architecture contains blast radius. An outage in one region affects only the users served by that region, and the others absorb the load automatically.</p>
+<hr>
+<h2>The Three Deployment Models</h2>
+<p>Before designing a global system, choose your deployment model. The choice is driven by the trade-off between <strong>operational complexity</strong>, <strong>write latency</strong>, <strong>cost</strong>, and <strong>availability</strong>.</p>
+<h3>Model 1: Single Region</h3>
+<p>All infrastructure in one cloud region. Simple to operate, cheapest, but no geographic distribution of latency and no regional fault tolerance.</p>
+<pre><code>       ┌──────────────────────────────┐
+       │       us-east-1              │
+       │  ┌────────────────────┐      │
+       │  │  Load Balancer     │      │
+       │  └────────┬───────────┘      │
+       │           │                  │
+       │  ┌────────▼───────────┐      │
+       │  │  App Servers (AZ)  │      │
+       │  └────────┬───────────┘      │
+       │           │                  │
+       │  ┌────────▼───────────┐      │
+       │  │  Database (multi-  │      │
+       │  │  AZ replica)       │      │
+       │  └────────────────────┘      │
+       └──────────────────────────────┘
+
+Sydney user → 150ms RTT to this region
+Frankfurt user → 90ms RTT to this region
+</code></pre>
+<p><strong>When to use it:</strong> Internal tooling, early-stage products, services with no latency SLA and all users in one geography.</p>
+<p><strong>When it breaks:</strong> Any product with global users, &gt;99.9% availability SLA, or regulatory data residency requirements.</p>
+<hr>
+<h3>Model 2: Multi-Region Active-Passive</h3>
+<p>A <strong>primary region</strong> handles all live traffic. A <strong>standby region</strong> replicates data but serves no user traffic under normal conditions. When the primary fails, traffic is manually or automatically failed over.</p>
+<pre><code>       ┌─────────────────┐          ┌─────────────────┐
+       │   us-east-1     │          │  eu-west-1      │
+       │   (PRIMARY)     │          │  (STANDBY)      │
+       │                 │          │                 │
+       │  App Servers ◄──┼── ALL ───┤  App Servers    │
+       │  DB Primary     │  TRAFFIC │  DB Replica     │
+       │                 │          │  (read-only)    │
+       └────────┬────────┘          └─────────────────┘
+                │
+                │  async replication
+                │  (100–300ms lag)
+                ▼
+        eu-west-1 replica
+        
+Normal state: us-east-1 handles 100% of traffic
+Failure state: DNS cutover to eu-west-1 (minutes)
+Sydney users: still hitting us-east-1, 150ms RTT
+</code></pre>
+<p><strong>Failover time:</strong> 1–10 minutes (DNS TTL propagation + health check detection).</p>
+<p><strong>Write durability gap:</strong> With async replication, a region failure can lose the last few seconds of writes committed to the primary but not yet replicated.</p>
+<p><strong>When to use it:</strong> Services that need disaster recovery but can tolerate 5–10 minutes of downtime and do not need global latency optimisation. Common in enterprises migrating from on-premises architectures.</p>
+<hr>
+<h3>Model 3: Multi-Region Active-Active</h3>
+<p>All regions serve live user traffic simultaneously. Users are routed to their nearest region. Every region can accept both reads and writes. If one region fails, other regions absorb its traffic automatically.</p>
+<pre><code>       Sydney User                  New York User
+            │                             │
+            ▼ (20ms)                      ▼ (5ms)
+   ┌─────────────────┐         ┌─────────────────┐
+   │  ap-southeast-2 │◄──────► │   us-east-1     │
+   │  Sydney region  │  async  │   Virginia      │
+   │                 │  repl.  │                 │
+   └────────┬────────┘         └────────┬────────┘
+            │                           │
+            │    async replication      │
+            └───────────┬───────────────┘
+                        │
+               ┌────────▼────────┐
+               │   eu-west-1     │
+               │   Ireland       │
+               │                 │
+               └─────────────────┘
+                        ▲
+                        │ (80ms)
+               Frankfurt / London Users
+</code></pre>
+<p><strong>When to use it:</strong> Consumer-grade products with global users, latency SLA &lt; 100ms, or availability SLA ≥ 99.99%.</p>
+<p><strong>The catch:</strong> Writes now happen in multiple regions concurrently. When a Sydney user and a New York user both write to the same record at the same moment, you have a <strong>write conflict</strong>. Resolving conflicts correctly is the central engineering challenge of active-active architecture.</p>
+<hr>
+<h3>Comparison Table</h3>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Single Region</th>
+<th>Active-Passive</th>
+<th>Active-Active</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Latency for global users</td>
+<td>Poor (150–200ms)</td>
+<td>Poor (150–200ms)</td>
+<td>Excellent (1–20ms local)</td>
+</tr>
+<tr>
+<td>Availability</td>
+<td>99.9% realistic max</td>
+<td>99.95% with fast failover</td>
+<td>99.99%+ achievable</td>
+</tr>
+<tr>
+<td>RTO (recovery time)</td>
+<td>N/A (single region)</td>
+<td>5–15 minutes</td>
+<td>Near-zero (automatic)</td>
+</tr>
+<tr>
+<td>RPO (data loss window)</td>
+<td>N/A</td>
+<td>Seconds (async repl.)</td>
+<td>Sub-second</td>
+</tr>
+<tr>
+<td>Write conflicts</td>
+<td>None</td>
+<td>None</td>
+<td>Must resolve</td>
+</tr>
+<tr>
+<td>Operational complexity</td>
+<td>Low</td>
+<td>Medium</td>
+<td>High</td>
+</tr>
+<tr>
+<td>Cost multiplier</td>
+<td>1×</td>
+<td>1.5–2×</td>
+<td>2.5–4×</td>
+</tr>
+<tr>
+<td>Data residency compliance</td>
+<td>Hard (data in one place)</td>
+<td>Possible</td>
+<td>Natural (EU data in EU)</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Latency Zones: How Cloud Providers Partition the Globe</h2>
+<p>The major cloud providers have divided the planet into <strong>regions</strong> (large geographic areas, each with multiple availability zones) and, in some cases, <strong>edge locations</strong> or <strong>Points of Presence (PoPs)</strong> for CDN and DNS acceleration.</p>
+<h3>AWS Regions (as of 2024–25, selected)</h3>
+<pre><code>Americas:
+  us-east-1        N. Virginia      (oldest, most services)
+  us-east-2        Ohio
+  us-west-1        N. California
+  us-west-2        Oregon
+  ca-central-1     Canada (Montreal)
+  sa-east-1        São Paulo
+
+Europe / Middle East / Africa:
+  eu-west-1        Ireland
+  eu-west-2        London
+  eu-west-3        Paris
+  eu-central-1     Frankfurt
+  eu-north-1       Stockholm
+  me-south-1       Bahrain
+  af-south-1       Cape Town
+
+Asia Pacific:
+  ap-northeast-1   Tokyo
+  ap-northeast-2   Seoul
+  ap-southeast-1   Singapore
+  ap-southeast-2   Sydney
+  ap-south-1       Mumbai
+  ap-east-1        Hong Kong
+
+Sovereign / Restricted:
+  cn-north-1       Beijing (China, separate infrastructure)
+  cn-northwest-1   Ningxia (China)
+  us-gov-west-1    GovCloud (US federal only)
+</code></pre>
+<h3>How to Choose Region Placement</h3>
+<p>Start from your user geography. Pull a report of where your users are concentrated — most analytics platforms give you country-level data. Then apply these rules:</p>
+<p><strong>Rule 1 — Cover your P95 user population.</strong> If 90% of your users are in the US and Europe, <code>us-east-1</code> + <code>eu-west-1</code> covers most latency. Add <code>ap-southeast-1</code> when APAC traffic exceeds 10%.</p>
+<p><strong>Rule 2 — Respect data residency laws before optimising latency.</strong> If you have EU users, you may be legally required to keep their data in an EU region regardless of where it optimises latency (see the Data Residency section below).</p>
+<p><strong>Rule 3 — Prefer regions with full service availability.</strong> Newer regions (<code>me-south-1</code>, <code>af-south-1</code>) often lack services that mature regions have — certain RDS engine versions, Lambda@Edge, specific compliance certifications.</p>
+<p><strong>Rule 4 — Consider peering and egress costs.</strong> Traffic between regions in the same continent is cheaper than intercontinental traffic. Intra-region traffic is cheapest.</p>
+<p><strong>Rule 5 — Treat China as its own architecture.</strong> AWS China regions are operated by a Chinese partner under a different agreement. They are not connected to the global AWS network. If you serve Chinese users, China is a separate deployment, separate accounts, and separate compliance regime.</p>
+<h3>GCP and Azure Equivalent Groupings</h3>
+<p>GCP uses <strong>Regions</strong> and <strong>Zones</strong> with the same conceptual model. Key regions: <code>us-central1</code> (Iowa), <code>europe-west1</code> (Belgium), <code>asia-east1</code> (Taiwan), <code>asia-southeast1</code> (Singapore).</p>
+<p>Azure uses <strong>Regions</strong> and <strong>Availability Zones</strong>. Key regions: <code>East US</code>, <code>West Europe</code>, <code>Southeast Asia</code>. Azure also has <strong>Region Pairs</strong> — each region is paired with another for disaster recovery (e.g., East US ↔ West US), and Microsoft guarantees at least one of a pair is available during planned maintenance.</p>
+<hr>
+<h2>Active-Active Architecture: DNS Routing and Write Coordination</h2>
+<h3>Getting Users to the Right Region</h3>
+<p>Two mechanisms route users to their nearest region:</p>
+<p><strong>GeoDNS:</strong> The DNS server returns a different IP address depending on the geographic location of the DNS resolver making the request. When a user in Sydney resolves <code>api.company.com</code>, the GeoDNS server returns the IP of the Sydney load balancer. When a user in Frankfurt resolves the same hostname, they get the Frankfurt load balancer IP.</p>
+<pre><code>Sydney resolver queries api.company.com
+  → GeoDNS detects AU/NZ resolver
+  → Returns: 203.0.113.10 (ap-southeast-2 load balancer)
+
+Frankfurt resolver queries api.company.com
+  → GeoDNS detects EU resolver
+  → Returns: 203.0.113.20 (eu-central-1 load balancer)
+
+New York resolver queries api.company.com
+  → GeoDNS detects US resolver
+  → Returns: 203.0.113.30 (us-east-1 load balancer)
+</code></pre>
+<p>AWS Route 53 has native GeoDNS support (called &quot;Geolocation routing&quot;). Cloudflare, NS1, and Google Cloud DNS all offer it.</p>
+<p><strong>Anycast:</strong> A single IP address is advertised from multiple physical locations via BGP. Internet routers automatically route each packet to the closest BGP peer advertising that IP. The user does not need to resolve different IPs — the routing happens at the network layer.</p>
+<p>Cloudflare, Fastly, and Akamai use Anycast for their edge networks. AWS uses Anycast for Route 53 DNS itself. It is faster than GeoDNS for initial connection because there is no DNS-level geographic lookup — the internet routing fabric handles the proximity selection.</p>
+<pre><code>User in Sydney sends SYN packet to 1.1.1.1 (Cloudflare Anycast IP)
+  → BGP routes to Cloudflare PoP in Sydney (closest BGP peer)
+  → Cloudflare Sydney handles TLS termination and proxies to origin
+
+Same IP 1.1.1.1 from New York → reaches Cloudflare New York PoP
+</code></pre>
+<h3>Coordinating Writes Across Regions</h3>
+<p>When each region accepts writes independently, you need a strategy for keeping data consistent globally. Three patterns exist; choose based on your data&#39;s consistency requirements.</p>
+<p><strong>Pattern A — Single-Primary Writes (Per Entity)</strong></p>
+<p>Each entity (user record, order, document) has a <strong>home region</strong> designated as its write primary. All writes for that entity route to its home region, even if the user is temporarily in a different geography.</p>
+<pre><code>User @alice → home region: us-east-1
+  Alice writes from Sydney:
+    ap-southeast-2 receives write request
+    → Proxies to us-east-1 (adds 150ms latency)
+    → us-east-1 commits → replicates to ap-southeast-2
+    → ap-southeast-2 responds to Alice
+
+User @hiro → home region: ap-northeast-1
+  Hiro writes from Tokyo:
+    ap-northeast-1 receives and commits locally (5ms)
+    → Replicates to other regions async
+</code></pre>
+<p>This eliminates write conflicts entirely. The cost is higher write latency for users far from their home region. Spotify uses a variant of this — a user&#39;s playlist writes go to their account&#39;s owning region.</p>
+<p><strong>Pattern B — Last-Write-Wins (LWW)</strong></p>
+<p>Every write is timestamped. When two writes conflict, the one with the higher timestamp wins. All losing writes are discarded.</p>
+<p>Requires <strong>hybrid logical clocks (HLC)</strong> rather than wall clocks — physical clocks across data centres drift by tens of milliseconds. HLC combines a physical component (wall clock) with a logical component (monotonically increasing counter) to produce timestamps that are both causally correct and globally comparable.</p>
+<pre><code>us-east-1 write: { user: &quot;bob&quot;, status: &quot;online&quot;,  ts: HLC(1719000100.003) }
+eu-west-1 write: { user: &quot;bob&quot;, status: &quot;offline&quot;, ts: HLC(1719000100.001) }
+
+LWW resolution: &quot;online&quot; wins (higher timestamp)
+</code></pre>
+<p><strong>Risk:</strong> If the user&#39;s network switches regions mid-session (e.g., a VPN toggle), an earlier write can arrive with a lower timestamp and get discarded silently.</p>
+<p><strong>Used by:</strong> DynamoDB Global Tables (LWW), Apache Cassandra multi-datacenter.</p>
+<p><strong>Pattern C — CRDTs and Application-Level Merge</strong></p>
+<p><strong>CRDTs (Conflict-free Replicated Data Types)</strong> are data structures mathematically designed so that concurrent writes can always be merged without conflicts. A G-Counter (grow-only counter) is the simplest example: you can add increments from any region, and they always add up correctly.</p>
+<p>For complex data structures — collaborative documents (Notion, Google Docs), shopping carts — application-level merge functions decide what &quot;winning&quot; means for the domain. A shopping cart might merge by taking the union of items from both conflicting versions.</p>
+<p><strong>Used by:</strong> Riak (Basho), SoundCloud&#39;s Volt, figma&#39;s real-time collaboration layer.</p>
+<hr>
+<h2>Data Residency Requirements</h2>
+<p>Latency is one driver for multi-region. <strong>Regulatory compliance</strong> is another — and for many companies, it is the non-negotiable one.</p>
+<h3>GDPR and EU Data Residency</h3>
+<p>The <strong>General Data Protection Regulation</strong> (GDPR) does not explicitly mandate that EU citizens&#39; data must remain in the EU. What it does mandate is that personal data transferred outside the EU must be sent only to countries with <strong>adequate data protection</strong> or under specific legal mechanisms (Standard Contractual Clauses, Binding Corporate Rules).</p>
+<p>In practice, many European enterprises interpret GDPR conservatively and require that EU personal data never leaves EU-hosted infrastructure. Major enterprise contracts and government procurement in Germany, France, and the Netherlands routinely include explicit data localisation clauses.</p>
+<p><strong>Architectural consequence:</strong> EU user data must live in <code>eu-west-1</code> (Ireland), <code>eu-central-1</code> (Frankfurt), <code>eu-west-3</code> (Paris), or an equivalent. It must not replicate to <code>us-east-1</code> or <code>ap-southeast-2</code> under any circumstances — not even as a read replica.</p>
+<p>This turns your multi-region architecture into a <strong>geo-partitioned</strong> model for EU data:</p>
+<pre><code>EU users → eu-central-1
+  ├── Personal data: ONLY in eu-central-1 (GDPR constraint)
+  ├── Anonymised analytics: may replicate globally
+  └── CDN cached content: may be served from edge nodes globally
+      (edge nodes serve static content, not raw personal data)
+
+US users → us-east-1
+  └── Personal data: us-east-1 (no EU replication required)
+
+Cross-border queries (EU user interacts with US user&#39;s content):
+  → Return public content only; no PII crosses the border
+</code></pre>
+<h3>China&#39;s Cybersecurity Law</h3>
+<p>China&#39;s <strong>Cybersecurity Law (2017)</strong> and subsequent Data Security Law (2021) require that <strong>&quot;important data&quot; and personal information collected within China</strong> must be stored within China&#39;s borders. Transferring that data abroad requires a government security assessment.</p>
+<p>This is structurally different from GDPR — it is a hard technical border. AWS operates its China regions (<code>cn-north-1</code>, <code>cn-northwest-1</code>) as legally separate entities, operated by SINNET and NWCD respectively. Your AWS global account cannot access AWS China resources. You need a separate account, separate credentials, and a separate entity incorporated in China.</p>
+<p><strong>Practical consequence:</strong> If you serve Chinese users, you need a completely separate deployment stack — separate CI/CD pipeline, separate secrets management, separate compliance posture. Most companies build China as a fork of their global architecture, accepting that feature parity will lag.</p>
+<h3>Financial Data in Regulated Markets</h3>
+<p>Financial regulators add their own residency requirements on top of privacy laws:</p>
+<ul>
+<li><strong>India (RBI):</strong> Payment system data for Indian transactions must be stored exclusively in India.</li>
+<li><strong>Russia (Federal Law 242-FZ):</strong> Russian citizens&#39; personal data must be stored in Russia.</li>
+<li><strong>Indonesia (Bank Indonesia):</strong> Payment data involving Indonesian transactions must be processed and stored locally.</li>
+<li><strong>Saudi Arabia (SAMA):</strong> Financial data for Saudi entities must remain within the Kingdom.</li>
+</ul>
+<p>Building a global fintech product means maintaining a <strong>residency compliance matrix</strong> and mapping each data element (transaction record, account balance, KYC document) to its applicable jurisdiction. Some teams maintain this as a formal <strong>data classification catalogue</strong> with tags indicating which jurisdictions&#39; rules apply to each field.</p>
+<hr>
+<h2>Replication Strategies Across Regions</h2>
+<h3>Synchronous Replication</h3>
+<p>The write is not acknowledged to the client until it has been committed on a quorum of regions. No data loss is possible. The cost: write latency includes the cross-region round trip.</p>
+<pre><code>Client writes to us-east-1:
+  us-east-1 → synchronous replication → eu-west-1
+  wait for eu-west-1 ACK (~90ms RTT)
+  then acknowledge to client
+
+Total write latency: server processing + 90ms + margin
+</code></pre>
+<p><strong>Used for:</strong> Financial transactions, inventory updates, anything where data loss is catastrophic. CockroachDB&#39;s multi-region ACID transactions use synchronous replication within the majority quorum.</p>
+<p><strong>Not used for:</strong> User profile updates, social media posts, analytics events — the write latency penalty is not worth the consistency benefit.</p>
+<h3>Asynchronous Replication</h3>
+<p>The write is acknowledged to the client immediately after being committed in the local region. Replication to other regions happens in the background.</p>
+<pre><code>Client writes to us-east-1:
+  us-east-1 commits locally
+  acknowledges to client (low latency)
+  → async replication to eu-west-1 (background, ~100–300ms lag)
+  → async replication to ap-southeast-2 (background, ~150–300ms lag)
+</code></pre>
+<p><strong>Risk:</strong> If <code>us-east-1</code> fails before replication completes, the last few seconds of writes are lost. This is the <strong>RPO</strong> (Recovery Point Objective) — how much data you can tolerate losing.</p>
+<p><strong>Netflix:</strong> Uses async replication for most of its microservice data. Their philosophy is that stale data (a few seconds out of date) is acceptable for recommendations, viewing history, and metadata. They designed their services to tolerate eventual consistency from the ground up.</p>
+<p><strong>Spotify:</strong> Replicates user library data asynchronously across regions with a reconciliation step. If you add a song on your phone in Singapore and immediately switch to a laptop in London, there is a small window (&lt; 1 second typically) where London has not yet seen the update. Spotify&#39;s UI masks this with optimistic updates.</p>
+<h3>Semi-Synchronous Replication</h3>
+<p>A middle ground: the write must be acknowledged by <strong>at least one</strong> additional region before completing, but not all regions. MySQL Group Replication and PostgreSQL synchronous_standby_names operate this way.</p>
+<pre><code>Client writes to us-east-1:
+  us-east-1 → sync replication → eu-west-1 (must ACK)
+  → async replication → ap-southeast-2 (background)
+  acknowledge to client after eu-west-1 ACK
+
+RPO: zero for us-east-1 + eu-west-1 combined failure
+    non-zero for ap-southeast-2 alone
+</code></pre>
+<h3>RPO / RTO Trade-Off Summary</h3>
+<table>
+<thead>
+<tr>
+<th>Replication Mode</th>
+<th>Write Latency Added</th>
+<th>RPO</th>
+<th>RTO</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Synchronous (all regions)</td>
+<td>150–200ms</td>
+<td>Zero</td>
+<td>Zero</td>
+<td>Financial, inventory</td>
+</tr>
+<tr>
+<td>Semi-synchronous (1 replica)</td>
+<td>80–100ms</td>
+<td>Zero for 2-region failure</td>
+<td>Zero</td>
+<td>High-value user data</td>
+</tr>
+<tr>
+<td>Asynchronous</td>
+<td>~0ms added</td>
+<td>Seconds</td>
+<td>Seconds</td>
+<td>Social, media, analytics</td>
+</tr>
+<tr>
+<td>No cross-region replication</td>
+<td>~0ms added</td>
+<td>Full data loss</td>
+<td>Manual restore</td>
+<td>Dev/test only</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Failure Scenarios: What Actually Happens When a Region Goes Down</h2>
+<h3>The Sequence of Events</h3>
+<p>AWS <code>us-east-1</code> experiences a catastrophic failure at 14:00 UTC. Here is the sequence a well-designed system goes through:</p>
+<pre><code>14:00:00  us-east-1 stops responding
+14:00:05  Health checks in Route 53 / load balancer start failing
+14:00:35  Health check threshold crossed (3 consecutive failures × 10s interval)
+14:00:35  Route 53 removes us-east-1 endpoint from DNS responses
+14:00:35  New DNS responses point only to eu-west-1 and ap-southeast-2
+
+14:00:35  Problem: DNS TTL. Clients that resolved the old IP within the TTL
+           window (say, 60 seconds ago) still have the dead IP cached.
+           They are sending requests into a black hole.
+
+14:01:35  TTL expires for those clients. They re-resolve. Get new IP.
+          Traffic resumes.
+
+14:00:35–14:01:35: ~60 seconds of partial outage for cached-IP users
+</code></pre>
+<p><strong>Key lesson:</strong> Set your DNS TTL to <strong>30–60 seconds</strong> on health-checked endpoints. A 5-minute TTL means 5 minutes of failed requests for users who resolved before the failure.</p>
+<h3>In-Flight Requests</h3>
+<p>At the moment of failure, some requests are mid-flight — the client sent the request and is waiting for a response that will never come. These requests time out. Your client code must handle this:</p>
+<ul>
+<li><strong>Read requests:</strong> Safe to retry on a different region immediately.</li>
+<li><strong>Write requests:</strong> Dangerous to retry blindly. If the write succeeded on the primary before the crash but the ACK never reached the client, a retry will create a duplicate. Use <strong>idempotency keys</strong> — a client-generated unique ID for each write operation. The server deduplicates on this key.</li>
+</ul>
+<pre><code>POST /orders
+{
+  &quot;idempotency_key&quot;: &quot;client-uuid-7f3a91b2&quot;,
+  &quot;items&quot;: [...]
+}
+
+Server logic:
+  IF orders table has row with idempotency_key = &quot;client-uuid-7f3a91b2&quot;
+    THEN return the existing order (do not create duplicate)
+  ELSE create new order
+</code></pre>
+<h3>Graceful Degradation</h3>
+<p>A region failure should not mean a full outage for the surviving regions. Design for the additional load:</p>
+<ul>
+<li><strong>Auto-scaling:</strong> All regions should have auto-scaling configured. When <code>us-east-1</code> drops, <code>eu-west-1</code> and <code>ap-southeast-2</code> will each absorb a share of redirected US traffic. Without auto-scaling, they will fall over under the spike.</li>
+<li><strong>Circuit breakers:</strong> Services that depend on cross-region calls should circuit-break quickly rather than queueing up thousands of requests waiting for a dead region.</li>
+<li><strong>Shed non-essential load:</strong> During overload, deprioritise background jobs (analytics writes, recommendation updates) in favour of core user-facing operations.</li>
+</ul>
+<p>Netflix famously calls this <strong>&quot;graceful degradation by design&quot;</strong>: their homepage can still load even if the recommendations service is down (you just see generic picks instead of personalised ones). Every service dependency is classified as either <strong>essential</strong> (page fails without it) or <strong>non-essential</strong> (page shows a fallback).</p>
+<hr>
+<h2>Real-World Case Study: How Cloudflare Routes Global Traffic</h2>
+<p>Cloudflare operates one of the largest globally distributed networks in the world: <strong>over 300 Points of Presence (PoPs)</strong> in more than 100 countries. Understanding their architecture illustrates every concept from this lesson at production scale.</p>
+<h3>The PoP Structure</h3>
+<p>Cloudflare does not use GeoDNS. They use <strong>Anycast</strong> for everything. Every Cloudflare IP address is advertised simultaneously from all of their PoPs. When a user in Mumbai makes a DNS query to <code>1.1.1.1</code>, BGP routing sends that query to the nearest Cloudflare PoP — which might be in Mumbai, Chennai, or Bangalore.</p>
+<pre><code>                    CLOUDFLARE GLOBAL NETWORK
+                    ═══════════════════════════
+
+  User in Mumbai                        User in Sydney
+       │                                      │
+       │ DNS/TCP                              │ DNS/TCP
+       ▼                                      ▼
+  ┌─────────┐   Anycast 104.16.x.x    ┌─────────────┐
+  │  Mumbai │◄─────────────────────── │   Sydney    │
+  │  PoP    │                         │   PoP       │
+  └────┬────┘                         └──────┬──────┘
+       │                                     │
+       │     Cloudflare backbone             │
+       │    (private fibre/leased)           │
+       └──────────────┬──────────────────────┘
+                      │
+          ┌───────────▼──────────────┐
+          │  Core Data Centres       │
+          │  (Ashburn, Amsterdam,    │
+          │   Singapore, São Paulo)  │
+          │                          │
+          │  - Certificate mgmt      │
+          │  - DNS authoritative     │
+          │  - Workers KV storage    │
+          │  - Analytics aggregation │
+          └──────────────────────────┘
+
+Each PoP handles:
+  ├── TLS termination (user sees low RTT for TLS handshake)
+  ├── HTTP/3, QUIC termination
+  ├── Cache (Cloudflare CDN edge cache)
+  ├── Firewall rules (WAF evaluated at edge)
+  ├── Rate limiting
+  ├── Workers (serverless code at edge)
+  └── Proxy to origin if cache miss
+
+Cache HIT path:  User → Mumbai PoP → cached response (&lt; 5ms)
+Cache MISS path: User → Mumbai PoP → origin server → PoP → User
+</code></pre>
+<h3>Routing Intelligence: Argo Smart Routing</h3>
+<p>For cache misses and non-cacheable requests, Cloudflare&#39;s <strong>Argo Smart Routing</strong> monitors latency on all inter-PoP paths in real time and routes traffic through the fastest path — not necessarily the shortest geographic path. The public internet has congested routes and asymmetric paths. Cloudflare&#39;s private backbone often beats the public internet by 30–40% on latency.</p>
+<pre><code>Origin in us-east-1, user in Singapore:
+
+Public internet path:
+  Singapore → (public BGP) → us-east-1
+  Typical: 170ms, variable, congestion-dependent
+
+Argo path:
+  Singapore PoP → Cloudflare backbone → Ashburn PoP → us-east-1
+  Typical: 130ms, stable, private peering
+</code></pre>
+<h3>Lessons for Your Own Architecture</h3>
+<p>Cloudflare&#39;s design illustrates five principles you can apply at any scale:</p>
+<ol>
+<li><p><strong>Push termination to the edge.</strong> TLS handshakes take 1–2 RTTs. If the first RTT is 150ms (Sydney to Virginia), TLS costs 300ms before a byte of application data flows. Terminating TLS at a nearby PoP reduces this to 10ms.</p>
+</li>
+<li><p><strong>Anycast beats GeoDNS for latency.</strong> GeoDNS adds a DNS lookup round trip. Anycast routes at the IP layer — no extra lookup required.</p>
+</li>
+<li><p><strong>Private backbone outperforms public internet.</strong> For services you control end-to-end, leased fibre or cloud provider interconnects are faster and more reliable than routing through the public internet.</p>
+</li>
+<li><p><strong>Cache aggressively at the edge.</strong> For cacheable content, serving from the edge eliminates origin latency entirely.</p>
+</li>
+<li><p><strong>Separate the data plane from the control plane.</strong> Cloudflare&#39;s PoPs handle traffic independently. They do not need to contact a central controller for each request. This is why a Cloudflare PoP continues to work even if another PoP or core data centre is down.</p>
+</li>
+</ol>
+<hr>
+<h2>Full 3-Region Active-Active Architecture Diagram</h2>
+<pre><code>                    3-REGION ACTIVE-ACTIVE SETUP
+                    ════════════════════════════
+
+        SYDNEY USER              NEW YORK USER             LONDON USER
+             │                        │                        │
+             │ GeoDNS / Anycast        │ GeoDNS / Anycast       │ GeoDNS / Anycast
+             ▼                        ▼                        ▼
+    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+    │  ap-southeast-2  │    │   us-east-1     │    │   eu-west-1     │
+    │  ─────────────  │    │  ─────────────  │    │  ─────────────  │
+    │  Load Balancer  │    │  Load Balancer  │    │  Load Balancer  │
+    │       │         │    │       │         │    │       │         │
+    │  App Cluster    │    │  App Cluster    │    │  App Cluster    │
+    │       │         │    │       │         │    │       │         │
+    │  Regional DB    │    │  Regional DB    │    │  Regional DB    │
+    │  (writes local) │    │  (writes local) │    │  (writes local) │
+    │       │         │    │       │         │    │       │         │
+    │  Redis Cache    │    │  Redis Cache    │    │  Redis Cache    │
+    └────────┬────────┘    └────────┬────────┘    └────────┬────────┘
+             │                      │                       │
+             │   ◄── async repl ──► │ ◄── async repl ──►   │
+             │                      │                       │
+             └──────────────────────┼───────────────────────┘
+                                    │
+                           ┌────────▼────────┐
+                           │  Global Control │
+                           │  Plane          │
+                           │  ─────────────  │
+                           │  - Config       │
+                           │  - Feature      │
+                           │    flags        │
+                           │  - Monitoring   │
+                           │  - Alerting     │
+                           └─────────────────┘
+
+Data flows:
+  ══► User read request    → served from local region DB/cache
+  ──► Write request        → committed local, async replicated to other regions
+  ◄── Replication stream   → async, ~100–300ms lag cross-region
+  ⟳   Conflict resolution  → LWW or application-level merge on conflict
+
+Failover flow (if us-east-1 goes down):
+  1. Health checks detect failure (30s)
+  2. DNS/Anycast stops routing to us-east-1 (immediate for Anycast,
+     TTL-delay for GeoDNS)
+  3. New York users → routed to eu-west-1 or ap-southeast-2
+  4. ap-southeast-2 and eu-west-1 auto-scale to absorb extra load
+  5. us-east-1 data not replicated in last ~300ms marked as
+     &quot;potentially lost&quot; and reconciled on recovery
+</code></pre>
+<hr>
+<h2>Key Takeaways</h2>
+<ul>
+<li><strong>The physics of latency cannot be engineered away</strong> — only minimised by placing compute closer to users. New York to Sydney is 150ms minimum; 20ms Sydney local is achievable with a region in Sydney.</li>
+<li><strong>Active-active is not one thing</strong> — it is a spectrum. Many production systems use active-active for reads and a primary-writes model for writes, which is far simpler than full symmetric active-active.</li>
+<li><strong>Data residency is an architectural constraint, not an afterthought.</strong> GDPR, China&#39;s Cybersecurity Law, and financial regulators can force you into geo-partitioned architectures regardless of what latency optimisation would prefer. Design with residency constraints from day one.</li>
+<li><strong>Async replication is the default</strong> for most data; sync replication is reserved for financial and inventory data where the write latency penalty is worth the RPO guarantee.</li>
+<li><strong>DNS TTL is your failover speed control.</strong> 30–60 seconds is the standard for health-checked endpoints. Anything higher slows your recovery.</li>
+<li><strong>Idempotency keys</strong> are non-negotiable in multi-region write paths. Region failures during writes produce uncertain outcomes; clients need a safe way to retry.</li>
+</ul>
+<hr>
+<blockquote>
+<p><strong>Up next:</strong> <a href="./02-gdpr-ccpa-compliance.md">Lesson 6.2 — GDPR, CCPA &amp; PDPA Compliance Built into Design</a> — how regulatory requirements translate into concrete architecture patterns, and what the &quot;right to erasure&quot; means for a distributed system.</p>
+</blockquote>

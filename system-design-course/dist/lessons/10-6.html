@@ -1,0 +1,22 @@
+<h1>Core Design Challenges</h1>
+<blockquote>
+<p><strong>Lesson 10.6</strong> · All levels · 25 min</p>
+</blockquote>
+<hr>
+<p>Now that we understand how to solve system design problems, examine the most common challenges. Like solutions assembled from reusable building blocks, these challenges have repeatable patterns.</p>
+<h2>Challenge 1: Too Many Concurrent Users</h2>
+<p>Large user bases introduce many problems. The most common and intuitive is that single machines or databases have RPS/QPS limits. In all single-server demo apps from web dev tutorials, server performance degenerates fast once limits are exceeded.</p>
+<p>The solution is repetition. Repeat the same assets and assign users randomly to each replication. When replicated assets are server logic, it&#39;s called load balancing. When replicated assets are data, it&#39;s called database replicas.</p>
+<h2>Challenge 2: Too Much Data to Move Around</h2>
+<p>The twin challenge of too many users is too much data. Data becomes big when it&#39;s no longer possible to hold everything on one machine. Examples: Google index, all tweets on Twitter, all Netflix movies.</p>
+<p>The solution is sharding: partitioning data by logic. Sharding logic groups data together. If we shard by user_id in Twitter, all tweets from one user store on the same machine.</p>
+<h2>Challenge 3: The System Should be Fast and Responsive</h2>
+<p>User-facing apps must be quick. Response time should be under 500ms. Over 1 second creates poor user experiences.</p>
+<p>Reading is usually fast after we have replication. Read requests typically implement as queries to in-memory key-value dictionaries beside HTTP protocols. For many simple apps, latency is mostly network round time.</p>
+<p>Writing is where the challenge lies. Most typical writing processes involve many data queries and updates, lasting far longer than the 1-second limit. The solution is asynchrony: write requests return immediately after servers receive data and put it in queues. Actual processing continues in backends. After receiving server responses, client-side logic has wiggle room for speedy user experiences. It can show UI before redirecting users to read results. This usually takes 1-2 seconds, enough for backend processing of actual write requests.</p>
+<p>This implements through message queues like Kafka.</p>
+<h2>Challenge 4: Inconsistent (outdated) States</h2>
+<p>This challenge results from solving Challenge 1 and Challenge 2. With data replication and asynchronous data updates, read requests can easily see inconsistent data. Inconsistency usually means outdated: users won&#39;t see random wrong data, but old versions or deleted data.</p>
+<p>The solution is more application-level than system-level. Outdated reads from replication and asynchronous updates eventually disappear when servers catch up. Build user experiences where seeing outdated data briefly is acceptable. This is eventual consistency.</p>
+<p>Most apps tolerate eventual consistency well, especially compared with alternatives: losing data forever or being very slow. Exceptions are banking or payment-related apps. Any inconsistency is unacceptable, so apps must wait for all processing to finish before returning anything to users. That&#39;s why such apps feel much slower than Google Search.</p>
+<hr>

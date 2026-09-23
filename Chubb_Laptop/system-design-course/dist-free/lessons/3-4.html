@@ -1,0 +1,246 @@
+<h1>Design 04: YouTube / Video Streaming</h1>
+<blockquote>
+<p><strong>Lesson 3.4</strong> · Pro + Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a video streaming platform where users can:</p>
+<ul>
+<li>Upload videos (up to 4K, any length)</li>
+<li>Stream videos with adaptive quality based on bandwidth</li>
+<li>Search for videos</li>
+<li>See view counts, likes, comments</li>
+<li>Subscribe to channels and receive notifications</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Upload and process videos (transcode to multiple resolutions)</li>
+<li>Stream video with adaptive bitrate</li>
+<li>Search videos by title, description, tags</li>
+<li>Like, comment, subscribe</li>
+<li>Recommendation feed</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>2B logged-in users/month, 500M DAU</li>
+<li>500 hours of video uploaded every minute</li>
+<li>1B hours of video watched per day</li>
+<li>Eventual consistency acceptable for view counts and likes</li>
+<li>Video playback must start within 2 seconds</li>
+</ul>
+<hr>
+<h2>Step 2: Capacity Estimates</h2>
+<pre><code>Upload:
+  500 hours/minute = 30,000 hours/hour = 720,000 hours/day
+  Average 1GB/hour of raw video = 720 TB/day raw upload
+  After transcoding to 3 resolutions: ~3x → 2.16 PB/day stored
+
+Streaming:
+  1B hours/day = 41.7M hours/hour
+  Average bitrate 3 Mbps → 41.7M × 3 Mbps = 125 Tbps bandwidth
+  (This is why YouTube uses a massive CDN)
+
+Storage (5 years):
+  2.16 PB/day × 365 × 5 = 3.9 EB
+</code></pre>
+<hr>
+<h2>Step 3: Video Upload and Transcoding Pipeline</h2>
+<p>Raw video from a phone might be 4K H.265. A user on a 3G connection needs 360p H.264. YouTube transcodes every video into multiple formats.</p>
+<pre><code>Client uploads raw video
+         │
+         ▼
+Upload Service
+  ├── Stream chunks to S3 raw bucket
+  └── Store video metadata in DB (status = PROCESSING)
+         │
+         ▼
+Transcoding Job Queue (Kafka / SQS)
+         │
+         ▼
+Transcoding Workers (GPU instances)
+  ├── Transcode to 2160p (4K) H.264
+  ├── Transcode to 1080p H.264
+  ├── Transcode to 720p H.264
+  ├── Transcode to 480p H.264
+  ├── Transcode to 360p H.264
+  ├── Generate thumbnail images
+  └── Extract audio for CC (speech-to-text)
+         │
+         ▼
+S3 processed bucket (segmented into HLS chunks)
+         │
+         ▼
+CDN (distributed globally)
+         │
+         ▼
+DB updated: status = PUBLISHED
+</code></pre>
+<p><strong>HLS (HTTP Live Streaming):</strong>
+Each resolution is split into 2–10 second segments (.ts files). A manifest file (<code>.m3u8</code>) lists all segments and their URLs. The player downloads segments on demand and switches resolutions based on bandwidth.</p>
+<pre><code>playlist.m3u8 (master):
+  1080p/playlist.m3u8
+  720p/playlist.m3u8
+  360p/playlist.m3u8
+
+720p/playlist.m3u8:
+  segment_000.ts  (2.1 MB)
+  segment_001.ts  (2.3 MB)
+  segment_002.ts  (1.9 MB)
+  ...
+</code></pre>
+<p>The player starts with a low resolution, measures download speed, and switches up or down automatically. If the user is on WiFi, it quickly upgrades to 1080p.</p>
+<hr>
+<h2>Step 4: Adaptive Bitrate Streaming (ABR)</h2>
+<pre><code>Player downloads first segment at 360p (safe assumption)
+  ↓
+Measures: download speed = 8 Mbps (WiFi)
+  ↓
+Next segment: 1080p (requires 4 Mbps — well within budget)
+  ↓
+Network drops (cellular)
+  ↓
+Measures: download speed = 1.5 Mbps
+  ↓
+Next segment: 480p (requires 1.2 Mbps — fits)
+</code></pre>
+<p>The buffer (pre-downloaded segments) provides smooth playback during transitions. Users never see a loading spinner unless the network is too slow to fill the buffer.</p>
+<hr>
+<h2>Step 5: CDN Architecture</h2>
+<p>YouTube cannot serve 125 Tbps from a single data center. They deploy CDN nodes globally — either their own (Google Global Cache) or partner ISPs.</p>
+<pre><code>Client (Brazil) → Nearest Google edge node (São Paulo)
+  ├── CACHE HIT: segment served locally (&lt; 10ms RTT)
+  └── CACHE MISS: fetch from origin (S3 + transcoded store)
+                  cache segment for future requests
+</code></pre>
+<p>Cache strategy for video segments:</p>
+<ul>
+<li><strong>Popular videos:</strong> Segments are pre-pushed to all edge nodes</li>
+<li><strong>Long-tail videos:</strong> Segments are lazily cached on first request per region</li>
+</ul>
+<p>90% of watch time goes to ~10% of videos. Cache the popular tail, fetch the rest on demand.</p>
+<hr>
+<h2>Step 6: Database Design</h2>
+<pre><code class="language-sql">-- Videos
+CREATE TABLE videos (
+    id              BIGSERIAL PRIMARY KEY,
+    uploader_id     BIGINT NOT NULL,
+    title           TEXT NOT NULL,
+    description     TEXT,
+    duration_seconds INT,
+    thumbnail_url   TEXT,
+    hls_url         TEXT,    -- master playlist URL
+    status          VARCHAR(20),   -- processing, published, removed
+    view_count      BIGINT DEFAULT 0,
+    like_count      BIGINT DEFAULT 0,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+-- Channels (users as content creators)
+CREATE TABLE channels (
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         BIGINT UNIQUE NOT NULL,
+    name            VARCHAR(100),
+    subscriber_count BIGINT DEFAULT 0
+);
+
+-- Subscriptions
+CREATE TABLE subscriptions (
+    subscriber_id  BIGINT NOT NULL,
+    channel_id     BIGINT NOT NULL,
+    PRIMARY KEY (subscriber_id, channel_id)
+);
+</code></pre>
+<p><strong>View count problem:</strong> 1B video views/day → potentially millions of view increments per second on popular videos. Direct <code>UPDATE videos SET view_count = view_count + 1</code> would create massive write contention.</p>
+<p><strong>Solution:</strong> Buffer view events in Kafka. A stream processor aggregates them and periodically batches the increment to the DB. View counts are approximate (±a few thousand is fine).</p>
+<hr>
+<h2>Step 7: Search</h2>
+<p>Video titles, descriptions, and tags need full-text search. PostgreSQL LIKE queries are too slow at this scale.</p>
+<p><strong>Elasticsearch index:</strong></p>
+<pre><code class="language-json">{
+  &quot;video_id&quot;: 42,
+  &quot;title&quot;: &quot;How to design YouTube at scale&quot;,
+  &quot;description&quot;: &quot;In this video we walk through the system design...&quot;,
+  &quot;tags&quot;: [&quot;system-design&quot;, &quot;youtube&quot;, &quot;distributed-systems&quot;],
+  &quot;view_count&quot;: 1500000,
+  &quot;channel_name&quot;: &quot;Tech Interviews&quot;
+}
+</code></pre>
+<p>Search ranking factors:</p>
+<ul>
+<li>BM25 relevance (term frequency/rarity)</li>
+<li>View count (popularity boost)</li>
+<li>Recency</li>
+<li>Channel authority</li>
+</ul>
+<p>Elasticsearch aggregations power the search autocomplete and category filters.</p>
+<hr>
+<h2>Step 8: Recommendations</h2>
+<p>YouTube&#39;s recommendation engine is one of the most complex ML systems in the world. Simplified design:</p>
+<pre><code>1. Candidate generation:
+   - Collaborative filtering: &quot;users who watched X also watched Y&quot;
+   - Content-based: videos similar to what user has watched
+   - Trending in user&#39;s region/language
+
+2. Ranking:
+   - ML model scores each candidate on:
+     ├── Predicted watch time (main signal)
+     ├── Predicted CTR (click-through rate)
+     ├── User engagement history
+     └── Freshness
+
+3. Post-processing:
+   - Diversity (not 20 videos from the same channel)
+   - Deduplication
+   - Filter removed/restricted content
+
+4. Serve top 20 to user
+</code></pre>
+<p>The model runs offline (batch, once per hour) for most users. Celebrity event triggers (breaking news, viral video) cause near-real-time updates.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Upload scale</td>
+<td>Presigned S3 URLs; chunked upload for large files</td>
+</tr>
+<tr>
+<td>Transcoding</td>
+<td>Async Kafka queue; GPU workers for ffmpeg</td>
+</tr>
+<tr>
+<td>Formats</td>
+<td>HLS with 2-10s segments at multiple resolutions</td>
+</tr>
+<tr>
+<td>Adaptive bitrate</td>
+<td>Player measures bandwidth; switches segments on the fly</td>
+</tr>
+<tr>
+<td>CDN</td>
+<td>Globally distributed; popular videos pre-pushed</td>
+</tr>
+<tr>
+<td>View count</td>
+<td>Kafka buffer + batch DB update (eventual consistency)</td>
+</tr>
+<tr>
+<td>Search</td>
+<td>Elasticsearch with BM25 + popularity ranking</td>
+</tr>
+<tr>
+<td>Storage scale</td>
+<td>Petabyte-scale S3 with Glacier for old videos</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./05-uber.md">Design 05 — Ride-Sharing App (like Uber)</a></p>
+</blockquote>

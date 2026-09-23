@@ -1,0 +1,615 @@
+- generic [active] [ref=f12e1]:
+  - generic [ref=f12e2]:
+    - generic [ref=f12e3]:
+      - navigation [ref=f12e5]:
+        - generic [ref=f12e6]:
+          - link "System Design School Logo System Design School" [ref=f12e7] [cursor=pointer]:
+            - /url: /
+            - img "System Design School Logo" [ref=f12e8]
+            - generic [ref=f12e9]: System Design School
+          - button "Toggle navigation" [ref=f12e10] [cursor=pointer]
+      - generic [ref=f12e13]:
+        - generic [ref=f12e14]:
+          - generic [ref=f12e15]:
+            - heading "System Design Questions" [level=1] [ref=f12e16]
+            - paragraph [ref=f12e17]: Practice system design interview questions.
+          - button "Submit Question" [ref=f12e18] [cursor=pointer]
+        - generic [ref=f12e19]:
+          - searchbox "Search questions..." [ref=f12e24]
+          - generic [ref=f12e25]:
+            - combobox [ref=f12e26] [cursor=pointer]:
+              - generic: All Companies
+            - combobox [ref=f12e29] [cursor=pointer]:
+              - generic: All Difficulties
+        - table [ref=f12e36]:
+          - rowgroup [ref=f12e37]:
+            - row [ref=f12e38]:
+              - columnheader "Completed" [ref=f12e39]
+              - columnheader "Interview Problem" [ref=f12e40]
+              - columnheader "Companies" [ref=f12e41]
+              - columnheader "Solution" [ref=f12e42]
+              - columnheader "Start Practice" [ref=f12e43]
+          - rowgroup [ref=f12e44]:
+            - row [ref=f12e45]:
+              - cell [ref=f12e46]
+              - cell "Design URL Shortener Design a URL shortener like bit.ly — map a long URL to a short unique alias and redirect back at scale. The core problems are generating collision-free short keys and serving billions of low-latency redirects." [ref=f12e49]:
+                - generic [ref=f12e50]:
+                  - generic [ref=f12e51]: Design URL Shortener
+                  - generic [ref=f12e52]: Design a URL shortener like bit.ly — map a long URL to a short unique alias and redirect back at scale. The core problems are generating collision-free short keys and serving billions of low-latency redirects.
+              - cell [ref=f12e53]:
+                - link "M H G +8 11 companies" [ref=f12e54] [cursor=pointer]:
+                  - /url: /problems/url-shortener/submissions
+                  - generic [ref=f12e55]:
+                    - generic [ref=f12e56]:
+                      - generic "makemytrip" [ref=f12e57]: M
+                      - generic "hackerrank" [ref=f12e58]: H
+                      - generic "gartner" [ref=f12e59]: G
+                      - generic "+8 more companies" [ref=f12e60]: "+8"
+                    - generic [ref=f12e61]: 11 companies
+              - cell [ref=f12e62]:
+                - link "Solution" [ref=f12e63] [cursor=pointer]:
+                  - /url: /problems/url-shortener/solution
+              - cell [ref=f12e64]:
+                - link "Practice" [ref=f12e66] [cursor=pointer]:
+                  - /url: /problems/url-shortener
+            - row [ref=f12e67]:
+              - cell [ref=f12e68]
+              - 'cell "Design Pastebin Pastebin lets users store and share plain text through unique URLs. Developers use it for code snippets and configuration files. The core challenge: generate unique short URLs and serve content with low latency at scale." [ref=f12e71]':
+                - generic [ref=f12e72]:
+                  - generic [ref=f12e73]: Design Pastebin
+                  - generic [ref=f12e74]: "Pastebin lets users store and share plain text through unique URLs. Developers use it for code snippets and configuration files. The core challenge: generate unique short URLs and serve content with low latency at scale."
+              - cell [ref=f12e75]:
+                - link "A M I 3 companies" [ref=f12e76] [cursor=pointer]:
+                  - /url: /problems/pastebin/submissions
+                  - generic [ref=f12e77]:
+                    - generic [ref=f12e78]:
+                      - generic "amazon" [ref=f12e79]: A
+                      - generic "microsoft" [ref=f12e80]: M
+                      - generic "inflection" [ref=f12e81]: I
+                    - generic [ref=f12e82]: 3 companies
+              - cell [ref=f12e83]:
+                - link "Solution" [ref=f12e84] [cursor=pointer]:
+                  - /url: /problems/pastebin/solution
+              - cell [ref=f12e85]:
+                - link "Practice" [ref=f12e87] [cursor=pointer]:
+                  - /url: /problems/pastebin
+            - row [ref=f12e88]:
+              - cell [ref=f12e89]
+              - 'cell "Design Webhook Design a webhook service that processes incoming requests and ensures efficient, secure handling of real-time events, such as payment notifications from services like Stripe or Shopify. If you prefer the video format, here''s a walkthrough of the problem: <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/4C9SVQVmUxs?si=VLTgs_oXCJf3TbI7\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>" [ref=f12e92]':
+                - generic [ref=f12e93]:
+                  - generic [ref=f12e94]: Design Webhook
+                  - generic [ref=f12e95]: "Design a webhook service that processes incoming requests and ensures efficient, secure handling of real-time events, such as payment notifications from services like Stripe or Shopify. If you prefer the video format, here's a walkthrough of the problem: <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/4C9SVQVmUxs?si=VLTgs_oXCJf3TbI7\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>"
+              - cell [ref=f12e96]:
+                - link "U O 2 companies" [ref=f12e97] [cursor=pointer]:
+                  - /url: /problems/webhook/submissions
+                  - generic [ref=f12e98]:
+                    - generic [ref=f12e99]:
+                      - generic "uber" [ref=f12e100]: U
+                      - generic "openai" [ref=f12e101]: O
+                    - generic [ref=f12e102]: 2 companies
+              - cell [ref=f12e103]:
+                - link "Solution" [ref=f12e104] [cursor=pointer]:
+                  - /url: /problems/webhook/solution
+              - cell [ref=f12e105]:
+                - link "Practice" [ref=f12e107] [cursor=pointer]:
+                  - /url: /problems/webhook
+            - row [ref=f12e108]:
+              - cell [ref=f12e109]
+              - 'cell "Design Typeahead System A typeahead system predicts search queries as users type, showing relevant suggestions in real-time. The core challenge: serve suggestions within milliseconds while handling millions of concurrent users." [ref=f12e112]':
+                - generic [ref=f12e113]:
+                  - generic [ref=f12e114]: Design Typeahead System
+                  - generic [ref=f12e115]: "A typeahead system predicts search queries as users type, showing relevant suggestions in real-time. The core challenge: serve suggestions within milliseconds while handling millions of concurrent users."
+              - cell [ref=f12e116]:
+                - link "A J T +3 6 companies" [ref=f12e117] [cursor=pointer]:
+                  - /url: /problems/typeahead/submissions
+                  - generic [ref=f12e118]:
+                    - generic [ref=f12e119]:
+                      - generic "amazon" [ref=f12e120]: A
+                      - generic "jupiterMoney" [ref=f12e121]: J
+                      - generic "twilio" [ref=f12e122]: T
+                      - generic "+3 more companies" [ref=f12e123]: "+3"
+                    - generic [ref=f12e124]: 6 companies
+              - cell [ref=f12e125]:
+                - link "Solution" [ref=f12e126] [cursor=pointer]:
+                  - /url: /problems/typeahead/solution
+              - cell [ref=f12e127]:
+                - link "Practice" [ref=f12e129] [cursor=pointer]:
+                  - /url: /problems/typeahead
+            - row [ref=f12e130]:
+              - cell [ref=f12e131]
+              - cell "Design Tinder Design a location-based dating app where users discover nearby profiles, swipe right or left, and form mutual matches with real-time notifications." [ref=f12e134]:
+                - generic [ref=f12e135]:
+                  - generic [ref=f12e136]: Design Tinder
+                  - generic [ref=f12e137]: Design a location-based dating app where users discover nearby profiles, swipe right or left, and form mutual matches with real-time notifications.
+              - cell [ref=f12e138]:
+                - link "Add company report" [ref=f12e139] [cursor=pointer]:
+                  - /url: /problems/tinder/submissions
+              - cell [ref=f12e144]:
+                - link "Solution" [ref=f12e145] [cursor=pointer]:
+                  - /url: /problems/tinder/solution
+              - cell [ref=f12e146]:
+                - link "Practice" [ref=f12e148] [cursor=pointer]:
+                  - /url: /problems/tinder
+            - row [ref=f12e149]:
+              - cell [ref=f12e150]
+              - cell "Design an Online Judge (LeetCode) Design a coding contest platform like LeetCode. <div class=\"responsive-iframe\"> <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/NPg2iRtCr-I\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe> </div>" [ref=f12e153]:
+                - generic [ref=f12e154]:
+                  - generic [ref=f12e155]: Design an Online Judge (LeetCode)
+                  - generic [ref=f12e156]: Design a coding contest platform like LeetCode. <div class="responsive-iframe"> <iframe width="560" height="315" src="https://www.youtube.com/embed/NPg2iRtCr-I" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe> </div>
+              - cell [ref=f12e157]:
+                - link "A M F 3 companies" [ref=f12e158] [cursor=pointer]:
+                  - /url: /problems/leetcode/submissions
+                  - generic [ref=f12e159]:
+                    - generic [ref=f12e160]:
+                      - generic "amazon" [ref=f12e161]: A
+                      - generic "meta" [ref=f12e162]: M
+                      - generic "flipkart" [ref=f12e163]: F
+                    - generic [ref=f12e164]: 3 companies
+              - cell [ref=f12e165]:
+                - link "Solution" [ref=f12e166] [cursor=pointer]:
+                  - /url: /problems/leetcode/solution
+              - cell [ref=f12e167]:
+                - link "Practice" [ref=f12e169] [cursor=pointer]:
+                  - /url: /problems/leetcode
+            - row [ref=f12e170]:
+              - cell [ref=f12e171]
+              - cell "Design Rate Limiter Design a distributed rate limiter to protect API availability and prevent abuse" [ref=f12e174]:
+                - generic [ref=f12e175]:
+                  - generic [ref=f12e176]: Design Rate Limiter
+                  - generic [ref=f12e177]: Design a distributed rate limiter to protect API availability and prevent abuse
+              - cell [ref=f12e178]:
+                - link "I G W +4 7 companies" [ref=f12e179] [cursor=pointer]:
+                  - /url: /problems/rate-limiter/submissions
+                  - generic [ref=f12e180]:
+                    - generic [ref=f12e181]:
+                      - generic "ibm" [ref=f12e182]: I
+                      - generic "godaddy" [ref=f12e183]: G
+                      - generic "wheelseye" [ref=f12e184]: W
+                      - generic "+4 more companies" [ref=f12e185]: "+4"
+                    - generic [ref=f12e186]: 7 companies
+              - cell [ref=f12e187]:
+                - link "Solution" [ref=f12e188] [cursor=pointer]:
+                  - /url: /problems/rate-limiter/solution
+              - cell [ref=f12e189]:
+                - link "Practice" [ref=f12e191] [cursor=pointer]:
+                  - /url: /problems/rate-limiter
+            - row [ref=f12e192]:
+              - cell [ref=f12e193]
+              - cell "Design Google Calendar Design a calendar system like Google Calendar with event management, invitations, RSVP, and notifications" [ref=f12e196]:
+                - generic [ref=f12e197]:
+                  - generic [ref=f12e198]: Design Google Calendar
+                  - generic [ref=f12e199]: Design a calendar system like Google Calendar with event management, invitations, RSVP, and notifications
+              - cell [ref=f12e200]:
+                - link "Add company report" [ref=f12e201] [cursor=pointer]:
+                  - /url: /problems/google-calendar/submissions
+              - cell [ref=f12e206]:
+                - link "Solution" [ref=f12e207] [cursor=pointer]:
+                  - /url: /problems/google-calendar/solution
+              - cell [ref=f12e208]:
+                - link "Practice" [ref=f12e210] [cursor=pointer]:
+                  - /url: /problems/google-calendar
+            - row [ref=f12e211]:
+              - cell [ref=f12e212]
+              - cell "Design Twitter Design a simplified version of Twitter where users can post tweets, follow/unfollow other users and is able to see the tweets of its followings." [ref=f12e215]:
+                - generic [ref=f12e216]:
+                  - generic [ref=f12e217]: Design Twitter
+                  - generic [ref=f12e218]: Design a simplified version of Twitter where users can post tweets, follow/unfollow other users and is able to see the tweets of its followings.
+              - cell [ref=f12e219]:
+                - link "A M 2 companies" [ref=f12e220] [cursor=pointer]:
+                  - /url: /problems/twitter/submissions
+                  - generic [ref=f12e221]:
+                    - generic [ref=f12e222]:
+                      - generic "amazon" [ref=f12e223]: A
+                      - generic "microsoft" [ref=f12e224]: M
+                    - generic [ref=f12e225]: 2 companies
+              - cell [ref=f12e226]:
+                - link "Solution" [ref=f12e227] [cursor=pointer]:
+                  - /url: /problems/twitter/solution
+              - cell [ref=f12e228]:
+                - link "Coming soon" [ref=f12e230]:
+                  - /url: /problems
+            - row [ref=f12e231]:
+              - cell [ref=f12e232]
+              - cell "Design Yelp Design a local business discovery platform with geo-based search and crowd-sourced reviews." [ref=f12e235]:
+                - generic [ref=f12e236]:
+                  - generic [ref=f12e237]: Design Yelp
+                  - generic [ref=f12e238]: Design a local business discovery platform with geo-based search and crowd-sourced reviews.
+              - cell [ref=f12e239]:
+                - link "Add company report" [ref=f12e240] [cursor=pointer]:
+                  - /url: /problems/yelp/submissions
+              - cell [ref=f12e245]:
+                - link "Solution" [ref=f12e246] [cursor=pointer]:
+                  - /url: /problems/yelp/solution
+              - cell [ref=f12e247]:
+                - link "Practice" [ref=f12e249] [cursor=pointer]:
+                  - /url: /problems/yelp
+            - row [ref=f12e250]:
+              - cell [ref=f12e251]
+              - cell "Design Robinhood (Stock Trading) Design a retail stock-trading app — users watch live prices tick in real time and place orders that must move cash and shares exactly once, never twice, against an external exchange." [ref=f12e254]:
+                - generic [ref=f12e255]:
+                  - generic [ref=f12e256]: Design Robinhood (Stock Trading)
+                  - generic [ref=f12e257]: Design a retail stock-trading app — users watch live prices tick in real time and place orders that must move cash and shares exactly once, never twice, against an external exchange.
+              - cell [ref=f12e258]:
+                - link "Add company report" [ref=f12e259] [cursor=pointer]:
+                  - /url: /problems/robinhood/submissions
+              - cell [ref=f12e264]:
+                - link "Solution" [ref=f12e265] [cursor=pointer]:
+                  - /url: /problems/robinhood/solution
+              - cell [ref=f12e266]:
+                - link "Coming soon" [ref=f12e268]:
+                  - /url: /problems
+            - row [ref=f12e269]:
+              - cell [ref=f12e270]
+              - cell "Design Dropbox Design a file hosting service such as Dropbox or Google Drive. A cloud file hosting service allows users to upload, download, and share files across different platforms. It should support multiple file types including text, images, and multimedia formats. For this problem let's focus on the backend system that stores and syncs them between different devices." [ref=f12e273]:
+                - generic [ref=f12e274]:
+                  - generic [ref=f12e275]: Design Dropbox
+                  - generic [ref=f12e276]: Design a file hosting service such as Dropbox or Google Drive. A cloud file hosting service allows users to upload, download, and share files across different platforms. It should support multiple file types including text, images, and multimedia formats. For this problem let's focus on the backend system that stores and syncs them between different devices.
+              - cell [ref=f12e277]:
+                - link "P M T 3 companies" [ref=f12e278] [cursor=pointer]:
+                  - /url: /problems/dropbox/submissions
+                  - generic [ref=f12e279]:
+                    - generic [ref=f12e280]:
+                      - generic "paypal" [ref=f12e281]: P
+                      - generic "meta" [ref=f12e282]: M
+                      - generic "twilio" [ref=f12e283]: T
+                    - generic [ref=f12e284]: 3 companies
+              - cell [ref=f12e285]:
+                - link "Solution" [ref=f12e286] [cursor=pointer]:
+                  - /url: /problems/dropbox/solution
+              - cell [ref=f12e287]:
+                - link "Coming soon" [ref=f12e289]:
+                  - /url: /problems
+            - row [ref=f12e290]:
+              - cell [ref=f12e291]
+              - cell "Design Google Docs Design a collaborative document editor where many people type into the same document at once, every keystroke shows up for others within a moment, and everyone converges to the identical text with no edit ever silently lost." [ref=f12e294]:
+                - generic [ref=f12e295]:
+                  - generic [ref=f12e296]: Design Google Docs
+                  - generic [ref=f12e297]: Design a collaborative document editor where many people type into the same document at once, every keystroke shows up for others within a moment, and everyone converges to the identical text with no edit ever silently lost.
+              - cell [ref=f12e298]:
+                - link "Add company report" [ref=f12e299] [cursor=pointer]:
+                  - /url: /problems/google-docs/submissions
+              - cell [ref=f12e304]:
+                - link "Solution" [ref=f12e305] [cursor=pointer]:
+                  - /url: /problems/google-docs/solution
+              - cell [ref=f12e306]:
+                - link "Coming soon" [ref=f12e308]:
+                  - /url: /problems
+            - row [ref=f12e309]:
+              - cell [ref=f12e310]
+              - cell "Design TicketMaster Design a event ticketing system like TicketMaster" [ref=f12e313]:
+                - generic [ref=f12e314]:
+                  - generic [ref=f12e315]: Design TicketMaster
+                  - generic [ref=f12e316]: Design a event ticketing system like TicketMaster
+              - cell [ref=f12e317]:
+                - link "M F 2 companies" [ref=f12e318] [cursor=pointer]:
+                  - /url: /problems/ticketmaster/submissions
+                  - generic [ref=f12e319]:
+                    - generic [ref=f12e320]:
+                      - generic "meta" [ref=f12e321]: M
+                      - generic "flipkart" [ref=f12e322]: F
+                    - generic [ref=f12e323]: 2 companies
+              - cell [ref=f12e324]:
+                - link "Solution" [ref=f12e325] [cursor=pointer]:
+                  - /url: /problems/ticketmaster/solution
+              - cell [ref=f12e326]:
+                - link "Coming soon" [ref=f12e328]:
+                  - /url: /problems
+            - row [ref=f12e329]:
+              - cell [ref=f12e330]
+              - cell "Design Live Comments (Real-Time Fan-Out) Design live comments on a live broadcast — millions of concurrent viewers must see new comments stream in near-real-time, while comments at peak arrive faster than any person can read." [ref=f12e333]:
+                - generic [ref=f12e334]:
+                  - generic [ref=f12e335]: Design Live Comments (Real-Time Fan-Out)
+                  - generic [ref=f12e336]: Design live comments on a live broadcast — millions of concurrent viewers must see new comments stream in near-real-time, while comments at peak arrive faster than any person can read.
+              - cell [ref=f12e337]:
+                - link "Add company report" [ref=f12e338] [cursor=pointer]:
+                  - /url: /problems/live-comments/submissions
+              - cell [ref=f12e343]:
+                - link "Solution" [ref=f12e344] [cursor=pointer]:
+                  - /url: /problems/live-comments/solution
+              - cell [ref=f12e345]:
+                - link "Coming soon" [ref=f12e347]:
+                  - /url: /problems
+            - row [ref=f12e348]:
+              - cell [ref=f12e349]
+              - cell "Design a News Aggregator Design a news aggregator that crawls thousands of sources continuously and presents a fresh, ranked feed — where the real challenge is recognizing that twenty articles from twenty outlets are all one story." [ref=f12e352]:
+                - generic [ref=f12e353]:
+                  - generic [ref=f12e354]: Design a News Aggregator
+                  - generic [ref=f12e355]: Design a news aggregator that crawls thousands of sources continuously and presents a fresh, ranked feed — where the real challenge is recognizing that twenty articles from twenty outlets are all one story.
+              - cell [ref=f12e356]:
+                - link "Add company report" [ref=f12e357] [cursor=pointer]:
+                  - /url: /problems/news-aggregator/submissions
+              - cell [ref=f12e362]:
+                - link "Solution" [ref=f12e363] [cursor=pointer]:
+                  - /url: /problems/news-aggregator/solution
+              - cell [ref=f12e364]:
+                - link "Coming soon" [ref=f12e366]:
+                  - /url: /problems
+            - row [ref=f12e367]:
+              - cell [ref=f12e368]
+              - cell "Design Post Search (Full-Text Search) Design full-text search over a social product's posts — a user types a multi-word query and gets back the most relevant posts, ranked, out of a corpus of billions that grows every second." [ref=f12e371]:
+                - generic [ref=f12e372]:
+                  - generic [ref=f12e373]: Design Post Search (Full-Text Search)
+                  - generic [ref=f12e374]: Design full-text search over a social product's posts — a user types a multi-word query and gets back the most relevant posts, ranked, out of a corpus of billions that grows every second.
+              - cell [ref=f12e375]:
+                - link "Add company report" [ref=f12e376] [cursor=pointer]:
+                  - /url: /problems/post-search/submissions
+              - cell [ref=f12e381]:
+                - link "Solution" [ref=f12e382] [cursor=pointer]:
+                  - /url: /problems/post-search/solution
+              - cell [ref=f12e383]:
+                - link "Coming soon" [ref=f12e385]:
+                  - /url: /problems
+            - row [ref=f12e386]:
+              - cell [ref=f12e387]
+              - cell "Design Local Delivery (Gopuff) Design local, on-demand delivery of physical goods — a shopper sees what a nearby store actually has in stock, orders it, and watches a courier bring it, with two shoppers never both getting the last unit." [ref=f12e390]:
+                - generic [ref=f12e391]:
+                  - generic [ref=f12e392]: Design Local Delivery (Gopuff)
+                  - generic [ref=f12e393]: Design local, on-demand delivery of physical goods — a shopper sees what a nearby store actually has in stock, orders it, and watches a courier bring it, with two shoppers never both getting the last unit.
+              - cell [ref=f12e394]:
+                - link "Add company report" [ref=f12e395] [cursor=pointer]:
+                  - /url: /problems/local-delivery/submissions
+              - cell [ref=f12e400]:
+                - link "Solution" [ref=f12e401] [cursor=pointer]:
+                  - /url: /problems/local-delivery/solution
+              - cell [ref=f12e402]:
+                - link "Coming soon" [ref=f12e404]:
+                  - /url: /problems
+            - row [ref=f12e405]:
+              - cell [ref=f12e406]
+              - cell "Design an Online Auction Design a real-time auction system where many bidders compete on an item, the price climbs live in front of thousands of watchers, and the auction closes at a deadline with an unambiguous winner." [ref=f12e409]:
+                - generic [ref=f12e410]:
+                  - generic [ref=f12e411]: Design an Online Auction
+                  - generic [ref=f12e412]: Design a real-time auction system where many bidders compete on an item, the price climbs live in front of thousands of watchers, and the auction closes at a deadline with an unambiguous winner.
+              - cell [ref=f12e413]:
+                - link "Add company report" [ref=f12e414] [cursor=pointer]:
+                  - /url: /problems/online-auction/submissions
+              - cell [ref=f12e419]:
+                - link "Solution" [ref=f12e420] [cursor=pointer]:
+                  - /url: /problems/online-auction/solution
+              - cell [ref=f12e421]:
+                - link "Coming soon" [ref=f12e423]:
+                  - /url: /problems
+            - row [ref=f12e424]:
+              - cell [ref=f12e425]
+              - cell "Design a Metrics Monitoring System Design a metrics monitoring system that ingests numeric measurements from millions of hosts, stores them as time-series, and evaluates alert rules — where the real scaling wall is cardinality, not raw write volume." [ref=f12e428]:
+                - generic [ref=f12e429]:
+                  - generic [ref=f12e430]: Design a Metrics Monitoring System
+                  - generic [ref=f12e431]: Design a metrics monitoring system that ingests numeric measurements from millions of hosts, stores them as time-series, and evaluates alert rules — where the real scaling wall is cardinality, not raw write volume.
+              - cell [ref=f12e432]:
+                - link "Add company report" [ref=f12e433] [cursor=pointer]:
+                  - /url: /problems/metrics-monitoring/submissions
+              - cell [ref=f12e438]:
+                - link "Solution" [ref=f12e439] [cursor=pointer]:
+                  - /url: /problems/metrics-monitoring/solution
+              - cell [ref=f12e440]:
+                - link "Coming soon" [ref=f12e442]:
+                  - /url: /problems
+            - row [ref=f12e443]:
+              - cell [ref=f12e444]
+              - cell "Design a Distributed Job Scheduler Design a distributed job scheduler that lets clients define jobs to run at a specific time or on a recurring schedule, dispatches them to workers with controlled resource usage, and provides secure visibility and control over execution." [ref=f12e447]:
+                - generic [ref=f12e448]:
+                  - generic [ref=f12e449]: Design a Distributed Job Scheduler
+                  - generic [ref=f12e450]: Design a distributed job scheduler that lets clients define jobs to run at a specific time or on a recurring schedule, dispatches them to workers with controlled resource usage, and provides secure visibility and control over execution.
+              - cell [ref=f12e451]:
+                - link "Add company report" [ref=f12e452] [cursor=pointer]:
+                  - /url: /problems/job-scheduler/submissions
+              - cell [ref=f12e457]:
+                - link "Solution" [ref=f12e458] [cursor=pointer]:
+                  - /url: /problems/job-scheduler/solution
+              - cell [ref=f12e459]:
+                - link "Practice" [ref=f12e461] [cursor=pointer]:
+                  - /url: /problems/job-scheduler
+            - row [ref=f12e462]:
+              - cell [ref=f12e463]
+              - cell "Design a Payment System Design a system that moves money between a payer and a payee, correctly, even though every step runs over networks that fail and an external payment provider you don't control." [ref=f12e466]:
+                - generic [ref=f12e467]:
+                  - generic [ref=f12e468]: Design a Payment System
+                  - generic [ref=f12e469]: Design a system that moves money between a payer and a payee, correctly, even though every step runs over networks that fail and an external payment provider you don't control.
+              - cell [ref=f12e470]:
+                - link "Add company report" [ref=f12e471] [cursor=pointer]:
+                  - /url: /problems/payment-system/submissions
+              - cell [ref=f12e476]:
+                - link "Solution" [ref=f12e477] [cursor=pointer]:
+                  - /url: /problems/payment-system/solution
+              - cell [ref=f12e478]:
+                - link "Coming soon" [ref=f12e480]:
+                  - /url: /problems
+            - row [ref=f12e481]:
+              - cell [ref=f12e482]
+              - cell "Design a Web Crawler Design a system that crawls the web at scale, starting from seed URLs, and keeps discovering and fetching new pages without looping or getting banned." [ref=f12e485]:
+                - generic [ref=f12e486]:
+                  - generic [ref=f12e487]: Design a Web Crawler
+                  - generic [ref=f12e488]: Design a system that crawls the web at scale, starting from seed URLs, and keeps discovering and fetching new pages without looping or getting banned.
+              - cell [ref=f12e489]:
+                - link "Add company report" [ref=f12e490] [cursor=pointer]:
+                  - /url: /problems/web-crawler/submissions
+              - cell [ref=f12e495]:
+                - link "Solution" [ref=f12e496] [cursor=pointer]:
+                  - /url: /problems/web-crawler/solution
+              - cell [ref=f12e497]:
+                - link "Coming soon" [ref=f12e499]:
+                  - /url: /problems
+            - row [ref=f12e500]:
+              - cell [ref=f12e501]
+              - cell "Design an Ad Click Aggregator Design a pipeline that counts ad clicks accurately for billing while giving advertisers near-real-time aggregates." [ref=f12e504]:
+                - generic [ref=f12e505]:
+                  - generic [ref=f12e506]: Design an Ad Click Aggregator
+                  - generic [ref=f12e507]: Design a pipeline that counts ad clicks accurately for billing while giving advertisers near-real-time aggregates.
+              - cell [ref=f12e508]:
+                - link "Add company report" [ref=f12e509] [cursor=pointer]:
+                  - /url: /problems/ad-click-aggregator/submissions
+              - cell [ref=f12e514]:
+                - link "Solution" [ref=f12e515] [cursor=pointer]:
+                  - /url: /problems/ad-click-aggregator/solution
+              - cell [ref=f12e516]:
+                - link "Coming soon" [ref=f12e518]:
+                  - /url: /problems
+            - row [ref=f12e519]:
+              - cell [ref=f12e520]
+              - cell "Design Spotify Top K Songs Design a system to find the top k heavy hitters in a stream of data. This could be - the top k most played songs in a music streaming service like Spotify - the top k most viewed videos on a video streaming service like YouTube - the top k most bought items in an e-commerce service like Amazon - the top k most frequent items in a social media service like Twitter - the top k most accessed IP addresses on a network <div class=\"responsive-iframe\"> <iframe width=\"560\" height=\"315\" src=\"https://www.youtube.com/embed/HjazbLlrWxI\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe> </div>" [ref=f12e523]:
+                - generic [ref=f12e524]:
+                  - generic [ref=f12e525]: Design Spotify Top K Songs
+                  - generic [ref=f12e526]: Design a system to find the top k heavy hitters in a stream of data. This could be - the top k most played songs in a music streaming service like Spotify - the top k most viewed videos on a video streaming service like YouTube - the top k most bought items in an e-commerce service like Amazon - the top k most frequent items in a social media service like Twitter - the top k most accessed IP addresses on a network <div class="responsive-iframe"> <iframe width="560" height="315" src="https://www.youtube.com/embed/HjazbLlrWxI" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe> </div>
+              - cell [ref=f12e527]:
+                - link "L B 2 companies" [ref=f12e528] [cursor=pointer]:
+                  - /url: /problems/topk/submissions
+                  - generic [ref=f12e529]:
+                    - generic [ref=f12e530]:
+                      - generic "linkedin" [ref=f12e531]: L
+                      - generic "bloomberg" [ref=f12e532]: B
+                    - generic [ref=f12e533]: 2 companies
+              - cell [ref=f12e534]:
+                - link "Solution" [ref=f12e535] [cursor=pointer]:
+                  - /url: /problems/topk/solution
+              - cell [ref=f12e536]:
+                - link "Practice" [ref=f12e538] [cursor=pointer]:
+                  - /url: /problems/topk
+            - row [ref=f12e539]:
+              - cell [ref=f12e540]
+              - cell "Design Uber Design a ride-hailing service that matches riders with nearby drivers in real-time, handles hundreds of thousands of location updates per second, and manages the full trip lifecycle." [ref=f12e543]:
+                - generic [ref=f12e544]:
+                  - generic [ref=f12e545]: Design Uber
+                  - generic [ref=f12e546]: Design a ride-hailing service that matches riders with nearby drivers in real-time, handles hundreds of thousands of location updates per second, and manages the full trip lifecycle.
+              - cell [ref=f12e547]:
+                - link "Add company report" [ref=f12e548] [cursor=pointer]:
+                  - /url: /problems/uber/submissions
+              - cell [ref=f12e553]:
+                - link "Solution" [ref=f12e554] [cursor=pointer]:
+                  - /url: /problems/uber/solution
+              - cell [ref=f12e555]:
+                - link "Practice" [ref=f12e557] [cursor=pointer]:
+                  - /url: /problems/uber
+            - row [ref=f12e558]:
+              - cell [ref=f12e559]
+              - cell "Design a Distributed Message Queue Design a distributed message queue that acts as a durable buffer between producers and consumers, supporting topics, partitions, consumer groups, and configurable retention." [ref=f12e562]:
+                - generic [ref=f12e563]:
+                  - generic [ref=f12e564]: Design a Distributed Message Queue
+                  - generic [ref=f12e565]: Design a distributed message queue that acts as a durable buffer between producers and consumers, supporting topics, partitions, consumer groups, and configurable retention.
+              - cell [ref=f12e566]:
+                - link "Add company report" [ref=f12e567] [cursor=pointer]:
+                  - /url: /problems/message-queue/submissions
+              - cell [ref=f12e572]:
+                - link "Solution" [ref=f12e573] [cursor=pointer]:
+                  - /url: /problems/message-queue/solution
+              - cell [ref=f12e574]:
+                - link "Practice" [ref=f12e576] [cursor=pointer]:
+                  - /url: /problems/message-queue
+            - row [ref=f12e577]:
+              - cell [ref=f12e578]
+              - cell "Design WhatsApp Design a chat app like WhatsApp." [ref=f12e581]:
+                - generic [ref=f12e582]:
+                  - generic [ref=f12e583]: Design WhatsApp
+                  - generic [ref=f12e584]: Design a chat app like WhatsApp.
+              - cell [ref=f12e585]:
+                - link "M U A 3 companies" [ref=f12e586] [cursor=pointer]:
+                  - /url: /problems/chatapp/submissions
+                  - generic [ref=f12e587]:
+                    - generic [ref=f12e588]:
+                      - generic "meta" [ref=f12e589]: M
+                      - generic "uber" [ref=f12e590]: U
+                      - generic "amazon" [ref=f12e591]: A
+                    - generic [ref=f12e592]: 3 companies
+              - cell [ref=f12e593]:
+                - link "Solution" [ref=f12e594] [cursor=pointer]:
+                  - /url: /problems/chatapp/solution
+              - cell [ref=f12e595]:
+                - link "Coming soon" [ref=f12e597]:
+                  - /url: /problems
+            - row [ref=f12e598]:
+              - cell [ref=f12e599]
+              - cell "Design YouTube YouTube is an online video-sharing platform where users can upload, share, and view videos. It supports various types of videos, including TV show clips, music videos, short and documentary films, movie trailers, and other content such as video blogging (vlogging), short original videos, and educational videos." [ref=f12e602]:
+                - generic [ref=f12e603]:
+                  - generic [ref=f12e604]: Design YouTube
+                  - generic [ref=f12e605]: YouTube is an online video-sharing platform where users can upload, share, and view videos. It supports various types of videos, including TV show clips, music videos, short and documentary films, movie trailers, and other content such as video blogging (vlogging), short original videos, and educational videos.
+              - cell [ref=f12e606]:
+                - link "A 1 company" [ref=f12e607] [cursor=pointer]:
+                  - /url: /problems/youtube/submissions
+                  - generic [ref=f12e608]:
+                    - generic "amazon" [ref=f12e610]: A
+                    - generic [ref=f12e611]: 1 company
+              - cell [ref=f12e612]:
+                - link "Solution" [ref=f12e613] [cursor=pointer]:
+                  - /url: /problems/youtube/solution
+              - cell [ref=f12e614]:
+                - link "Coming soon" [ref=f12e616]:
+                  - /url: /problems
+            - row [ref=f12e617]:
+              - cell [ref=f12e618]
+              - cell "Design a News Feed Design the home feed for a social product — a ranked, near-real-time stream of posts from the accounts a user follows. The hard parts are fan-out and ranking, and they are coupled." [ref=f12e621]:
+                - generic [ref=f12e622]:
+                  - generic [ref=f12e623]: Design a News Feed
+                  - generic [ref=f12e624]: Design the home feed for a social product — a ranked, near-real-time stream of posts from the accounts a user follows. The hard parts are fan-out and ranking, and they are coupled.
+              - cell [ref=f12e625]:
+                - link "Add company report" [ref=f12e626] [cursor=pointer]:
+                  - /url: /problems/news-feed/submissions
+              - cell [ref=f12e631]:
+                - link "Solution" [ref=f12e632] [cursor=pointer]:
+                  - /url: /problems/news-feed/solution
+              - cell [ref=f12e633]:
+                - link "Coming soon" [ref=f12e635]:
+                  - /url: /problems
+            - row [ref=f12e636]:
+              - cell [ref=f12e637]
+              - cell "Design Instagram Design a photo-sharing service — upload images, follow accounts, and see a timeline of recent posts. The read path is a News Feed variant; the new problem is the media write path — upload, transcode, durable blob storage, and CDN delivery." [ref=f12e640]:
+                - generic [ref=f12e641]:
+                  - generic [ref=f12e642]: Design Instagram
+                  - generic [ref=f12e643]: Design a photo-sharing service — upload images, follow accounts, and see a timeline of recent posts. The read path is a News Feed variant; the new problem is the media write path — upload, transcode, durable blob storage, and CDN delivery.
+              - cell [ref=f12e644]:
+                - link "Add company report" [ref=f12e645] [cursor=pointer]:
+                  - /url: /problems/instagram/submissions
+              - cell [ref=f12e650]:
+                - link "Solution" [ref=f12e651] [cursor=pointer]:
+                  - /url: /problems/instagram/solution
+              - cell [ref=f12e652]:
+                - link "Coming soon" [ref=f12e654]:
+                  - /url: /problems
+            - row [ref=f12e655]:
+              - cell [ref=f12e656]
+              - cell "Design a Distributed Cache Design an in-memory caching layer that serves reads at sub-millisecond latency for tens of millions of requests per second, shards across many nodes, survives node loss without taking the database down, and has a defensible answer for stale data." [ref=f12e659]:
+                - generic [ref=f12e660]:
+                  - generic [ref=f12e661]: Design a Distributed Cache
+                  - generic [ref=f12e662]: Design an in-memory caching layer that serves reads at sub-millisecond latency for tens of millions of requests per second, shards across many nodes, survives node loss without taking the database down, and has a defensible answer for stale data.
+              - cell [ref=f12e663]:
+                - link "Add company report" [ref=f12e664] [cursor=pointer]:
+                  - /url: /problems/distributed-cache/submissions
+              - cell [ref=f12e669]:
+                - link "Solution" [ref=f12e670] [cursor=pointer]:
+                  - /url: /problems/distributed-cache/solution
+              - cell [ref=f12e671]:
+                - link "Coming soon" [ref=f12e673]:
+                  - /url: /problems
+            - row [ref=f12e674]:
+              - cell [ref=f12e675]
+              - cell "Design a Distributed Key-Value Store Design a horizontally-scalable key-value store that stays available and low-latency across hundreds of nodes and multiple datacenters, survives node and network failures, and has a defensible answer for what a read returns after a write that raced a partition. The Dynamo / Cassandra / Riak lineage." [ref=f12e678]:
+                - generic [ref=f12e679]:
+                  - generic [ref=f12e680]: Design a Distributed Key-Value Store
+                  - generic [ref=f12e681]: Design a horizontally-scalable key-value store that stays available and low-latency across hundreds of nodes and multiple datacenters, survives node and network failures, and has a defensible answer for what a read returns after a write that raced a partition. The Dynamo / Cassandra / Riak lineage.
+              - cell [ref=f12e682]:
+                - link "Add company report" [ref=f12e683] [cursor=pointer]:
+                  - /url: /problems/distributed-kv-store/submissions
+              - cell [ref=f12e688]:
+                - link "Solution" [ref=f12e689] [cursor=pointer]:
+                  - /url: /problems/distributed-kv-store/solution
+              - cell [ref=f12e690]:
+                - link "Coming soon" [ref=f12e692]:
+                  - /url: /problems
+            - row [ref=f12e693]:
+              - cell [ref=f12e694]
+              - cell "Design Google Maps Design a mapping service like Google Maps" [ref=f12e697]:
+                - generic [ref=f12e698]:
+                  - generic [ref=f12e699]: Design Google Maps
+                  - generic [ref=f12e700]: Design a mapping service like Google Maps
+              - cell [ref=f12e701]:
+                - link "P 1 company" [ref=f12e702] [cursor=pointer]:
+                  - /url: /problems/google-map/submissions
+                  - generic [ref=f12e703]:
+                    - generic "phonepe" [ref=f12e705]: P
+                    - generic [ref=f12e706]: 1 company
+              - cell [ref=f12e707]:
+                - link "Solution" [ref=f12e708] [cursor=pointer]:
+                  - /url: /problems/google-map/solution
+              - cell [ref=f12e709]:
+                - link "Coming soon" [ref=f12e711]:
+                  - /url: /problems
+    - button "Send feedback" [ref=f12e713] [cursor=pointer]
+  - alert [ref=f12e717]

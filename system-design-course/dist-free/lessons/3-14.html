@@ -1,0 +1,205 @@
+<h1>Design 14: Social Media Feed / Timeline (Fanout Strategies)</h1>
+<blockquote>
+<p><strong>Lesson 3.14</strong> · Senior · 85 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design the home feed for a social network (like Twitter/X or Facebook) that shows a user a personalized, reverse-chronological stream of posts from people they follow.</p>
+<p>This is the hardest read performance problem in social networks.</p>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Home feed: posts from accounts the user follows, reverse chronological</li>
+<li>Post types: text, images, links, reposts, quote-posts</li>
+<li>Feed pagination (load more on scroll)</li>
+<li>Near-real-time: new post appears in followers&#39; feeds within 5 seconds</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>500M DAU, average 200 follows per user</li>
+<li>50M posts per day</li>
+<li>500M feed views per day = 5,800 feed views/second</li>
+<li>Feed must load in &lt; 200ms</li>
+<li>Heavy skew: celebrities with 100M+ followers</li>
+</ul>
+<hr>
+<h2>Step 2: The Three Strategies</h2>
+<h3>Fan-out on write (push model)</h3>
+<p>When Alice posts, push the post to all her followers&#39; feeds immediately.</p>
+<pre><code>Alice posts → server looks up all followers → writes post_id to each follower&#39;s feed cache
+</code></pre>
+<p><strong>Pros:</strong> Feed reads are instant (pre-computed)
+<strong>Cons:</strong> Writing one post may require millions of writes (celebrities)</p>
+<h3>Fan-out on read (pull model)</h3>
+<p>When Bob requests his feed, pull recent posts from all accounts he follows.</p>
+<pre><code>Bob requests feed → server fetches recent posts from Bob&#39;s 200 followed accounts → merge → return
+</code></pre>
+<p><strong>Pros:</strong> Writes are cheap (one DB write per post)
+<strong>Cons:</strong> Feed reads are expensive (200 queries × 5,800 req/s = 1.16M queries/second)</p>
+<h3>Hybrid model (what Twitter/Facebook actually use)</h3>
+<p><strong>Regular users (&lt; ~10K followers):</strong> Fan-out on write. Pre-compute their followers&#39; feeds.</p>
+<p><strong>Celebrity users (&gt; ~10K followers):</strong> Fan-out on read. Their posts are merged lazily when a follower requests their feed.</p>
+<pre><code>Hybrid read:
+  1. Fetch pre-computed feed from Redis (regular accounts only)
+  2. Fetch recent posts from celebrity accounts (&lt; 20 celebrities)
+  3. Merge and sort by timestamp
+  4. Return top 20
+</code></pre>
+<p>The user follows <del>200 people. Of those, ~2-5 are celebrities with massive followings (whose writes would be expensive to fan out to 500M followers each). These are merged on read. The rest (</del>195) are pre-computed.</p>
+<hr>
+<h2>Step 3: Fan-out on Write Implementation</h2>
+<pre><code>Alice (500 followers) posts:
+  1. Write post to DB: INSERT INTO posts ...
+  2. Publish event to Kafka: { post_id, author_id, created_at }
+  3. Fan-out worker reads from Kafka:
+     - SELECT follower_id FROM follows WHERE followee_id = alice
+     - For each follower: ZADD feed:{follower_id} {timestamp} {post_id}
+     - ZREMRANGEBYRANK feed:{follower_id} 0 -1001  # trim to 1000 entries
+</code></pre>
+<p>For Alice with 500 followers: 500 Redis writes. Fast.
+For Kylie Jenner with 400M followers: 400M Redis writes. Takes ~7 minutes. Problem.</p>
+<p><strong>Solution:</strong> Kylie is flagged as a &quot;celebrity&quot; (follower count &gt; 10K threshold). Skip fan-out for her. Her posts are fetched on read.</p>
+<hr>
+<h2>Step 4: Feed Read Path</h2>
+<pre><code class="language-python">def get_feed(user_id, page=0, page_size=20):
+    # 1. Get pre-computed feed from Redis
+    offset = page * page_size
+    pre_computed = redis.ZREVRANGE(f&quot;feed:{user_id}&quot;, offset, offset + page_size * 2)
+    # Fetch extra to account for merging and dedup
+    
+    # 2. Get celebrity followees
+    celebrity_ids = get_celebrity_followees(user_id)  # cached, changes rarely
+    
+    # 3. Fetch recent posts from celebrities
+    celebrity_posts = []
+    for celeb_id in celebrity_ids:
+        posts = db.query(
+            &quot;SELECT id, created_at FROM posts WHERE author_id = ? ORDER BY created_at DESC LIMIT 20&quot;,
+            celeb_id
+        )
+        celebrity_posts.extend(posts)
+    
+    # 4. Merge pre-computed + celebrity posts
+    all_posts = sorted(pre_computed + celebrity_posts, key=lambda p: p.created_at, reverse=True)
+    
+    # 5. Remove posts from blocked/muted users
+    filtered = [p for p in all_posts if not is_blocked(user_id, p.author_id)]
+    
+    # 6. Return page
+    return filtered[offset:offset + page_size]
+</code></pre>
+<hr>
+<h2>Step 5: Redis Sorted Set Feed Store</h2>
+<pre><code>Key:   &quot;feed:{user_id}&quot;
+Score: unix timestamp (milliseconds, for sub-second ordering)
+Value: post_id
+
+ZADD feed:bob 1700000001000 post:42
+ZADD feed:bob 1700000002000 post:99
+ZADD feed:bob 1700000003000 post:107
+
+ZREVRANGE feed:bob 0 19 WITHSCORES
+→ [post:107, 1700000003000, post:99, 1700000002000, post:42, 1700000001000]
+</code></pre>
+<p><strong>Feed capacity:</strong> Keep last 1,000 entries per user (trim with <code>ZREMRANGEBYRANK</code>).
+<strong>Memory:</strong> 500M users × 1,000 posts × ~20 bytes per entry = 10TB Redis cluster.</p>
+<hr>
+<h2>Step 6: Feed Ranking (Beyond Chronological)</h2>
+<p>Pure reverse chronological fails when a user follows 1,000 accounts — top content drowns in noise. Modern feeds use ranking.</p>
+<p><strong>Ranking signals:</strong></p>
+<ul>
+<li>Recency (primary signal)</li>
+<li>Engagement rate of the post (likes/views ratio within first hour)</li>
+<li>Author&#39;s relationship with viewer (close friend vs acquaintance)</li>
+<li>Content format (video posts get slight boost for video-preferring users)</li>
+<li>Predicted engagement (ML model: how likely is this user to like/comment?)</li>
+</ul>
+<p><strong>Ranked feed architecture:</strong></p>
+<ol>
+<li>Retrieve top 200 candidate posts (from hybrid fan-out)</li>
+<li>Score each with ML model: <code>score = w1*recency + w2*engagement + w3*relationship + ...</code></li>
+<li>Sort by score, return top 20</li>
+<li>Cache scored feed for 5 minutes (same user refreshing gets same result briefly)</li>
+</ol>
+<p>The ML scoring runs in ~10ms on pre-fetched features. The candidate pool is still from the hybrid fan-out.</p>
+<hr>
+<h2>Step 7: Database Schema</h2>
+<pre><code class="language-sql">-- Posts
+CREATE TABLE posts (
+    id              BIGSERIAL PRIMARY KEY,
+    author_id       BIGINT NOT NULL,
+    content         TEXT,
+    media_urls      TEXT[],
+    post_type       VARCHAR(20),    -- post, repost, quote_post, reply
+    reply_to_id     BIGINT,         -- for replies
+    repost_of_id    BIGINT,         -- for reposts
+    like_count      INT DEFAULT 0,
+    repost_count    INT DEFAULT 0,
+    reply_count     INT DEFAULT 0,
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_posts_author_created ON posts (author_id, created_at DESC);
+
+-- Follows graph
+CREATE TABLE follows (
+    follower_id     BIGINT NOT NULL,
+    followee_id     BIGINT NOT NULL,
+    is_celebrity    BOOLEAN GENERATED AS (followee_follower_count &gt; 10000) STORED,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (follower_id, followee_id)
+);
+CREATE INDEX idx_follows_followee ON follows (followee_id);
+</code></pre>
+<hr>
+<h2>Step 8: Handling Unfollows and Deletes</h2>
+<p><strong>Unfollow:</strong> Remove the user&#39;s pre-computed feed entries from that author. This requires knowing which posts in the feed are from that author.</p>
+<p><strong>Simple approach:</strong> Don&#39;t remove from feed immediately. On feed read, filter out posts from unfollowed users. This is &quot;lazy cleanup.&quot;</p>
+<p><strong>Post deletion:</strong> User deletes a post. The post_id may still be in millions of followers&#39; Redis feeds. </p>
+<p>Lazy cleanup: when post_id is fetched to render in the feed, check if the post still exists. If not, skip it. Redis feed is eventually cleaned up via TTL.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fan-out on write</td>
+<td>Pre-compute follower feeds; expensive for celebrities</td>
+</tr>
+<tr>
+<td>Fan-out on read</td>
+<td>Cheap writes; expensive reads (N queries on load)</td>
+</tr>
+<tr>
+<td>Hybrid</td>
+<td>Regular users: push; celebrities: pull-on-read</td>
+</tr>
+<tr>
+<td>Celebrity threshold</td>
+<td>~10K followers (configurable)</td>
+</tr>
+<tr>
+<td>Feed storage</td>
+<td>Redis sorted set per user; score = timestamp; max 1,000 entries</td>
+</tr>
+<tr>
+<td>Ranked feed</td>
+<td>200 candidates → ML score → top 20</td>
+</tr>
+<tr>
+<td>Post delete</td>
+<td>Lazy cleanup: filter on read, not on delete</td>
+</tr>
+<tr>
+<td>Unfollow</td>
+<td>Lazy: filter unfollowed authors on read</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./15-job-scheduler.md">Design 15 — Global Job Scheduler (Cron-as-a-Service)</a></p>
+</blockquote>

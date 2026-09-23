@@ -1,0 +1,217 @@
+<h1>Microservices vs Monolith — Migration Strategy</h1>
+<blockquote>
+<p><strong>Lesson 4.1</strong> · Pro + Senior · 45 min</p>
+</blockquote>
+<hr>
+<h2>The Default Starting Point: Monolith</h2>
+<p>Every successful system started as a monolith. Instagram launched as a Django app on a single server. GitHub ran on a monolith for years. Shopify still does.</p>
+<p>A monolith is <strong>one deployable unit</strong> containing all the code:</p>
+<pre><code>monolith/
+  ├── users/       (registration, auth, profiles)
+  ├── orders/      (cart, checkout, payments)
+  ├── products/    (catalog, search, inventory)
+  ├── notifications/ (email, push, SMS)
+  └── analytics/   (reporting, dashboards)
+</code></pre>
+<p>Single process, single database, deployed as one artifact.</p>
+<hr>
+<h2>Why Monoliths Work (Until They Don&#39;t)</h2>
+<p><strong>Advantages:</strong></p>
+<ul>
+<li>Simple to develop: everything in one place, one codebase, one IDE</li>
+<li>Simple to test: run everything locally with one command</li>
+<li>Simple to deploy: push one artifact</li>
+<li>Simple to debug: one log stream, one process</li>
+<li>Simple to refactor: move code between modules without API contracts</li>
+<li>Low latency: function calls, not network calls</li>
+</ul>
+<p><strong>When monoliths fail:</strong></p>
+<ul>
+<li><strong>Team scale:</strong> 200 engineers all committing to one repo → merge conflicts, slow CI, coordination overhead</li>
+<li><strong>Independent scaling:</strong> Orders processing is overloaded but you have to scale everything</li>
+<li><strong>Technology lock-in:</strong> Stuck on one language/runtime forever</li>
+<li><strong>Deployment coupling:</strong> A change to notifications requires redeploying the entire product</li>
+<li><strong>Blast radius:</strong> A bug in one module can take down everything</li>
+</ul>
+<hr>
+<h2>Microservices: The Trade-off</h2>
+<p>Microservices decompose the system into independently deployable services, each owning its data.</p>
+<pre><code>Before (monolith):
+  one-app + one-db
+
+After (microservices):
+  users-service    → users-db
+  orders-service   → orders-db
+  products-service → products-db
+  notifications-service (no db — side-effects only)
+</code></pre>
+<p><strong>You trade simplicity for scalability and team independence.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Monolith</th>
+<th>Microservices</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Developer experience</td>
+<td>Simple</td>
+<td>Complex (service mesh, contracts, local dev setup)</td>
+</tr>
+<tr>
+<td>Deployment</td>
+<td>One unit</td>
+<td>Dozens of independent deployments</td>
+</tr>
+<tr>
+<td>Scaling</td>
+<td>Whole app</td>
+<td>Per-service scaling</td>
+</tr>
+<tr>
+<td>Team autonomy</td>
+<td>Low</td>
+<td>High (team owns a service end-to-end)</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>In-process (microseconds)</td>
+<td>Network call (1–10ms)</td>
+</tr>
+<tr>
+<td>Debugging</td>
+<td>Simple</td>
+<td>Distributed tracing required</td>
+</tr>
+<tr>
+<td>Data consistency</td>
+<td>ACID transactions</td>
+<td>Eventual consistency (sagas)</td>
+</tr>
+<tr>
+<td>Getting started</td>
+<td>Fast</td>
+<td>Slow (infrastructure overhead)</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>When to Actually Use Microservices</h2>
+<p>The common mistake: splitting a small codebase into microservices on day one. This creates massive operational overhead with zero benefit.</p>
+<p><strong>Use a monolith when:</strong></p>
+<ul>
+<li>Team is &lt; 20 engineers</li>
+<li>Product is &lt; 2 years old</li>
+<li>Scaling requirements are unknown</li>
+<li>You want to move fast</li>
+</ul>
+<p><strong>Consider microservices when:</strong></p>
+<ul>
+<li>Team is 50+ engineers and coordination is the bottleneck</li>
+<li>A specific component has dramatically different scaling needs</li>
+<li>Different components need different technology (ML models in Python, real-time in Go)</li>
+<li>You need independent release cycles for different parts of the system</li>
+</ul>
+<p><strong>Rule of thumb:</strong> If you can&#39;t describe what the service does in one sentence without &quot;and&quot;, it&#39;s not a microservice — it&#39;s a distributed monolith.</p>
+<hr>
+<h2>The Strangler Fig Pattern — Migration Strategy</h2>
+<p>You cannot rewrite a running system overnight. The <strong>Strangler Fig</strong> pattern migrates a monolith to microservices incrementally.</p>
+<p>Named after a fig tree that grows around a host tree, gradually replacing it.</p>
+<pre><code>Phase 1: Introduce a routing layer (API Gateway)
+  All traffic → API Gateway → Monolith (no change)
+
+Phase 2: Extract first service (least coupled, highest value)
+  Traffic → API Gateway
+            ├── /api/notifications/* → Notifications Service (NEW)
+            └── /*                  → Monolith (everything else)
+
+Phase 3: Extract next service
+  Traffic → API Gateway
+            ├── /api/notifications/* → Notifications Service
+            ├── /api/users/*         → Users Service (NEW)
+            └── /*                  → Monolith
+
+Phase N: Monolith eventually replaced
+  Traffic → API Gateway
+            ├── /api/notifications/* → Notifications Service
+            ├── /api/users/*         → Users Service
+            ├── /api/orders/*        → Orders Service
+            └── /api/products/*      → Products Service
+</code></pre>
+<p>The monolith shrinks as services are extracted. It never gets a full rewrite — it gets replaced piece by piece.</p>
+<hr>
+<h2>Choosing What to Extract First</h2>
+<p>Not all components are equally easy to extract. Look for:</p>
+<ol>
+<li><strong>Low coupling:</strong> Fewest dependencies on other modules. Notifications typically only consume events — perfect candidate.</li>
+<li><strong>Clear boundary:</strong> You know exactly what this service owns.</li>
+<li><strong>High value:</strong> Extract services that will benefit most from independent scaling or deployment.</li>
+<li><strong>Separate team ownership:</strong> If a team is slowed down by deploying with the monolith, that team&#39;s module is a good candidate.</li>
+</ol>
+<p><strong>Avoid extracting first:</strong></p>
+<ul>
+<li>The core transactional code (orders + payments) — too risky</li>
+<li>Anything that needs distributed transactions</li>
+<li>Modules with data shared by everything else</li>
+</ul>
+<hr>
+<h2>The Data Problem</h2>
+<p>Microservices own their data. This means the orders service cannot do:</p>
+<pre><code class="language-sql">-- THIS IS FORBIDDEN in microservices
+SELECT o.*, u.email FROM orders o JOIN users u ON u.id = o.user_id;
+</code></pre>
+<p>Each service has its own database. To get user info from the orders service, you make an API call to the users service.</p>
+<p><strong>Strategies:</strong></p>
+<ol>
+<li><strong>API calls:</strong> Orders service calls Users service. Simple but adds latency and creates coupling.</li>
+<li><strong>Event sourcing / CQRS:</strong> Users service publishes events (<code>user.updated</code>). Orders service maintains a local cache of user data it needs. Decoupled, but eventually consistent.</li>
+<li><strong>Data replication:</strong> Users service replicates required fields to a read-only table in orders-db. Orders service reads locally.</li>
+</ol>
+<hr>
+<h2>Common Anti-Patterns</h2>
+<p><strong>Distributed monolith:</strong> Services that can&#39;t be deployed independently because they share a database or call each other in cycles. All the complexity of microservices with none of the benefits.</p>
+<p><strong>Nano-services:</strong> Services so small they have more infrastructure code than business logic. A service for &quot;currency conversion&quot; with 3 lines of logic and 200 lines of Kubernetes config.</p>
+<p><strong>Chatty services:</strong> Service A calls B calls C calls D to handle one user request. Each hop adds latency. Four 5ms calls = 20ms minimum just for the chain.</p>
+<p><strong>Synchronous everything:</strong> Services call each other synchronously everywhere. One slow service makes everything slow. Use async messaging for operations that don&#39;t need an immediate response.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Start with monolith or microservices?</td>
+<td>Monolith until coordination/scaling pain is real</td>
+</tr>
+<tr>
+<td>When to split?</td>
+<td>50+ engineers; specific scaling needs; independent release cycles</td>
+</tr>
+<tr>
+<td>Migration pattern</td>
+<td>Strangler Fig: route incrementally via API Gateway</td>
+</tr>
+<tr>
+<td>Extract first</td>
+<td>Lowest coupling, clearest boundary (notifications, auth)</td>
+</tr>
+<tr>
+<td>Data ownership</td>
+<td>Each service owns its DB; no cross-service JOINs</td>
+</tr>
+<tr>
+<td>Cross-service data</td>
+<td>API call, event publishing, or local replication</td>
+</tr>
+<tr>
+<td>Anti-patterns</td>
+<td>Distributed monolith, nano-services, synchronous chains</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./02-service-mesh.md">Lesson 4.2 — Service Mesh (Istio, Envoy)</a></p>
+</blockquote>

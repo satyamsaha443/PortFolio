@@ -1,0 +1,232 @@
+<h1>Design 03: Instagram / Photo Sharing</h1>
+<blockquote>
+<p><strong>Lesson 3.3</strong> · Pro · 75 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a photo-sharing platform where users can:</p>
+<ul>
+<li>Upload photos and videos</li>
+<li>Follow other users</li>
+<li>View a personalized feed of followed users&#39; posts</li>
+<li>Like and comment on posts</li>
+<li>Discover trending content</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Upload photos/videos</li>
+<li>Follow/unfollow users</li>
+<li>Home feed: posts from followed users, reverse chronological</li>
+<li>Like and comment on posts</li>
+<li>View any user&#39;s profile/posts</li>
+<li>Explore page: trending, recommended content</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>1B monthly active users, 500M DAU</li>
+<li>100M photos uploaded per day</li>
+<li>500M feed views per day</li>
+<li>Read-heavy: 100:1 read/write ratio</li>
+<li>Feed generation latency &lt; 200ms</li>
+</ul>
+<hr>
+<h2>Step 2: Capacity Estimates</h2>
+<pre><code>Photo uploads:
+  100M photos/day × average 3MB = 300TB/day of storage
+  Per year: 109 PB
+  Use S3 with lifecycle: originals → Standard, old → Glacier
+
+Reads:
+  500M feed views/day = 5,800/second
+  Each feed: ~20 posts = 116,000 post fetches/second
+
+Compute for resizing:
+  100M photos × 3 sizes (thumbnail, medium, original) = 300M resize ops/day
+  Offload to async media processing workers
+</code></pre>
+<hr>
+<h2>Step 3: Photo Upload Pipeline</h2>
+<pre><code>Client uploads photo
+         │
+         ▼
+Upload Service (validates, assigns media_id)
+         │
+         ▼
+S3 (original photo stored)
+         │
+         ▼
+Media Processing Worker (Kafka job)
+  ├── Resize to thumbnail (150×150)
+  ├── Resize to medium (720px)
+  ├── Extract EXIF/metadata
+  └── Run NSFW/spam classifier
+         │
+         ▼
+CDN (CloudFront / Fastly) serves processed images
+</code></pre>
+<p><strong>Why async processing?</strong>
+The upload API responds immediately after storing the original to S3. Processing runs asynchronously. The user sees their post with a &quot;processing&quot; state; within seconds it renders with the resized version. This keeps the upload API fast.</p>
+<p><strong>Presigned URLs for upload:</strong>
+The client requests a presigned S3 URL from the API, then uploads directly to S3. The API server never handles the raw bytes.</p>
+<pre><code>1. POST /api/media/upload-url → { presigned_url, media_id }
+2. Client PUT &lt;presigned_url&gt; (file goes direct to S3)
+3. Client POST /api/posts { media_id, caption }
+4. API creates post record, publishes media_id to Kafka for processing
+</code></pre>
+<hr>
+<h2>Step 4: Database Schema</h2>
+<pre><code class="language-sql">-- Users
+CREATE TABLE users (
+    id          BIGSERIAL PRIMARY KEY,
+    username    VARCHAR(30) UNIQUE NOT NULL,
+    bio         TEXT,
+    follower_count  INT DEFAULT 0,
+    following_count INT DEFAULT 0,
+    post_count      INT DEFAULT 0
+);
+
+-- Posts
+CREATE TABLE posts (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     BIGINT NOT NULL REFERENCES users(id),
+    caption     TEXT,
+    media_url   TEXT NOT NULL,
+    media_type  VARCHAR(10),   -- photo, video
+    like_count  INT DEFAULT 0,
+    comment_count INT DEFAULT 0,
+    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_posts_user_created ON posts (user_id, created_at DESC);
+
+-- Follows (graph)
+CREATE TABLE follows (
+    follower_id  BIGINT NOT NULL,
+    followee_id  BIGINT NOT NULL,
+    created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (follower_id, followee_id)
+);
+CREATE INDEX idx_follows_followee ON follows (followee_id);  -- who follows this user
+
+-- Likes
+CREATE TABLE likes (
+    user_id  BIGINT NOT NULL,
+    post_id  BIGINT NOT NULL,
+    PRIMARY KEY (user_id, post_id)
+);
+</code></pre>
+<hr>
+<h2>Step 5: Feed Generation — The Hard Problem</h2>
+<p>The most complex part. User opens Instagram → must see ~20 recent posts from ~500 followed accounts in &lt; 200ms.</p>
+<h3>Option A: Pull-on-read (fan-out on read)</h3>
+<p>When Alice requests her feed:</p>
+<ol>
+<li>Look up the 500 accounts Alice follows</li>
+<li>For each: SELECT posts WHERE user_id = X ORDER BY created_at DESC LIMIT 5</li>
+<li>Merge all 500 lists, sort by time, return top 20</li>
+</ol>
+<p><strong>Problem:</strong> 500 database queries per feed request. At 5,800 feed req/s, that&#39;s 2.9M queries/second. Not viable.</p>
+<h3>Option B: Push-on-write (fan-out on write)</h3>
+<p>When Bob posts a photo:</p>
+<ol>
+<li>Look up all of Bob&#39;s followers (say 10,000)</li>
+<li>Write Bob&#39;s post_id to each follower&#39;s feed (a pre-computed list in Redis)</li>
+</ol>
+<p>When Alice requests her feed:</p>
+<ol>
+<li>Read Alice&#39;s pre-computed feed list from Redis (instant)</li>
+<li>Fetch post details for the top 20 post IDs</li>
+</ol>
+<p><strong>Problem for celebrities:</strong> Kylie Jenner has 400M followers. One post → 400M Redis writes. Takes minutes. Meanwhile users see stale feed.</p>
+<h3>Option C: Hybrid (what Instagram actually does)</h3>
+<ul>
+<li><strong>Regular users (&lt; ~10K followers):</strong> Fan-out on write. Pre-compute feeds in Redis.</li>
+<li><strong>Celebrity users:</strong> Fan-out on read, lazily merged when the feed is requested.</li>
+</ul>
+<pre><code>User requests feed:
+  1. Fetch pre-computed feed from Redis (covers regular followees)
+  2. Fetch recent posts from celebrity followees (&lt; 10)
+  3. Merge and sort
+  4. Return top 20
+</code></pre>
+<hr>
+<h2>Step 6: Feed Storage in Redis</h2>
+<pre><code>Redis Sorted Set per user:
+  Key:    &quot;feed:{user_id}&quot;
+  Score:  post creation timestamp (unix ms)
+  Value:  post_id
+
+ZADD feed:alice 1700000001 post_id:42
+ZADD feed:alice 1700000002 post_id:99
+
+ZREVRANGE feed:alice 0 19   → last 20 post IDs in reverse chronological order
+</code></pre>
+<p>Feed size: keep last 1,000 posts per user (trim older entries)
+Memory: 500M users × 1,000 posts × ~16 bytes per entry = ~8TB Redis cluster</p>
+<p>After getting post IDs, batch-fetch post details from a post cache (Redis) or database.</p>
+<hr>
+<h2>Step 7: CDN for Media</h2>
+<p>Photos are global. A single S3 bucket in us-east-1 would be slow for users in Tokyo.</p>
+<pre><code>Client (Tokyo) → CloudFront edge (Tokyo) → S3 (us-east-1)
+                                          ↑ only on first request
+</code></pre>
+<p>After first request, the Tokyo edge has the photo cached. All subsequent Tokyo users fetch locally.</p>
+<p><strong>Cache-Control header on S3 objects:</strong>
+<code>Cache-Control: public, max-age=31536000</code> (1 year)</p>
+<p>Photos never change — when a user &quot;replaces&quot; a photo, a new media_id is used. Old URLs remain valid (for links already shared). New URLs point to the new photo.</p>
+<hr>
+<h2>Step 8: Like and Comment Scale</h2>
+<p>At 500M DAU, likes can burst to millions per second for viral posts.</p>
+<p><strong>Likes — use Redis counters:</strong></p>
+<pre><code>INCR likes:{post_id}
+SADD liked_by:{post_id} {user_id}  -- only for recent posts (memory)
+</code></pre>
+<p>Periodically flush Redis like counts to PostgreSQL (batch write every 30 seconds). The database <code>like_count</code> column is an approximate count — fine for display.</p>
+<p><strong>Did user X like post Y?</strong> — check Redis <code>SISMEMBER liked_by:{post_id} {user_id}</code>. For old posts where the set has been flushed, fall back to the <code>likes</code> table in PostgreSQL.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Upload path</td>
+<td>Client → presigned URL → S3 direct upload</td>
+</tr>
+<tr>
+<td>Processing</td>
+<td>Async via Kafka; resize to thumbnail, medium</td>
+</tr>
+<tr>
+<td>Media delivery</td>
+<td>CDN (CloudFront) in front of S3</td>
+</tr>
+<tr>
+<td>Feed strategy</td>
+<td>Hybrid: push (regular users) + pull (celebrities)</td>
+</tr>
+<tr>
+<td>Feed store</td>
+<td>Redis sorted set per user (1,000 posts, score = timestamp)</td>
+</tr>
+<tr>
+<td>Like count</td>
+<td>Redis INCR, periodically flushed to DB</td>
+</tr>
+<tr>
+<td>DB choice</td>
+<td>PostgreSQL for structured data; Cassandra for activity at scale</td>
+</tr>
+<tr>
+<td>Follow graph</td>
+<td>PostgreSQL follows table or dedicated graph DB at very large scale</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./04-youtube.md">Design 04 — YouTube / Video Streaming</a></p>
+</blockquote>

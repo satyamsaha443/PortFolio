@@ -1,0 +1,303 @@
+<h1>Glossary of 100+ System Design Terms</h1>
+<blockquote>
+<p><strong>Lesson 0.4</strong> · All levels · Reference</p>
+</blockquote>
+<hr>
+<p>This glossary is designed to be a living reference. Return to it every time you encounter an unfamiliar term in this course. Definitions here are intentionally practical — focused on how the term is used in system design interviews and real-world architecture, not academic precision.</p>
+<p>Terms are grouped by theme. Within each group, they appear roughly in order of how often you&#39;ll encounter them.</p>
+<hr>
+<h2>A — Fundamentals &amp; Architecture</h2>
+<p><strong>API (Application Programming Interface)</strong>
+A defined contract that lets one piece of software talk to another. In system design, usually refers to the HTTP-based interface your service exposes to clients or other services.</p>
+<p><strong>Architecture</strong>
+The high-level structure of a system — how major components are divided, how they communicate, and what responsibilities each owns.</p>
+<p><strong>Availability</strong>
+The percentage of time a system is operational and responding to requests. Expressed as nines: 99.9% = 8.7 hours downtime/year; 99.99% = 52 minutes/year; 99.999% = 5 minutes/year.</p>
+<p><strong>Back-of-the-envelope calculation</strong>
+A quick, rough estimate made with simple arithmetic to validate whether a design is feasible. In interviews, always do one. Example: &quot;100M DAU × 1 message/day × 100 bytes = 10 GB/day of new data.&quot;</p>
+<p><strong>Bottleneck</strong>
+The component of a system that limits overall throughput. Every system has at least one bottleneck at any given time; good design is about knowing where it is and managing it explicitly.</p>
+<p><strong>CAP Theorem</strong>
+In a distributed system, you can guarantee at most two of: Consistency, Availability, Partition Tolerance. Since network partitions are unavoidable in practice, real systems choose between CP (sacrifice availability during a partition) or AP (sacrifice consistency during a partition).</p>
+<p><strong>Client</strong>
+The component that initiates requests — typically a browser, mobile app, or another service.</p>
+<p><strong>Component</strong>
+A discrete part of a system with a defined responsibility (e.g., &quot;the authentication service,&quot; &quot;the image processor&quot;).</p>
+<p><strong>Consistency</strong>
+All nodes in a distributed system see the same data at the same time. Strong consistency means a read always returns the latest write. Eventual consistency means the system will eventually converge, but reads may return stale data temporarily.</p>
+<p><strong>Fault Tolerance</strong>
+The ability of a system to continue operating correctly even when one or more components fail.</p>
+<p><strong>High Availability (HA)</strong>
+Design goal of minimising downtime. Typically achieved through redundancy (multiple instances), failover, and health checks.</p>
+<p><strong>Infrastructure</strong>
+The underlying hardware and software that a system runs on — servers, networking, storage, cloud services.</p>
+<p><strong>Latency</strong>
+The time between a request being sent and a response being received. Often measured as p50 (median), p95, p99, and p999.</p>
+<p><strong>Microservices</strong>
+An architectural style where a system is broken into small, independently deployable services, each owning a specific domain. Contrast with a monolith.</p>
+<p><strong>Monolith</strong>
+A single deployable unit containing all the business logic of an application. Easier to develop initially; harder to scale and deploy independently as it grows.</p>
+<p><strong>Reliability</strong>
+The ability of a system to perform its intended function consistently over time. Often defined as MTBF (Mean Time Between Failures).</p>
+<p><strong>Scalability</strong>
+The ability to handle increased load. Horizontal scaling = more machines. Vertical scaling = bigger machines.</p>
+<p><strong>Server</strong>
+A computer (or process) that receives and processes requests from clients.</p>
+<p><strong>Service</strong>
+A discrete unit of software that performs a specific function and exposes an interface (usually an API) for other components to interact with.</p>
+<p><strong>SLA (Service Level Agreement)</strong>
+A contractual commitment on the level of service (availability, latency, etc.) a provider promises to a customer.</p>
+<p><strong>SLO (Service Level Objective)</strong>
+An internal target for a specific metric (e.g., &quot;p99 latency under 200ms&quot;). SLOs are what teams aim for internally; SLAs are what&#39;s contractually promised externally.</p>
+<p><strong>SLI (Service Level Indicator)</strong>
+The actual measured metric used to track whether an SLO is being met (e.g., measured p99 latency).</p>
+<p><strong>Throughput</strong>
+The amount of work a system can process per unit of time — requests per second (RPS), messages per second, bytes per second.</p>
+<p><strong>Trade-off</strong>
+The act of accepting a downside in one dimension to gain an advantage in another. Every architecture decision involves trade-offs.</p>
+<hr>
+<h2>B — Networking &amp; Protocols</h2>
+<p><strong>DNS (Domain Name System)</strong>
+The distributed system that translates human-readable domain names (e.g., <code>api.example.com</code>) into IP addresses. Responses are cached with a TTL (Time to Live).</p>
+<p><strong>HTTP (HyperText Transfer Protocol)</strong>
+The protocol used for communication between web clients and servers. HTTP/1.1 uses one request per connection (with keep-alive); HTTP/2 multiplexes multiple requests over one connection; HTTP/3 uses QUIC over UDP.</p>
+<p><strong>HTTP/2</strong>
+The second version of HTTP. Key features: multiplexing (multiple requests over a single TCP connection), header compression, server push. Massively reduces latency vs HTTP/1.1.</p>
+<p><strong>HTTPS</strong>
+HTTP over TLS. All traffic is encrypted in transit. Required for any production service handling user data.</p>
+<p><strong>IP Address</strong>
+A numerical label identifying a machine on a network. IPv4 = 32-bit (e.g., 192.168.1.1). IPv6 = 128-bit (e.g., 2001:db8::1).</p>
+<p><strong>Load Balancer</strong>
+A component that distributes incoming requests across multiple servers to prevent any single server from being overloaded. Can operate at Layer 4 (TCP) or Layer 7 (HTTP).</p>
+<p><strong>Long Polling</strong>
+A technique where the client holds an HTTP connection open until the server has new data to send, then responds and the client immediately reconnects. A workaround for HTTP&#39;s request-response model before WebSockets.</p>
+<p><strong>NAT (Network Address Translation)</strong>
+Maps private IP addresses to public IPs, allowing multiple devices to share a single public IP.</p>
+<p><strong>Proxy</strong>
+A server that acts as an intermediary between clients and servers. A forward proxy protects clients; a reverse proxy protects servers.</p>
+<p><strong>Reverse Proxy</strong>
+Sits in front of servers, receiving requests from clients and forwarding them. Common uses: load balancing, SSL termination, caching, rate limiting.</p>
+<p><strong>Round Robin</strong>
+A load balancing algorithm that distributes requests to each server in turn, cycling through the list repeatedly.</p>
+<p><strong>SSL/TLS</strong>
+Protocols for encrypting data in transit. TLS (Transport Layer Security) is the modern version; SSL is its deprecated predecessor. &quot;SSL&quot; is commonly used informally to mean TLS.</p>
+<p><strong>TCP (Transmission Control Protocol)</strong>
+A connection-oriented protocol that guarantees delivery and ordering of packets. Used by HTTP, databases, and most application protocols. Higher overhead than UDP.</p>
+<p><strong>UDP (User Datagram Protocol)</strong>
+A connectionless protocol with no delivery guarantee or ordering. Lower overhead than TCP. Used by DNS, video streaming, and real-time games where speed matters more than reliability.</p>
+<p><strong>WebSocket</strong>
+A protocol that enables full-duplex (bidirectional) communication over a single TCP connection. The server can push data to the client without the client polling. Essential for chat apps, live dashboards, and collaborative tools.</p>
+<hr>
+<h2>C — Databases</h2>
+<p><strong>ACID</strong>
+The four properties of a reliable database transaction: <strong>A</strong>tomicity (all or nothing), <strong>C</strong>onsistency (valid state before and after), <strong>I</strong>solation (concurrent transactions don&#39;t interfere), <strong>D</strong>urability (committed data survives crashes).</p>
+<p><strong>BASE</strong>
+A softer alternative to ACID used in distributed databases: <strong>B</strong>asically Available (the system is available even during failures), <strong>S</strong>oft-state (state may change over time without input), <strong>E</strong>ventually Consistent (the system will converge to consistency).</p>
+<p><strong>B-Tree</strong>
+A balanced tree data structure used in most relational database indexes. Efficient for range queries and exact lookups. O(log n) read and write.</p>
+<p><strong>Cache</strong>
+A fast, temporary storage layer that holds frequently accessed data to reduce load on slower systems (typically the database). Common implementations: Redis, Memcached, CDN edge nodes.</p>
+<p><strong>Cache Invalidation</strong>
+The process of removing or updating cached data when the underlying data changes. One of the hardest problems in computer science. Strategies: TTL (time-to-live), write-through, write-back, event-driven.</p>
+<p><strong>Column Family</strong>
+A data model used by wide-column stores (Cassandra, HBase). Rows can have different sets of columns, grouped into column families. Optimised for writes and large datasets.</p>
+<p><strong>Consistency Levels</strong>
+In distributed databases, the trade-off between how many replicas must acknowledge a read or write before it&#39;s considered successful. Options include: ONE, QUORUM, ALL.</p>
+<p><strong>Cursor</strong>
+A pointer used to paginate through large result sets in a database. More efficient than offset pagination for large datasets.</p>
+<p><strong>Database Replication</strong>
+Maintaining copies of data on multiple servers. Provides fault tolerance and read scalability. Types: leader-follower (one write node, many read replicas), multi-master (multiple write nodes).</p>
+<p><strong>Denormalisation</strong>
+Intentionally duplicating data across tables to improve read performance, at the cost of write complexity and data consistency risk.</p>
+<p><strong>Document Database</strong>
+A NoSQL database that stores data as JSON-like documents (e.g., MongoDB, CouchDB). Flexible schema; good for hierarchical data.</p>
+<p><strong>Graph Database</strong>
+A database optimised for storing and querying relationships between entities (e.g., Neo4j). Ideal for social graphs, recommendation engines, and fraud detection.</p>
+<p><strong>Index</strong>
+A data structure that improves query performance by creating a fast lookup path for specific columns. Speeds up reads; slows down writes.</p>
+<p><strong>LSM Tree (Log-Structured Merge Tree)</strong>
+An alternative to B-Trees used by Cassandra, RocksDB, and LevelDB. Optimised for high write throughput. Writes go to an in-memory buffer (memtable); periodically flushed to disk and merged.</p>
+<p><strong>NoSQL</strong>
+A broad category of databases that do not use the traditional relational model. Types: document, key-value, wide-column, graph. Typically trade some ACID guarantees for scale and flexibility.</p>
+<p><strong>Normalisation</strong>
+Organising a relational database to reduce data redundancy and improve data integrity. Follows normal forms (1NF, 2NF, 3NF, etc.).</p>
+<p><strong>OLAP (Online Analytical Processing)</strong>
+Workloads optimised for complex analytical queries over large datasets. Examples: Snowflake, BigQuery, Redshift. Contrast with OLTP.</p>
+<p><strong>OLTP (Online Transaction Processing)</strong>
+Workloads optimised for fast, short transactions — inserts, updates, reads — in real time. Examples: PostgreSQL, MySQL. Contrast with OLAP.</p>
+<p><strong>Partition</strong>
+In databases, a logical division of a table&#39;s data across multiple physical nodes or storage units, based on a partition key.</p>
+<p><strong>Primary Key</strong>
+A column or set of columns that uniquely identifies each row in a database table.</p>
+<p><strong>Query Optimiser</strong>
+The component of a database that determines the most efficient way to execute a query.</p>
+<p><strong>Read Replica</strong>
+A database instance that serves read requests by staying in sync with the primary (write) database. Adds read capacity without adding write capacity.</p>
+<p><strong>Schema</strong>
+The structure definition of a database — which tables exist, what columns they have, what data types and constraints apply.</p>
+<p><strong>Sharding</strong>
+Horizontally partitioning a database across multiple machines by splitting rows based on a shard key (e.g., user_id % N). Each shard owns a subset of the data.</p>
+<p><strong>SQL (Structured Query Language)</strong>
+The standard language for interacting with relational databases.</p>
+<p><strong>Time-Series Database</strong>
+A database optimised for storing data points indexed by time (e.g., InfluxDB, TimescaleDB). Common for metrics, IoT data, and financial data.</p>
+<p><strong>Write-Through Cache</strong>
+A caching strategy where every write to the cache is simultaneously written to the backing store. Ensures consistency; slightly higher write latency.</p>
+<p><strong>Write-Back Cache (Write-Behind)</strong>
+A caching strategy where writes go to the cache first, and the backing store is updated asynchronously. Faster writes; risk of data loss if the cache fails before the flush.</p>
+<hr>
+<h2>D — Distributed Systems</h2>
+<p><strong>Bloom Filter</strong>
+A probabilistic data structure that can tell you &quot;definitely not in the set&quot; or &quot;probably in the set.&quot; Used to avoid expensive lookups (e.g., checking if a URL has been shortened before). Space-efficient; never returns false negatives, but can return false positives.</p>
+<p><strong>Circuit Breaker</strong>
+A design pattern that stops sending requests to a failing service, gives it time to recover, and then gradually resumes traffic. Named after electrical circuit breakers.</p>
+<p><strong>Consensus Algorithm</strong>
+A protocol used to achieve agreement among distributed nodes despite failures. Examples: Raft, Paxos. Used in leader election and distributed databases.</p>
+<p><strong>Consistent Hashing</strong>
+A hashing technique that distributes data across nodes such that adding or removing a node only requires remapping a small fraction of the keys. Used in distributed caches and storage systems.</p>
+<p><strong>CRDT (Conflict-free Replicated Data Type)</strong>
+A data structure designed for distributed systems that allows concurrent updates without coordination, and guarantees convergence. Used in collaborative editing (Google Docs).</p>
+<p><strong>Dead Letter Queue (DLQ)</strong>
+A message queue where messages that failed to be processed are sent for inspection, retry, or alerting. Prevents message loss.</p>
+<p><strong>Distributed Lock</strong>
+A mechanism for ensuring only one process across multiple machines can perform an operation at a time. Implemented with Redis (SETNX), Zookeeper, or etcd.</p>
+<p><strong>Eventual Consistency</strong>
+A consistency model where, given no new updates, all replicas will eventually converge to the same value. Does not guarantee when convergence happens.</p>
+<p><strong>Fanout</strong>
+The process of delivering one message/event to multiple consumers. A write fanout (e.g., in a Twitter-like feed) writes to many followers&#39; feeds when one user posts.</p>
+<p><strong>Gossip Protocol</strong>
+A decentralised communication mechanism where each node periodically shares state with a random subset of other nodes. Used in Cassandra and DynamoDB for peer discovery and failure detection.</p>
+<p><strong>Heartbeat</strong>
+A periodic signal sent from one service to another to indicate it&#39;s alive. Used by health checks and leader election systems.</p>
+<p><strong>Idempotency</strong>
+An operation is idempotent if running it multiple times produces the same result as running it once. Critical for retry logic in distributed systems. Example: <code>PUT /users/123</code> is idempotent; <code>POST /payments</code> must be made idempotent with an idempotency key.</p>
+<p><strong>Leader Election</strong>
+The process of selecting one node from a group to serve as the coordinator (leader) for a period of time. Used by distributed databases, Kafka, and Zookeeper.</p>
+<p><strong>Message Queue</strong>
+A component that decouples producers and consumers by storing messages until the consumer is ready to process them. Examples: Kafka, RabbitMQ, SQS.</p>
+<p><strong>Operational Transformation (OT)</strong>
+An algorithm for resolving conflicting edits in collaborative real-time systems. Used in Google Docs.</p>
+<p><strong>Pub/Sub (Publish/Subscribe)</strong>
+A messaging pattern where publishers send messages to topics, and subscribers receive all messages on the topics they&#39;re subscribed to. Decouples producers and consumers.</p>
+<p><strong>Quorum</strong>
+In a distributed system, the minimum number of nodes that must agree on an operation before it&#39;s considered successful. If replication factor is 3, a quorum of 2 can tolerate 1 failure.</p>
+<p><strong>Raft</strong>
+A consensus algorithm designed to be more understandable than Paxos. Used by etcd, CockroachDB, and TiKV.</p>
+<p><strong>Saga Pattern</strong>
+A way to manage long-running distributed transactions by breaking them into a series of local transactions, each with a compensating transaction that reverses it on failure.</p>
+<p><strong>Service Discovery</strong>
+The mechanism by which services find each other in a distributed system. Tools: Consul, etcd, Kubernetes DNS, Eureka.</p>
+<p><strong>Two-Phase Commit (2PC)</strong>
+A distributed transaction protocol where all participants must agree (vote) before a coordinator commits a transaction. Provides strong consistency; poor availability during coordinator failure.</p>
+<hr>
+<h2>E — Scalability &amp; Performance</h2>
+<p><strong>Auto-Scaling</strong>
+Automatically adjusting the number of running instances based on traffic. Common in cloud environments.</p>
+<p><strong>Backpressure</strong>
+A mechanism where a downstream component signals to upstream that it&#39;s overwhelmed, causing upstream to slow down or buffer. Prevents cascading failures.</p>
+<p><strong>Cache Hit / Cache Miss</strong>
+A cache hit means the requested data was found in the cache (fast). A cache miss means it wasn&#39;t and must be fetched from the original source (slow).</p>
+<p><strong>CDN (Content Delivery Network)</strong>
+A geographically distributed network of servers that cache and serve content (images, videos, static assets) close to end users. Reduces latency and load on origin servers.</p>
+<p><strong>Cold Cache</strong>
+A cache that has not yet been populated with data. Happens after a cache restart or during a new deployment.</p>
+<p><strong>Compression</strong>
+Reducing the size of data before transmission or storage. Common algorithms: gzip, Brotli (for HTTP), Snappy, Zstandard (for data).</p>
+<p><strong>Connection Pool</strong>
+A set of pre-established database connections that are reused instead of being opened and closed for every request. Reduces connection overhead.</p>
+<p><strong>Graceful Degradation</strong>
+When a system under extreme load reduces its capabilities (e.g., disabling non-essential features) instead of failing completely.</p>
+<p><strong>Hot Spot</strong>
+A node, partition, or shard that receives a disproportionately high amount of traffic or data. Often caused by poor key selection in sharding.</p>
+<p><strong>Horizontal Scaling</strong>
+Adding more machines to distribute load. Generally preferred for stateless services.</p>
+<p><strong>Vertical Scaling</strong>
+Upgrading an existing machine with more CPU, memory, or storage. Simpler but has limits and is more expensive at scale.</p>
+<p><strong>Pagination</strong>
+Breaking large result sets into pages. Offset pagination: <code>LIMIT 10 OFFSET 50</code>. Cursor pagination: <code>WHERE created_at &lt; cursor_value LIMIT 10</code>. Cursor is preferred for large datasets.</p>
+<p><strong>Pre-warming</strong>
+Loading a cache or starting instances before traffic arrives, to avoid cold-start performance issues.</p>
+<p><strong>Rate Limiting</strong>
+Controlling the number of requests a client can make to a service in a given time window. Protects services from abuse and overload.</p>
+<p><strong>Sticky Sessions (Session Affinity)</strong>
+Routing all requests from a specific client to the same server instance. Used when server-side session state isn&#39;t shared.</p>
+<p><strong>Token Bucket</strong>
+A rate-limiting algorithm where tokens are added at a constant rate; each request consumes one token. Allows short bursts.</p>
+<p><strong>Leaky Bucket</strong>
+A rate-limiting algorithm where requests are queued and processed at a constant rate. Smooths out bursts.</p>
+<hr>
+<h2>F — Reliability &amp; Operations</h2>
+<p><strong>Blue-Green Deployment</strong>
+Running two identical production environments (blue and green). New code is deployed to the inactive environment; traffic is switched over instantly. Enables zero-downtime deploys and instant rollback.</p>
+<p><strong>Canary Deployment</strong>
+Rolling out a new version to a small subset of users first (the &quot;canary&quot;), monitoring for errors, then gradually increasing the percentage.</p>
+<p><strong>Chaos Engineering</strong>
+Intentionally injecting failures into a production system to discover weaknesses before real failures do. Made famous by Netflix&#39;s Chaos Monkey.</p>
+<p><strong>Checkpointing</strong>
+Periodically saving the state of a long-running process so it can resume from the checkpoint if it fails, rather than starting over.</p>
+<p><strong>Data Replication</strong>
+Copying data to multiple nodes for redundancy and fault tolerance.</p>
+<p><strong>Failover</strong>
+Automatically switching to a backup system when the primary fails.</p>
+<p><strong>Feature Flag</strong>
+A configuration that enables or disables a feature at runtime without deploying new code. Enables gradual rollouts and A/B testing.</p>
+<p><strong>Health Check</strong>
+A periodic probe (HTTP endpoint, TCP ping) used by load balancers and orchestrators to determine whether a service instance is ready to receive traffic.</p>
+<p><strong>Horizontal Pod Autoscaler (HPA)</strong>
+A Kubernetes feature that automatically scales the number of pod replicas based on CPU, memory, or custom metrics.</p>
+<p><strong>Idempotency Key</strong>
+A unique identifier included in a request that lets the server detect and ignore duplicate requests. Critical for payment APIs.</p>
+<p><strong>Incident</strong>
+An unplanned outage or degradation of service.</p>
+<p><strong>MTD (Mean Time to Detection)</strong>
+The average time it takes to detect an incident after it starts.</p>
+<p><strong>MTTR (Mean Time to Recovery)</strong>
+The average time it takes to restore service after an incident.</p>
+<p><strong>Observability</strong>
+The ability to understand the internal state of a system from its external outputs: logs, metrics, and traces (the &quot;three pillars&quot;).</p>
+<p><strong>Postmortem</strong>
+A document written after an incident to understand what happened, why, how it was resolved, and how to prevent recurrence. Blameless postmortems focus on systems, not people.</p>
+<p><strong>Retry with Exponential Backoff</strong>
+Retrying a failed request after an increasing delay (1s → 2s → 4s → 8s...) with added jitter to prevent thundering herds.</p>
+<p><strong>Rollback</strong>
+Reverting a deployment to a previous version, usually in response to a bug or outage.</p>
+<p><strong>Thundering Herd</strong>
+When a large number of processes or clients simultaneously request the same resource — for example, after a cache expires. Causes a spike of requests to the origin.</p>
+<hr>
+<h2>G — Data &amp; Storage</h2>
+<p><strong>Blob Storage</strong>
+Storage for unstructured binary data — images, videos, files. Examples: AWS S3, Google Cloud Storage, Azure Blob Storage.</p>
+<p><strong>Change Data Capture (CDC)</strong>
+Tracking changes in a database (inserts, updates, deletes) and publishing them as events. Used to keep downstream systems in sync. Tools: Debezium, AWS DMS.</p>
+<p><strong>Column-Oriented Storage</strong>
+Storing data by column rather than by row. Dramatically faster for analytical queries that aggregate a single column across millions of rows. Used by data warehouses.</p>
+<p><strong>Data Lake</strong>
+A storage repository that holds raw, unstructured, or semi-structured data in its native format until it&#39;s needed.</p>
+<p><strong>Data Warehouse</strong>
+A central repository of structured, processed data optimised for analytics. Examples: Snowflake, BigQuery, Redshift.</p>
+<p><strong>ETL (Extract, Transform, Load)</strong>
+The process of extracting data from source systems, transforming it, and loading it into a target system (data warehouse, analytics store).</p>
+<p><strong>Object Storage</strong>
+See Blob Storage.</p>
+<p><strong>Parquet</strong>
+A columnar storage file format commonly used in data lakes and analytics pipelines. Efficient compression and query performance.</p>
+<hr>
+<h2>H — APIs &amp; Communication</h2>
+<p><strong>gRPC</strong>
+A high-performance RPC (Remote Procedure Call) framework using Protocol Buffers for serialisation. Faster than REST for internal service-to-service communication; binary protocol.</p>
+<p><strong>GraphQL</strong>
+A query language for APIs where the client specifies exactly what data it needs. Reduces over-fetching and under-fetching. Popular for mobile clients.</p>
+<p><strong>Idempotent Request</strong>
+See Idempotency above.</p>
+<p><strong>REST (Representational State Transfer)</strong>
+An architectural style for building web APIs using HTTP verbs (GET, POST, PUT, DELETE). Stateless; widely understood; the de facto standard for public APIs.</p>
+<p><strong>RPC (Remote Procedure Call)</strong>
+A protocol where a client calls a function on a remote server as if it were a local function call. gRPC is the most common modern implementation.</p>
+<p><strong>Webhook</strong>
+A reverse callback: instead of the client polling for changes, the server pushes a notification to a URL the client registered. Used for payment confirmations, GitHub events, Stripe notifications.</p>
+<hr>
+<p><em>This glossary grows as the course grows. Terms introduced in later modules are defined in context but also added here for reference.</em></p>
+<hr>
+<blockquote>
+<p><strong>End of Module 0.</strong> Proceed to <a href="../module-1-foundations/01-what-is-system-design.md">Module 1 — Foundations</a></p>
+</blockquote>

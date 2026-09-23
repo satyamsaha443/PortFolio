@@ -1,0 +1,130 @@
+<h1>Real-Time Transport: Long-Polling, SSE, and WebSockets</h1>
+<blockquote>
+<p><strong>Lesson 9.3</strong> · All levels · 30 min</p>
+</blockquote>
+<hr>
+<p>Real-time features invert the normal flow of the web. Chat messages, live comments, presence indicators, and collaborative cursors all need the server to send data the client never asked for, the moment it arrives. Standard request-response cannot do that: the client asks, the server answers, and the connection closes.</p>
+<p>Polling is the naive workaround — the client re-asks every few seconds and diffs the result. It wastes requests that usually return nothing and still trails one interval behind. The alternatives keep a connection open so the server can push instead.</p>
+<hr>
+<h2>The Core Need: Server-Initiated Messages</h2>
+<p>HTTP is client-initiated. Real-time features need the server to send data when it has news, not when the client happens to ask.</p>
+<p>Three transports solve this. They differ in <strong>how much of the connection stays open</strong> and <strong>in which direction data flows</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Transport</th>
+<th>Direction</th>
+<th>Overhead</th>
+<th>Reach for it when</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Long-polling</td>
+<td>Client asks, server replies</td>
+<td>High — full request per update</td>
+<td>Updates are rare and it must work everywhere</td>
+</tr>
+<tr>
+<td>SSE</td>
+<td>Server → client only</td>
+<td>Low — one open stream</td>
+<td>One-way feeds: notifications, live scores, comment streams</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>Full-duplex, both ways</td>
+<td>Lowest per message</td>
+<td>Two-way and chatty: chat, collaborative editing, games</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Long-Polling</h2>
+<p>The client sends a request. The server <strong>holds it open</strong> instead of replying right away. When data arrives, the server responds. The client reads it, then immediately sends the next request. It is pull that imitates push.</p>
+<pre><code>Client → GET /events (holds open)
+...server waits...
+...data arrives...
+Server → 200 { &quot;event&quot;: &quot;new_message&quot; }
+Client → GET /events (immediately re-opens)
+</code></pre>
+<p><strong>Works everywhere</strong> — it is ordinary HTTP. No special protocol, no upgrade step, no proxy trouble. Every update pays for a full request and response with headers. Between updates the connection cycles open and closed. Fine for low-frequency updates; wasteful for a busy chat.</p>
+<hr>
+<h2>Server-Sent Events (SSE)</h2>
+<p>The client opens one HTTP connection and keeps it open. <strong>The server streams events down it as they occur.</strong> The browser&#39;s <code>EventSource</code> API handles reconnection automatically if the stream drops.</p>
+<pre><code>Client → GET /stream
+Server → Content-Type: text/event-stream (keeps open)
+Server → data: {&quot;type&quot;:&quot;new_message&quot;,&quot;body&quot;:&quot;Hello&quot;}
+Server → data: {&quot;type&quot;:&quot;user_joined&quot;,&quot;user&quot;:&quot;alice&quot;}
+...
+</code></pre>
+<p><strong>One-directional: server to client only.</strong> Fits feeds well: notifications, live scores, a comment stream, a progress bar. Cannot carry client-to-server messages on the same channel, so chat still needs a normal POST to send. Simpler than WebSockets and rides plain HTTP/2.</p>
+<hr>
+<h2>WebSockets</h2>
+<p>A WebSocket starts as an HTTP request that asks to upgrade the connection. Once the server agrees, the same TCP connection becomes a <strong>persistent, two-way channel</strong>. Either side can send a message at any time.</p>
+<pre><code>Client → GET /chat (Upgrade: websocket)
+Server → 101 Switching Protocols
+&lt;both sides can now send freely&gt;
+Client → { &quot;type&quot;: &quot;message&quot;, &quot;text&quot;: &quot;Hello!&quot; }
+Server → { &quot;type&quot;: &quot;message&quot;, &quot;from&quot;: &quot;alice&quot;, &quot;text&quot;: &quot;Hi!&quot; }
+</code></pre>
+<blockquote>
+<p><strong>Full-duplex</strong> — Both directions are open at once. A phone call is full-duplex; a walkie-talkie is half-duplex. WebSockets are full-duplex, which is why they suit chat, collaborative editing, and multiplayer games where both sides speak continuously.</p>
+</blockquote>
+<p>Carries the least overhead per message once connected. Trade-off: distinct protocol, some older proxies mishandle it, and persistent connections reshape the whole backend.</p>
+<hr>
+<h2>The Real Problem: Stateful Connections</h2>
+<p>Every transport above leaves you holding an open connection. That single fact reshapes the backend.</p>
+<p>Normal HTTP is stateless — any server can handle any request, so a load balancer sprays traffic across a fleet and nothing remembers anything.</p>
+<p><strong>A persistent connection pins one client to one server for its whole lifetime.</strong></p>
+<p>Now picture delivery:</p>
+<ul>
+<li>User A is connected to <strong>gateway 3</strong></li>
+<li>User B, connected to <strong>gateway 17</strong>, sends A a message</li>
+<li>Gateway 17 holds the message but not A&#39;s connection — it cannot reach A directly</li>
+</ul>
+<p>Two pieces close this gap:</p>
+<h3>Connection Registry</h3>
+<p>A fast lookup of which gateway currently holds each user&#39;s connection. When a client connects, its gateway records <code>user → gateway</code> in a shared store (Redis). When it disconnects, the entry is removed.</p>
+<h3>Internal Pub/Sub Backplane</h3>
+<p>A message bus every gateway subscribes to. To deliver a message, the receiving gateway:</p>
+<ol>
+<li>Looks up the target user in the registry → finds gateway 3</li>
+<li>Publishes the message to the backplane</li>
+<li>Gateway 3 receives it and pushes it down the open connection</li>
+</ol>
+<pre><code>B sends message → Gateway 17
+Gateway 17 → registry lookup: &quot;A is on gateway 3&quot;
+Gateway 17 → publish to backplane
+Gateway 3 → receives from backplane → pushes to A&#39;s socket
+</code></pre>
+<blockquote>
+<p><strong>This is why &quot;just use WebSockets&quot; is a half-answer.</strong> The transport is one line. The connection registry and routing backplane are what the design is really about.</p>
+</blockquote>
+<hr>
+<h2>Scaling the Connection Layer</h2>
+<p>Connections, not requests, are the unit of load. A single server holds tens of thousands of open sockets, each consuming memory and a file descriptor even when idle.</p>
+<p>You scale out by adding gateway servers — each new gateway subscribes to the same pub/sub backplane. The registry keeps the mapping current as clients connect and drop.</p>
+<p><strong>Two pressures at scale:</strong></p>
+<p><strong>Reconnection storms</strong> — When a gateway restarts, every client reconnects at once, all hitting the registry and re-subscribing together. Spread reconnects with jittered backoff.</p>
+<p><strong>Backpressure</strong> — A slow or stalled client cannot drain messages as fast as the server sends them. The server&#39;s send buffer grows and memory climbs. Under backpressure the server must slow down, drop, or disconnect the laggard, rather than buffer without limit.</p>
+<p><strong>Fan-out volume</strong> — Broadcasting one event to a million connected clients is a million socket writes, spread across every gateway that holds a subscriber. That load belongs in the estimate, not the transport choice.</p>
+<hr>
+<h2>The Transferable Pattern</h2>
+<p>Any feature where the server must reach the client first follows the same shape:</p>
+<ol>
+<li>Choose a transport that keeps a channel open in the direction you need.</li>
+<li>Accept that the open connection makes each server stateful, pinning clients to servers.</li>
+<li>Add a <strong>registry</strong> that tracks where each client lives.</li>
+<li>Add a <strong>message bus</strong> that carries events to the server holding the target.</li>
+</ol>
+<p>Chat, live comments, presence, collaborative editing, and multiplayer all reduce to this.</p>
+<p>Fan-out to many recipients (a post reaching every follower) is a related but separate problem. Real-time transport delivers the message once you know where it must go; fan-out decides who receives it.</p>
+<blockquote>
+<p><strong>Key idea.</strong> The transport is the easy half. The connection registry and pub/sub backplane that route messages across a stateful fleet are what the design is really about.</p>
+</blockquote>
+<hr>
+<h2>Sources and Further Reading</h2>
+<ul>
+<li><strong>Using server-sent events</strong> — MDN — the <code>EventSource</code> API and automatic reconnection behavior.</li>
+<li><strong>The WebSocket Protocol</strong> — RFC 6455 — the HTTP upgrade handshake and full-duplex framing.</li>
+<li><strong>WebSockets vs Server-Sent Events</strong> — Ably — a side-by-side comparison of the trade-offs covered here.</li>
+</ul>

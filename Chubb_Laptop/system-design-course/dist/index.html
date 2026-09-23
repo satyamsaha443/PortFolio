@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Design: Zero to Mastery</title>
+  <style>
+
+:root {
+  --bg: #0f172a;
+  --sidebar-bg: #111827;
+  --surface: #1e293b;
+  --surface-2: #263045;
+  --border: #2d3748;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --dim: #64748b;
+  --accent: #818cf8;
+  --accent-light: #a5b4fc;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --sidebar-w: 300px;
+  --header-h: 52px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg); color: var(--text); height: 100vh; overflow: hidden;
+}
+#app { display: flex; height: 100vh; }
+
+/* ── Sidebar ─────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  background: var(--sidebar-bg); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar-header {
+  padding: 20px 16px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.course-title { font-size: 14px; font-weight: 700; line-height: 1.5; }
+.course-title span { color: var(--accent); font-weight: 400; font-size: 12px; }
+.progress-wrap { margin-top: 10px; }
+.progress-bar { background: var(--border); border-radius: 4px; height: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .3s ease; width: 0%; }
+.progress-label { margin-top: 5px; font-size: 11px; color: var(--dim); }
+
+#sidebar-nav { flex: 1; overflow-y: auto; padding: 4px 0 16px; }
+#sidebar-nav::-webkit-scrollbar { width: 4px; }
+#sidebar-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Module sections */
+.mod-section { border-bottom: 1px solid var(--border); }
+.mod-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; cursor: pointer; user-select: none;
+  transition: background .12s;
+}
+.mod-hdr:hover { background: var(--surface); }
+.mod-num { font-size: 10px; font-weight: 800; color: var(--accent); letter-spacing: .06em; min-width: 22px; }
+.mod-title { font-size: 12.5px; font-weight: 600; flex: 1; line-height: 1.3; }
+.mod-hrs { font-size: 10px; color: var(--dim); flex-shrink: 0; }
+.mod-chevron {
+  width: 7px; height: 7px; flex-shrink: 0;
+  border-right: 1.5px solid var(--dim); border-bottom: 1.5px solid var(--dim);
+  transform: rotate(-45deg); transition: transform .18s;
+}
+.mod-section.open .mod-chevron { transform: rotate(45deg); }
+.lesson-list { display: none; }
+.mod-section.open .lesson-list { display: block; }
+
+/* Lesson items */
+.lesson-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 14px 7px 34px; cursor: pointer;
+  border-left: 2px solid transparent; transition: background .12s;
+}
+.lesson-item:hover:not(.locked) { background: var(--surface); }
+.lesson-item.active { background: var(--surface); border-left-color: var(--accent); }
+.lesson-item.locked { opacity: .35; cursor: default; }
+.l-check {
+  width: 13px; height: 13px; min-width: 13px; margin-top: 2px;
+  border: 1.5px solid var(--border); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 7px; color: #000;
+}
+.lesson-item.done .l-check { background: var(--green); border-color: var(--green); }
+.lesson-item.done .l-check::after { content: '✓'; }
+.l-title { font-size: 12px; color: var(--muted); flex: 1; line-height: 1.35; }
+.lesson-item.active .l-title { color: var(--text); }
+.l-meta { display: flex; align-items: center; gap: 3px; flex-shrink: 0; margin-top: 2px; }
+.l-mins { font-size: 9px; color: var(--dim); }
+
+/* Badges */
+.badge { font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; letter-spacing: .04em; }
+.badge-B { background: rgba(74,222,128,.14); color: var(--green); }
+.badge-P { background: rgba(251,191,36,.14); color: var(--amber); }
+.badge-S { background: rgba(248,113,113,.14); color: var(--red); }
+
+/* ── Main area ───────────────────────────────────────── */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+#top-bar {
+  height: var(--header-h); min-height: var(--header-h);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; border-bottom: 1px solid var(--border);
+  background: var(--sidebar-bg); gap: 16px;
+}
+#breadcrumb { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#breadcrumb span { color: var(--muted); }
+
+.btn-done {
+  flex-shrink: 0; font-size: 12px; padding: 5px 12px;
+  border-radius: 6px; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: all .15s; font-family: inherit;
+}
+.btn-done:hover { background: var(--surface); color: var(--text); }
+.btn-done.is-done { background: rgba(74,222,128,.1); border-color: var(--green); color: var(--green); }
+
+#content-scroll { flex: 1; overflow-y: auto; }
+#content-scroll::-webkit-scrollbar { width: 6px; }
+#content-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+#content-area { max-width: 780px; margin: 0 auto; padding: 36px 40px 80px; }
+
+/* Lesson meta row */
+.lesson-meta-row { display: flex; align-items: center; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+.est-time { font-size: 11px; color: var(--dim); margin-left: 4px; }
+.tag-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.tag-pill { font-size: 10px; padding: 2px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; color: var(--dim); }
+
+/* Prose (rendered markdown) */
+.prose { line-height: 1.78; font-size: 15px; color: var(--text); }
+.prose h1 { font-size: 26px; font-weight: 700; margin-bottom: 16px; line-height: 1.25; }
+.prose h2 { font-size: 19px; font-weight: 600; margin: 36px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.prose h3 { font-size: 15px; font-weight: 600; margin: 24px 0 8px; color: var(--accent-light); }
+.prose h4 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
+.prose p { margin-bottom: 16px; }
+.prose ul, .prose ol { margin: 0 0 16px 22px; }
+.prose li { margin-bottom: 5px; }
+.prose li > p { margin-bottom: 4px; }
+.prose blockquote {
+  border-left: 3px solid var(--accent); margin: 20px 0; padding: 10px 18px;
+  background: var(--surface); border-radius: 0 6px 6px 0;
+  color: var(--muted); font-style: italic;
+}
+.prose blockquote > p { margin-bottom: 0; }
+.prose code {
+  font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+  font-size: 13px; background: var(--surface); color: #a5b4fc;
+  padding: 2px 6px; border-radius: 4px;
+}
+.prose pre {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 18px; overflow-x: auto; margin: 16px 0;
+}
+.prose pre code { background: none; padding: 0; color: #e2e8f0; font-size: 13px; }
+.prose table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+.prose th {
+  background: var(--surface); padding: 9px 12px; text-align: left;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted); border-bottom: 2px solid var(--border);
+}
+.prose td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.prose tr:hover td { background: rgba(30,41,59,.5); }
+.prose a { color: var(--accent-light); text-decoration: none; }
+.prose a:hover { text-decoration: underline; }
+.prose hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+.prose strong { font-weight: 600; }
+.prose em { color: var(--muted); }
+
+/* Prev / Next navigation */
+.lesson-nav {
+  display: flex; justify-content: space-between;
+  margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); gap: 12px;
+}
+.nav-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--muted); cursor: pointer;
+  transition: all .15s; max-width: 48%; min-width: 0;
+  text-align: left; font-family: inherit; font-size: 13px;
+}
+.nav-btn:hover { background: var(--surface-2); border-color: var(--accent); color: var(--text); }
+.nav-btn-r { text-align: right; margin-left: auto; }
+.nav-arrow { font-size: 16px; color: var(--accent); flex-shrink: 0; }
+.nav-lbl { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+.nav-ttl {
+  display: block; font-size: 13px; font-weight: 500; color: var(--text);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 240px;
+}
+
+/* Placeholder / coming soon */
+.placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 280px; gap: 12px; text-align: center; color: var(--dim);
+}
+.ph-icon { font-size: 40px; }
+.placeholder h1 { font-size: 22px; font-weight: 700; color: var(--text); }
+.placeholder h3 { font-size: 16px; color: var(--muted); }
+.placeholder p { font-size: 14px; max-width: 320px; line-height: 1.6; }
+
+/* Loading state */
+.loading {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; min-height: 200px; color: var(--dim); font-size: 14px;
+}
+.spin {
+  width: 18px; height: 18px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Welcome screen */
+.welcome-screen { padding: 12px 0 60px; }
+.ws-hero { text-align: center; margin-bottom: 36px; }
+.ws-icon { font-size: 44px; margin-bottom: 12px; }
+.ws-hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.ws-sub { font-size: 13px; color: var(--dim); }
+.ws-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 36px; }
+.ws-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px;
+}
+.ws-card-icon { font-size: 22px; margin-bottom: 8px; }
+.ws-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--accent-light); }
+.ws-card p { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin: 0; }
+.ws-card strong { color: var(--text); font-weight: 600; }
+.ws-modules { margin-bottom: 28px; }
+.ws-modules h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin-bottom: 12px; }
+.ws-mod-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ws-mod-item {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 12px; font-size: 12px; color: var(--muted);
+}
+.ws-mod-item.ws-m-highlight { border-color: var(--accent); background: rgba(129,140,248,.08); color: var(--text); }
+.ws-m-num { font-size: 10px; font-weight: 800; color: var(--accent); min-width: 22px; }
+.ws-hint { text-align: center; font-size: 12px; color: var(--dim); margin-top: 8px; }
+
+/* Paywall screen */
+.paywall {
+  max-width: 520px; margin: 60px auto; text-align: center;
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: 14px; padding: 44px 40px;
+}
+.pw-icon { font-size: 40px; margin-bottom: 16px; }
+.paywall h2 { font-size: 22px; font-weight: 700; margin-bottom: 14px; }
+.paywall p { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 14px; }
+.paywall strong { color: var(--text); }
+.pw-includes { font-weight: 600; color: var(--text) !important; margin-bottom: 8px !important; }
+.pw-list { list-style: none; text-align: left; margin: 0 0 24px; padding: 0; }
+.pw-list li { font-size: 13px; color: var(--muted); padding: 5px 0; border-bottom: 1px solid var(--border); }
+.pw-list li:last-child { border-bottom: none; }
+.pw-btn {
+  display: inline-block; background: var(--accent); color: #fff;
+  font-size: 15px; font-weight: 600; padding: 13px 32px;
+  border-radius: 8px; text-decoration: none; transition: opacity .15s;
+  margin-bottom: 14px;
+}
+.pw-btn:hover { opacity: .88; text-decoration: none; }
+.pw-note { font-size: 12px !important; color: var(--dim) !important; margin-bottom: 0 !important; }
+
+  </style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="course-title">System Design<br><span>Zero to Mastery</span></div>
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-label" id="progress-label">0 / 121 lessons</div>
+      </div>
+    </div>
+    <nav id="sidebar-nav"></nav>
+  </aside>
+  <div id="main">
+    <header id="top-bar">
+      <div id="breadcrumb">Select a lesson to begin</div>
+      <button class="btn-done" id="btn-done" style="display:none">Mark Complete</button>
+    </header>
+    <div id="content-scroll">
+      <div id="content-area">
+        <div class="welcome-screen">
+          <div class="ws-hero">
+            <div class="ws-icon">&#128218;</div>
+            <h1>System Design: Zero to Mastery</h1>
+            <p class="ws-sub">121 lessons &nbsp;·&nbsp; 11 modules &nbsp;·&nbsp; ~101 hours of content</p>
+          </div>
+
+          <div class="ws-cards">
+            <div class="ws-card">
+              <div class="ws-card-icon">&#9654;&#65039;</div>
+              <h3>How to start</h3>
+              <p>Pick your level in the sidebar and click any lesson. Your progress is saved automatically in this browser — pick up where you left off any time.</p>
+            </div>
+            <div class="ws-card">
+              <div class="ws-card-icon">&#127775;</div>
+              <h3>New to system design?</h3>
+              <p>Start with <strong>M10 Primer</strong> for a fast overview, then <strong>M1 → M2 → M9 Patterns → M3</strong> for the full depth. M10 gives you the map; M1–M3 fills it in.</p>
+            </div>
+            <div class="ws-card">
+              <div class="ws-card-icon">&#128187;</div>
+              <h3>Interview in &lt; 1 week?</h3>
+              <p>Go to <strong>M5 Lesson 1</strong> (45-min framework), then <strong>M9 Patterns</strong>, then <strong>M8</strong> for the 34 real problems sorted by difficulty.</p>
+            </div>
+            <div class="ws-card">
+              <div class="ws-card-icon">&#128640;</div>
+              <h3>Targeting L6 / Staff?</h3>
+              <p>Focus on <strong>M4 deep dives</strong>, <strong>M8 Hard problems</strong>, <strong>M5.8</strong> (decomposition framework), and <strong>M0.5</strong> (level expectations).</p>
+            </div>
+          </div>
+
+          <div class="ws-modules">
+            <h3>Course Map</h3>
+            <div class="ws-mod-grid">
+              <div class="ws-mod-item"><span class="ws-m-num">M0</span><span>Overview &amp; Roadmap</span></div>
+              <div class="ws-mod-item"><span class="ws-m-num">M1</span><span>Foundations</span></div>
+              <div class="ws-mod-item"><span class="ws-m-num">M2</span><span>Building Blocks</span></div>
+              <div class="ws-mod-item ws-m-highlight"><span class="ws-m-num">M9</span><span>Patterns ← study before M3</span></div>
+              <div class="ws-mod-item"><span class="ws-m-num">M3</span><span>15 Full Designs</span></div>
+              <div class="ws-mod-item"><span class="ws-m-num">M4</span><span>Deep Dives</span></div>
+              <div class="ws-mod-item"><span class="ws-m-num">M5</span><span>Interview Mastery</span></div>
+              <div class="ws-mod-item"><span class="ws-m-num">M6</span><span>Globalisation</span></div>
+              <div class="ws-mod-item"><span class="ws-m-num">M7</span><span>Creator Bonus</span></div>
+              <div class="ws-mod-item ws-m-highlight"><span class="ws-m-num">M8</span><span>34 Design Solutions</span></div>
+              <div class="ws-mod-item ws-m-highlight"><span class="ws-m-num">M10</span><span>Primer (12 lessons)</span></div>
+            </div>
+          </div>
+
+          <p class="ws-hint">&#8592; Click any module in the sidebar to expand it and pick a lesson</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+var COURSE = {"title":"System Design: Zero to Mastery","modules":[{"id":"module-0","number":0,"title":"Course Overview & Learning Roadmap","description":"Your starting point. Understand how to navigate this course, what you will learn, and build your personal learning path.","estimatedHours":1.5,"audienceLevels":["beginner","pro","senior"],"lessons":[{"id":"0-1","title":"Welcome & How to Use This Course","estimatedMinutes":10,"audienceLevels":["beginner","pro","senior"],"tags":["orientation"],"available":true,"paywalled":false,"contentFile":"module-0-overview/01-welcome.md"},{"id":"0-2","title":"Visual Learning Path: Beginner → Pro → Senior","estimatedMinutes":10,"audienceLevels":["beginner","pro","senior"],"tags":["orientation","roadmap"],"available":true,"paywalled":false,"contentFile":"module-0-overview/02-learning-path.md"},{"id":"0-3","title":"Prerequisites Checklist","estimatedMinutes":5,"audienceLevels":["beginner","pro","senior"],"tags":["orientation"],"available":true,"paywalled":false,"contentFile":"module-0-overview/03-prerequisites.md"},{"id":"0-4","title":"Glossary of 100+ Terms","estimatedMinutes":20,"audienceLevels":["beginner","pro","senior"],"tags":["reference","glossary"],"available":true,"paywalled":false,"contentFile":"module-0-overview/04-glossary.md"},{"id":"0-5","title":"Level Expectations: L4, L5, and L6","estimatedMinutes":15,"audienceLevels":["beginner","pro","senior"],"tags":["interview","levels","faang"],"available":true,"paywalled":false,"contentFile":"module-0-overview/05-level-expectations.md"}]},{"id":"module-10","number":1,"title":"Introduction to System Design","description":"The official System Design School primer: 12 lessons covering what system design is, interview expectations, how to prepare, core challenges, scaling, consistency, the master template, main components, and the full interview walkthrough. Best read before Module 3.","estimatedHours":4,"audienceLevels":["beginner","pro","senior"],"lessons":[{"id":"10-1","title":"Introduction","estimatedMinutes":5,"audienceLevels":["beginner","pro","senior"],"tags":["primer","intro"],"available":true,"paywalled":false,"contentFile":"module-10-primer/01-introduction.md"},{"id":"10-2","title":"What Is System Design?","estimatedMinutes":15,"audienceLevels":["beginner","pro","senior"],"tags":["primer","foundations"],"available":true,"paywalled":false,"contentFile":"module-10-primer/02-what-is-system-design.md"},{"id":"10-3","title":"What Are System Design Interviews?","estimatedMinutes":15,"audienceLevels":["beginner","pro","senior"],"tags":["primer","interviews"],"available":true,"paywalled":false,"contentFile":"module-10-primer/03-what-are-system-design-interviews.md"},{"id":"10-4","title":"Level Expectations","estimatedMinutes":20,"audienceLevels":["beginner","pro","senior"],"tags":["primer","levels","l4","l5","l6"],"available":true,"paywalled":false,"contentFile":"module-10-primer/04-level-expectations.md"},{"id":"10-5","title":"How to Prepare","estimatedMinutes":20,"audienceLevels":["beginner","pro","senior"],"tags":["primer","preparation"],"available":true,"paywalled":false,"contentFile":"module-10-primer/05-how-to-prepare.md"},{"id":"10-6","title":"Core Design Challenges","estimatedMinutes":25,"audienceLevels":["beginner","pro","senior"],"tags":["primer","challenges","scale"],"available":true,"paywalled":false,"contentFile":"module-10-primer/06-core-design-challenges.md"},{"id":"10-7","title":"Designing for Scale","estimatedMinutes":30,"audienceLevels":["beginner","pro","senior"],"tags":["primer","scaling","partitioning","caching"],"available":true,"paywalled":false,"contentFile":"module-10-primer/07-designing-for-scale.md"},{"id":"10-8","title":"Consistency and Tradeoffs","estimatedMinutes":25,"audienceLevels":["beginner","pro","senior"],"tags":["primer","cap","consistency","sagas"],"available":true,"paywalled":false,"contentFile":"module-10-primer/08-consistency-and-tradeoffs.md"},{"id":"10-9","title":"Master Template","estimatedMinutes":20,"audienceLevels":["beginner","pro","senior"],"tags":["primer","template","framework"],"available":true,"paywalled":false,"contentFile":"module-10-primer/09-master-template.md"},{"id":"10-10","title":"Main Components","estimatedMinutes":40,"audienceLevels":["beginner","pro","senior"],"tags":["primer","components","databases","cache","cdn","queues"],"available":true,"paywalled":false,"contentFile":"module-10-primer/10-main-components.md"},{"id":"10-11","title":"Problem Decomposition Framework","estimatedMinutes":25,"audienceLevels":["beginner","pro","senior"],"tags":["primer","decomposition","verbs","nouns","adjectives"],"available":true,"paywalled":false,"contentFile":"module-10-primer/11-problem-decomposition-framework.md"},{"id":"10-12","title":"Interview Step-by-Step","estimatedMinutes":30,"audienceLevels":["beginner","pro","senior"],"tags":["primer","interview","walkthrough","twitter"],"available":true,"paywalled":false,"contentFile":"module-10-primer/12-interview-step-by-step.md"}]},{"id":"module-1","number":2,"title":"Foundations (Beginner Friendly)","description":"The mental models every engineer needs before touching a single architecture diagram.","estimatedHours":5,"audienceLevels":["beginner","pro"],"lessons":[{"id":"1-1","title":"What Is System Design?","estimatedMinutes":20,"audienceLevels":["beginner"],"tags":["fundamentals"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/01-what-is-system-design.md"},{"id":"1-2","title":"The Client–Server Model","estimatedMinutes":20,"audienceLevels":["beginner"],"tags":["fundamentals","networking"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/02-client-server.md"},{"id":"1-3","title":"HTTP, DNS & TCP/IP — What You Actually Need","estimatedMinutes":30,"audienceLevels":["beginner"],"tags":["networking","protocols"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/03-http-dns-tcp.md"},{"id":"1-4","title":"Databases 101: SQL vs NoSQL","estimatedMinutes":35,"audienceLevels":["beginner","pro"],"tags":["databases"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/04-sql-vs-nosql.md"},{"id":"1-5","title":"APIs: REST, GraphQL & gRPC Compared","estimatedMinutes":30,"audienceLevels":["beginner","pro"],"tags":["apis"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/05-apis.md"},{"id":"1-6","title":"Caching: Browser → CDN → Server","estimatedMinutes":30,"audienceLevels":["beginner","pro"],"tags":["caching","performance"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/06-caching-basics.md"},{"id":"1-7","title":"Scalability: Vertical vs Horizontal (with Real Cost Numbers)","estimatedMinutes":30,"audienceLevels":["beginner","pro"],"tags":["scalability"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/07-scalability.md"},{"id":"1-8","title":"Latency vs Throughput — Everyday Analogies","estimatedMinutes":20,"audienceLevels":["beginner","pro"],"tags":["performance","fundamentals"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/08-latency-throughput.md"},{"id":"1-9","title":"CAP Theorem — The Pizza Shop Example","estimatedMinutes":25,"audienceLevels":["beginner","pro","senior"],"tags":["distributed-systems","theory"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/09-cap-theorem.md"},{"id":"1-10","title":"ACID vs BASE — The Banking Example","estimatedMinutes":25,"audienceLevels":["beginner","pro","senior"],"tags":["databases","consistency"],"available":true,"paywalled":false,"contentFile":"module-1-foundations/10-acid-vs-base.md"}]},{"id":"module-9","number":3,"title":"System Design Patterns","description":"Four cross-cutting patterns that appear in almost every real system: scaling reads and writes, async job processing, real-time transport, and large file handling. Study these after M2 and before M3 — they are the bridge between building blocks and full designs.","estimatedHours":2,"audienceLevels":["beginner","pro","senior"],"lessons":[{"id":"9-1","title":"Scaling Reads & Writes","estimatedMinutes":30,"audienceLevels":["beginner","pro","senior"],"tags":["patterns","scaling","caching","sharding","cqrs"],"available":true,"paywalled":false,"contentFile":"module-9-patterns/01-scaling-reads-and-writes.md"},{"id":"9-2","title":"Asynchronous Jobs","estimatedMinutes":30,"audienceLevels":["beginner","pro","senior"],"tags":["patterns","async","queues","workers","idempotency"],"available":true,"paywalled":false,"contentFile":"module-9-patterns/02-asynchronous-jobs.md"},{"id":"9-3","title":"Real-Time Transport","estimatedMinutes":30,"audienceLevels":["beginner","pro","senior"],"tags":["patterns","websockets","sse","long-polling","real-time"],"available":true,"paywalled":false,"contentFile":"module-9-patterns/03-real-time-transport.md"},{"id":"9-4","title":"Handling Large Files","estimatedMinutes":30,"audienceLevels":["beginner","pro","senior"],"tags":["patterns","object-storage","presigned-urls","cdn","multipart"],"available":true,"paywalled":false,"contentFile":"module-9-patterns/04-handling-large-files.md"}]},{"id":"module-2","number":4,"title":"Core Building Blocks","description":"The components you will reach for in every real-world design — understood deeply enough to use correctly.","estimatedHours":7,"audienceLevels":["beginner","pro","senior"],"lessons":[{"id":"2-1","title":"Load Balancers (Round Robin, Least Connections, IP Hash)","estimatedMinutes":35,"audienceLevels":["beginner","pro","senior"],"tags":["load-balancing","scalability"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/01-load-balancers.md"},{"id":"2-2","title":"Message Queues & Event Streaming (Kafka, RabbitMQ, SQS)","estimatedMinutes":45,"audienceLevels":["pro","senior"],"tags":["messaging","kafka","async"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/02-message-queues.md"},{"id":"2-3","title":"CDN — How Netflix Uses It","estimatedMinutes":30,"audienceLevels":["beginner","pro","senior"],"tags":["cdn","caching","performance"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/03-cdn.md"},{"id":"2-4","title":"Rate Limiting & Throttling (Token Bucket, Leaky Bucket)","estimatedMinutes":35,"audienceLevels":["pro","senior"],"tags":["rate-limiting","reliability"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/04-rate-limiting.md"},{"id":"2-5","title":"Consistent Hashing — Visual Ring Examples","estimatedMinutes":35,"audienceLevels":["pro","senior"],"tags":["distributed-systems","hashing"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/05-consistent-hashing.md"},{"id":"2-6","title":"SQL Sharding & Partitioning Strategies","estimatedMinutes":40,"audienceLevels":["pro","senior"],"tags":["databases","scalability","sharding"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/06-sharding-partitioning.md"},{"id":"2-7","title":"Replication: Leader-Follower & Multi-Master","estimatedMinutes":35,"audienceLevels":["pro","senior"],"tags":["databases","replication","availability"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/07-replication.md"},{"id":"2-8","title":"Indexes: B-Tree & LSM Tree with Query Performance","estimatedMinutes":40,"audienceLevels":["pro","senior"],"tags":["databases","performance","indexes"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/08-indexes.md"},{"id":"2-9","title":"Blob / Object Storage (S3, GCS) — When to Use","estimatedMinutes":25,"audienceLevels":["beginner","pro","senior"],"tags":["storage","s3"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/09-object-storage.md"},{"id":"2-10","title":"Search Systems (Elasticsearch & Inverted Index)","estimatedMinutes":35,"audienceLevels":["pro","senior"],"tags":["search","elasticsearch"],"available":true,"paywalled":false,"contentFile":"module-2-building-blocks/10-search-systems.md"}]},{"id":"module-3","number":5,"title":"15 Complete End-to-End System Designs","description":"Full designs with capacity estimates, schemas, API contracts, diagrams, and interview cheat sheets.","estimatedHours":20,"audienceLevels":["beginner","pro","senior"],"lessons":[{"id":"3-1","title":"Design 01: URL Shortener (like bit.ly)","estimatedMinutes":60,"audienceLevels":["beginner"],"tags":["beginner","database","hashing"],"available":true,"paywalled":false,"contentFile":"module-3-designs/01-url-shortener.md"},{"id":"3-2","title":"Design 02: Chat Messaging App (like WhatsApp)","estimatedMinutes":75,"audienceLevels":["beginner","pro"],"tags":["websockets","messaging","realtime"],"available":true,"paywalled":false,"contentFile":"module-3-designs/02-chat-messaging.md"},{"id":"3-3","title":"Design 03: Instagram / Photo Sharing","estimatedMinutes":75,"audienceLevels":["pro"],"tags":["cdn","feed","storage"],"available":true,"paywalled":false,"contentFile":"module-3-designs/03-instagram.md"},{"id":"3-4","title":"Design 04: YouTube / Video Streaming","estimatedMinutes":90,"audienceLevels":["pro","senior"],"tags":["streaming","encoding","cdn"],"available":true,"paywalled":false,"contentFile":"module-3-designs/04-youtube.md"},{"id":"3-5","title":"Design 05: Ride-Sharing App (like Uber)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["geolocation","realtime","matching"],"available":true,"paywalled":false,"contentFile":"module-3-designs/05-uber.md"},{"id":"3-6","title":"Design 06: Food Delivery Platform (like DoorDash)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["marketplace","realtime","geolocation"],"available":true,"paywalled":false,"contentFile":"module-3-designs/06-food-delivery.md"},{"id":"3-7","title":"Design 07: E-Commerce Platform (like Amazon)","estimatedMinutes":80,"audienceLevels":["pro"],"tags":["inventory","cart","payments"],"available":true,"paywalled":false,"contentFile":"module-3-designs/07-ecommerce.md"},{"id":"3-8","title":"Design 08: Payment & Wallet System","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["payments","idempotency","consistency"],"available":true,"paywalled":false,"contentFile":"module-3-designs/08-payments.md"},{"id":"3-9","title":"Design 09: Notification System at 100M Scale","estimatedMinutes":70,"audienceLevels":["pro"],"tags":["push","sms","email","fanout"],"available":true,"paywalled":false,"contentFile":"module-3-designs/09-notifications.md"},{"id":"3-10","title":"Design 10: Search Autocomplete / Typeahead","estimatedMinutes":70,"audienceLevels":["pro"],"tags":["search","trie","redis"],"available":true,"paywalled":false,"contentFile":"module-3-designs/10-typeahead.md"},{"id":"3-11","title":"Design 11: Rate Limiter as a Service","estimatedMinutes":75,"audienceLevels":["pro","senior"],"tags":["rate-limiting","redis","multi-region"],"available":true,"paywalled":false,"contentFile":"module-3-designs/11-rate-limiter-service.md"},{"id":"3-12","title":"Design 12: Distributed File Storage (like Google Drive)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["storage","sync","chunking"],"available":true,"paywalled":false,"contentFile":"module-3-designs/12-google-drive.md"},{"id":"3-13","title":"Design 13: Real-Time Collaborative Docs (OT / CRDT)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["crdt","ot","collaboration","websockets"],"available":true,"paywalled":false,"contentFile":"module-3-designs/13-collab-docs.md"},{"id":"3-14","title":"Design 14: Social Media Feed / Timeline (Fanout Strategies)","estimatedMinutes":85,"audienceLevels":["senior"],"tags":["feed","fanout","timeline"],"available":true,"paywalled":false,"contentFile":"module-3-designs/14-social-feed.md"},{"id":"3-15","title":"Design 15: Global Job Scheduler (Cron-as-a-Service)","estimatedMinutes":85,"audienceLevels":["senior"],"tags":["scheduler","distributed","cron"],"available":true,"paywalled":false,"contentFile":"module-3-designs/15-job-scheduler.md"}]},{"id":"module-4","number":6,"title":"Deep Dives (Working Professionals)","description":"Production-grade patterns, failure modes, and architectural decisions that separate senior engineers from the rest.","estimatedHours":8,"audienceLevels":["pro","senior"],"lessons":[{"id":"4-1","title":"Microservices vs Monolith — Migration Strategy","estimatedMinutes":45,"audienceLevels":["pro","senior"],"tags":["architecture","microservices"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/01-microservices-vs-monolith.md"},{"id":"4-2","title":"Service Mesh (Istio, Envoy)","estimatedMinutes":40,"audienceLevels":["senior"],"tags":["service-mesh","istio","kubernetes"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/02-service-mesh.md"},{"id":"4-3","title":"Distributed Transactions (Saga, 2-Phase Commit)","estimatedMinutes":45,"audienceLevels":["senior"],"tags":["transactions","saga","consistency"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/03-distributed-transactions.md"},{"id":"4-4","title":"Observability: Logs, Metrics, Traces","estimatedMinutes":40,"audienceLevels":["pro","senior"],"tags":["observability","monitoring","tracing"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/04-observability.md"},{"id":"4-5","title":"CI/CD Pipeline Design for Large Teams","estimatedMinutes":40,"audienceLevels":["pro","senior"],"tags":["cicd","devops","deployment"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/05-cicd-pipelines.md"},{"id":"4-6","title":"Zero-Downtime Deployments (Blue-Green, Canary, Feature Flags)","estimatedMinutes":35,"audienceLevels":["pro","senior"],"tags":["deployments","canary","feature-flags"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/06-zero-downtime-deployments.md"},{"id":"4-7","title":"API Gateway Patterns (BFF, Aggregation, Auth)","estimatedMinutes":35,"audienceLevels":["pro","senior"],"tags":["api-gateway","bff","auth"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/07-api-gateway-patterns.md"},{"id":"4-8","title":"Data Pipelines & Analytics (Lambda / Kappa Architecture)","estimatedMinutes":45,"audienceLevels":["senior"],"tags":["data-pipelines","kafka","analytics"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/08-data-pipelines.md"},{"id":"4-9","title":"Event-Driven Architecture — Pros, Cons, Anti-Patterns","estimatedMinutes":40,"audienceLevels":["pro","senior"],"tags":["event-driven","async","kafka"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/09-event-driven-architecture.md"},{"id":"4-10","title":"Multi-Region Active-Active Architecture","estimatedMinutes":50,"audienceLevels":["senior"],"tags":["multi-region","global","availability"],"available":true,"paywalled":false,"contentFile":"module-4-deep-dives/10-multi-region-active-active.md"}]},{"id":"module-5","number":7,"title":"Interview Mastery Track","description":"A complete playbook for system design interviews — from junior level through staff engineer.","estimatedHours":7,"audienceLevels":["beginner","pro","senior"],"lessons":[{"id":"5-1","title":"The 45-Minute Framework for Any System Design Question","estimatedMinutes":40,"audienceLevels":["beginner","pro","senior"],"tags":["interview","framework"],"available":true,"paywalled":false,"contentFile":"module-5-interview-mastery/01-45-minute-framework.md"},{"id":"5-2","title":"How to Drive the Conversation by Seniority","estimatedMinutes":30,"audienceLevels":["pro","senior"],"tags":["interview","communication"],"available":true,"paywalled":false,"contentFile":"module-5-interview-mastery/02-drive-the-conversation.md"},{"id":"5-3","title":"30 Most Common Questions with Model Answers","estimatedMinutes":90,"audienceLevels":["beginner","pro","senior"],"tags":["interview","questions"],"available":true,"paywalled":false,"contentFile":"module-5-interview-mastery/03-30-common-questions.md"},{"id":"5-4","title":"Whiteboarding Best Practices","estimatedMinutes":20,"audienceLevels":["beginner","pro"],"tags":["interview","whiteboard"],"available":true,"paywalled":false,"contentFile":"module-5-interview-mastery/04-whiteboarding-best-practices.md"},{"id":"5-5","title":"Common Mistakes & How to Avoid Them","estimatedMinutes":25,"audienceLevels":["beginner","pro","senior"],"tags":["interview","mistakes"],"available":true,"paywalled":false,"contentFile":"module-5-interview-mastery/05-common-mistakes.md"},{"id":"5-6","title":"Mock Interview Script Templates (Beginner & Senior)","estimatedMinutes":40,"audienceLevels":["beginner","pro","senior"],"tags":["interview","mock"],"available":true,"paywalled":false,"contentFile":"module-5-interview-mastery/06-mock-interview-scripts.md"},{"id":"5-7","title":"Cheat Sheet: Latency, Throughput & Cost Numbers","estimatedMinutes":20,"audienceLevels":["beginner","pro","senior"],"tags":["reference","cheat-sheet","numbers"],"available":true,"paywalled":false,"contentFile":"module-5-interview-mastery/07-cheat-sheet-numbers.md"},{"id":"5-8","title":"Problem Decomposition Framework (Verbs, Nouns, Adjectives)","estimatedMinutes":35,"audienceLevels":["beginner","pro","senior"],"tags":["interview","framework","decomposition"],"available":true,"paywalled":false,"contentFile":"module-5-interview-mastery/08-problem-decomposition-framework.md"}]},{"id":"module-6","number":8,"title":"Globalisation & Real-World Deployment","description":"How to design systems that work for every country, every regulation, every network condition.","estimatedHours":4,"audienceLevels":["pro","senior"],"lessons":[{"id":"6-1","title":"Multi-Region Architecture (Latency Zones & Data Residency)","estimatedMinutes":40,"audienceLevels":["pro","senior"],"tags":["multi-region","global"],"available":true,"paywalled":false,"contentFile":"module-6-globalisation/01-multi-region-architecture.md"},{"id":"6-2","title":"GDPR, CCPA & PDPA Built into Design","estimatedMinutes":35,"audienceLevels":["pro","senior"],"tags":["gdpr","compliance","privacy"],"available":true,"paywalled":false,"contentFile":"module-6-globalisation/02-gdpr-ccpa-compliance.md"},{"id":"6-3","title":"Currency, Timezone & Locale Handling","estimatedMinutes":30,"audienceLevels":["pro"],"tags":["i18n","localisation","timezone"],"available":true,"paywalled":false,"contentFile":"module-6-globalisation/03-currency-timezone-locale.md"},{"id":"6-4","title":"Edge Computing Use Cases","estimatedMinutes":30,"audienceLevels":["senior"],"tags":["edge","cdn","cloudflare"],"available":true,"paywalled":false,"contentFile":"module-6-globalisation/04-edge-computing.md"},{"id":"6-5","title":"Designing for Emerging Markets (Low Bandwidth, Offline-First)","estimatedMinutes":35,"audienceLevels":["pro","senior"],"tags":["offline-first","low-bandwidth","pwa"],"available":true,"paywalled":false,"contentFile":"module-6-globalisation/05-emerging-markets.md"},{"id":"6-6","title":"Case Study: 1 Country → 50 Countries","estimatedMinutes":40,"audienceLevels":["pro","senior"],"tags":["case-study","globalisation"],"available":true,"paywalled":false,"contentFile":"module-6-globalisation/06-country-expansion-case-study.md"}]},{"id":"module-7","number":9,"title":"Bonus: Course Creator Playbook","description":"Optional bonus module for engineers who want to teach system design themselves. Covers platform strategy, pricing, launch, community, and marketing. Not required for learning system design — skip if you are here as a student.","estimatedHours":3,"audienceLevels":["senior"],"lessons":[{"id":"7-1","title":"Platform Strategy (Udemy vs Teachable vs Own Site)","estimatedMinutes":30,"audienceLevels":["senior"],"tags":["monetisation","platform"],"available":true,"paywalled":false,"contentFile":"module-7-monetisation/01-platform-strategy.md"},{"id":"7-2","title":"Pricing Tiers: Free, Pro & Premium","estimatedMinutes":25,"audienceLevels":["senior"],"tags":["monetisation","pricing"],"available":true,"paywalled":false,"contentFile":"module-7-monetisation/02-pricing-tiers.md"},{"id":"7-3","title":"8 Revenue Streams (Courses → Corporate B2B)","estimatedMinutes":30,"audienceLevels":["senior"],"tags":["revenue","b2b"],"available":true,"paywalled":false,"contentFile":"module-7-monetisation/03-revenue-streams.md"},{"id":"7-4","title":"SEO, YouTube & LinkedIn Marketing Plan","estimatedMinutes":35,"audienceLevels":["senior"],"tags":["seo","marketing","youtube"],"available":true,"paywalled":false,"contentFile":"module-7-monetisation/04-seo-youtube-linkedin.md"},{"id":"7-5","title":"Community Building: Discord Server Structure","estimatedMinutes":20,"audienceLevels":["senior"],"tags":["community","discord"],"available":true,"paywalled":false,"contentFile":"module-7-monetisation/05-community-discord.md"},{"id":"7-6","title":"Launch Strategy: Beta Cohort → Full Launch","estimatedMinutes":30,"audienceLevels":["senior"],"tags":["launch","marketing"],"available":true,"paywalled":false,"contentFile":"module-7-monetisation/06-launch-strategy.md"},{"id":"7-7","title":"Localisation: Spanish, Hindi, Portuguese, Arabic","estimatedMinutes":25,"audienceLevels":["senior"],"tags":["localisation","translation"],"available":true,"paywalled":false,"contentFile":"module-7-monetisation/07-localisation.md"}]},{"id":"module-8","number":10,"title":"Design Solutions Library — 34 Problems (Easy → Hard)","description":"Complete solution walkthroughs for 34 real interview problems: problem statement, clarifying questions, key concepts, high-level design, and deep dives. Sourced and structured for interview practice.","estimatedHours":40,"audienceLevels":["beginner","pro","senior"],"lessons":[{"id":"8-1","title":"Easy: URL Shortener","estimatedMinutes":60,"audienceLevels":["beginner"],"tags":["easy","url-shortener"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/url-shortener.md"},{"id":"8-2","title":"Easy: Pastebin","estimatedMinutes":60,"audienceLevels":["beginner"],"tags":["easy","pastebin"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/pastebin.md"},{"id":"8-3","title":"Easy: Webhook System","estimatedMinutes":60,"audienceLevels":["beginner"],"tags":["easy","webhook"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/webhook.md"},{"id":"8-4","title":"Easy: Typeahead / Autocomplete","estimatedMinutes":60,"audienceLevels":["beginner"],"tags":["easy","typeahead"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/typeahead.md"},{"id":"8-5","title":"Easy: Rate Limiter","estimatedMinutes":60,"audienceLevels":["beginner"],"tags":["easy","rate-limiter"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/rate-limiter.md"},{"id":"8-6","title":"Medium: Tinder (Location-Based Matching)","estimatedMinutes":75,"audienceLevels":["pro"],"tags":["medium","tinder"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/tinder.md"},{"id":"8-7","title":"Medium: Online Judge (LeetCode)","estimatedMinutes":75,"audienceLevels":["pro"],"tags":["medium","leetcode"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/leetcode.md"},{"id":"8-8","title":"Medium: Google Calendar","estimatedMinutes":75,"audienceLevels":["pro"],"tags":["medium","google-calendar"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/google-calendar.md"},{"id":"8-9","title":"Medium: Twitter / X","estimatedMinutes":75,"audienceLevels":["pro"],"tags":["medium","twitter"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/twitter.md"},{"id":"8-10","title":"Medium: Yelp (Local Business Search)","estimatedMinutes":75,"audienceLevels":["pro"],"tags":["medium","yelp"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/yelp.md"},{"id":"8-11","title":"Medium: Distributed Message Queue","estimatedMinutes":75,"audienceLevels":["pro"],"tags":["medium","message-queue"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/message-queue.md"},{"id":"8-12","title":"Hard: Robinhood (Stock Trading)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","robinhood"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/robinhood.md"},{"id":"8-13","title":"Hard: Dropbox / Google Drive","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","dropbox"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/dropbox.md"},{"id":"8-14","title":"Hard: Google Docs (Collaborative Editor)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","google-docs"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/google-docs.md"},{"id":"8-15","title":"Hard: TicketMaster","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","ticketmaster"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/ticketmaster.md"},{"id":"8-16","title":"Hard: Live Comments (Real-Time Fan-Out)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","live-comments"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/live-comments.md"},{"id":"8-17","title":"Hard: News Aggregator","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","news-aggregator"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/news-aggregator.md"},{"id":"8-18","title":"Hard: Post Search (Full-Text Search)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","post-search"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/post-search.md"},{"id":"8-19","title":"Hard: Local Delivery (Gopuff)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","local-delivery"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/local-delivery.md"},{"id":"8-20","title":"Hard: Online Auction","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","online-auction"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/online-auction.md"},{"id":"8-21","title":"Hard: Metrics Monitoring System","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","metrics-monitoring"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/metrics-monitoring.md"},{"id":"8-22","title":"Hard: Distributed Job Scheduler","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","job-scheduler"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/job-scheduler.md"},{"id":"8-23","title":"Hard: Payment System","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","payment-system"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/payment-system.md"},{"id":"8-24","title":"Hard: Web Crawler","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","web-crawler"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/web-crawler.md"},{"id":"8-25","title":"Hard: Ad Click Aggregator","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","ad-click-aggregator"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/ad-click-aggregator.md"},{"id":"8-26","title":"Hard: Spotify Top K Songs","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","topk"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/topk.md"},{"id":"8-27","title":"Hard: Uber (Ride-Hailing)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","uber"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/uber.md"},{"id":"8-28","title":"Hard: WhatsApp (Chat App)","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","chatapp"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/chatapp.md"},{"id":"8-29","title":"Hard: YouTube","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","youtube"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/youtube.md"},{"id":"8-30","title":"Hard: News Feed","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","news-feed"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/news-feed.md"},{"id":"8-31","title":"Hard: Instagram","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","instagram"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/instagram.md"},{"id":"8-32","title":"Hard: Distributed Cache","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","distributed-cache"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/distributed-cache.md"},{"id":"8-33","title":"Hard: Distributed Key-Value Store","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","distributed-kv-store"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/distributed-kv-store.md"},{"id":"8-34","title":"Hard: Google Maps","estimatedMinutes":90,"audienceLevels":["senior"],"tags":["hard","google-map"],"available":true,"paywalled":false,"contentFile":"module-3-designs/scraped/google-map.md"}]}]};
+var IS_FREE = false;
+var GUMROAD_URL = "https://gumroad.com/l/YOUR_PRODUCT_ID";
+
+var STORAGE_PROGRESS = 'sdc_progress_v1';
+var STORAGE_LAST = 'sdc_last_v1';
+
+function loadProgress() {
+  try { return new Set(JSON.parse(localStorage.getItem(STORAGE_PROGRESS) || '[]')); }
+  catch(e) { return new Set(); }
+}
+function saveProgress(s) {
+  localStorage.setItem(STORAGE_PROGRESS, JSON.stringify(Array.from(s)));
+}
+
+var progress = loadProgress();
+var currentId = null;
+var lessonCache = {};  // id → html string, populated on first fetch
+
+var flatLessons = [];
+for (var mi = 0; mi < COURSE.modules.length; mi++) {
+  var mod = COURSE.modules[mi];
+  for (var li = 0; li < mod.lessons.length; li++) {
+    var l = mod.lessons[li];
+    flatLessons.push({
+      id: l.id, title: l.title,
+      estimatedMinutes: l.estimatedMinutes,
+      audienceLevels: l.audienceLevels,
+      tags: l.tags, available: l.available, paywalled: l.paywalled,
+      contentFile: l.contentFile,
+      moduleId: mod.id, moduleNumber: mod.number, moduleTitle: mod.title
+    });
+  }
+}
+
+var contentFileToId = {};
+for (var cfi = 0; cfi < flatLessons.length; cfi++) {
+  if (flatLessons[cfi].contentFile) contentFileToId[flatLessons[cfi].contentFile] = flatLessons[cfi].id;
+}
+
+function resolveContentPath(base, href) {
+  var parts = base.split('/');
+  parts.pop();
+  var rel = href.split('/');
+  for (var i = 0; i < rel.length; i++) {
+    if (rel[i] === '..') parts.pop();
+    else if (rel[i] !== '.') parts.push(rel[i]);
+  }
+  return parts.join('/');
+}
+
+document.getElementById('content-area').addEventListener('click', function(e) {
+  var a = e.target.closest('a');
+  if (!a) return;
+  var href = a.getAttribute('href');
+  if (!href || !href.endsWith('.md')) return;
+  e.preventDefault();
+  var cur = null;
+  for (var i = 0; i < flatLessons.length; i++) {
+    if (flatLessons[i].id === currentId) { cur = flatLessons[i]; break; }
+  }
+  if (!cur || !cur.contentFile) return;
+  var resolved = resolveContentPath(cur.contentFile, href);
+  var targetId = contentFileToId[resolved];
+  if (targetId) navigate(targetId);
+});
+
+function fetchLesson(id, cb) {
+  if (lessonCache[id]) { cb(lessonCache[id]); return; }
+  fetch('lessons/' + id + '.html')
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(function(html) { lessonCache[id] = html; cb(html); })
+    .catch(function() { cb(null); });
+}
+
+function levelBadge(level) {
+  var t = level[0].toUpperCase();
+  return '<span class="badge badge-' + t + '">' + t + '</span>';
+}
+
+function renderSidebar() {
+  var nav = document.getElementById('sidebar-nav');
+  var available = flatLessons.filter(function(x) { return x.available; }).length;
+  var done = flatLessons.filter(function(x) { return progress.has(x.id); }).length;
+  document.getElementById('progress-fill').style.width = available ? (done / available * 100) + '%' : '0%';
+  document.getElementById('progress-label').textContent = done + ' / ' + available + ' lessons';
+
+  nav.innerHTML = '';
+  for (var mi = 0; mi < COURSE.modules.length; mi++) {
+    var mod = COURSE.modules[mi];
+    var isOpen = mod.lessons.some(function(x) { return x.id === currentId; });
+
+    var sec = document.createElement('div');
+    sec.className = 'mod-section' + (isOpen ? ' open' : '');
+    sec.dataset.mid = mod.id;
+
+    var hdr = document.createElement('div');
+    hdr.className = 'mod-hdr';
+    hdr.innerHTML =
+      '<span class="mod-num">M' + mod.number + '</span>' +
+      '<span class="mod-title">' + mod.title + '</span>' +
+      '<span class="mod-hrs">' + mod.estimatedHours + 'h</span>' +
+      '<span class="mod-chevron"></span>';
+    (function(s) { hdr.onclick = function() { s.classList.toggle('open'); }; })(sec);
+
+    var list = document.createElement('div');
+    list.className = 'lesson-list';
+
+    for (var li = 0; li < mod.lessons.length; li++) {
+      var lesson = mod.lessons[li];
+      var cls = ['lesson-item'];
+      if (lesson.id === currentId) cls.push('active');
+      if (progress.has(lesson.id)) cls.push('done');
+      if (!lesson.available) cls.push('locked');
+
+      var item = document.createElement('div');
+      item.className = cls.join(' ');
+      item.innerHTML =
+        '<span class="l-check"></span>' +
+        '<span class="l-title">' + lesson.title + '</span>' +
+        '<span class="l-meta">' +
+          lesson.audienceLevels.map(levelBadge).join('') +
+          '<span class="l-mins">' + lesson.estimatedMinutes + 'm</span>' +
+        '</span>';
+
+      if (lesson.available) {
+        (function(id) { item.onclick = function() { navigate(id); }; })(lesson.id);
+      }
+      list.appendChild(item);
+    }
+
+    sec.appendChild(hdr);
+    sec.appendChild(list);
+    nav.appendChild(sec);
+  }
+}
+
+function navigate(id) {
+  var lesson = null;
+  for (var i = 0; i < flatLessons.length; i++) {
+    if (flatLessons[i].id === id) { lesson = flatLessons[i]; break; }
+  }
+  if (!lesson) return;
+  currentId = id;
+  localStorage.setItem(STORAGE_LAST, id);
+  renderSidebar();
+
+  if (lesson.paywalled) {
+    renderPaywall();
+    document.getElementById('btn-done').style.display = 'none';
+    document.getElementById('breadcrumb').textContent = 'Full course — locked';
+    renderSidebar();
+    return;
+  }
+  if (!lesson.available) {
+    renderLessonFrame(lesson, null);
+    return;
+  }
+
+  // Show skeleton while fetching
+  var area = document.getElementById('content-area');
+  area.innerHTML = '<div class="loading"><div class="spin"></div>Loading…</div>';
+
+  fetchLesson(id, function(html) {
+    if (currentId !== id) return; // navigated away while loading
+    if (html === null) {
+      area.innerHTML =
+        '<div class="placeholder"><div class="ph-icon">&#9888;</div>' +
+        '<h3>Cannot load lesson</h3>' +
+        '<p>This app must be served from a web server, not opened as a local file.<br><br>' +
+        'Run: <code>npx serve dist</code> then open the URL it prints.</p></div>';
+      return;
+    }
+    renderLessonFrame(lesson, html);
+    document.getElementById('content-scroll').scrollTop = 0;
+  });
+}
+
+function renderLessonFrame(lesson, html) {
+  var mod = null;
+  for (var i = 0; i < COURSE.modules.length; i++) {
+    if (COURSE.modules[i].id === lesson.moduleId) { mod = COURSE.modules[i]; break; }
+  }
+
+  var idx = -1;
+  for (var i = 0; i < flatLessons.length; i++) {
+    if (flatLessons[i].id === lesson.id) { idx = i; break; }
+  }
+  var prev = null, next = null;
+  for (var i = idx - 1; i >= 0; i--) {
+    if (flatLessons[i].available) { prev = flatLessons[i]; break; }
+  }
+  for (var i = idx + 1; i < flatLessons.length; i++) {
+    if (flatLessons[i].available) { next = flatLessons[i]; break; }
+  }
+
+  document.getElementById('breadcrumb').innerHTML =
+    'M' + mod.number + ' <span>' + escHtml(mod.title) + '</span> &rsaquo; ' + escHtml(lesson.title);
+
+  var btn = document.getElementById('btn-done');
+  btn.style.display = '';
+  syncDoneBtn(btn, lesson.id);
+
+  var area = document.getElementById('content-area');
+
+  if (html === null) {
+    area.innerHTML =
+      '<div class="placeholder"><div class="ph-icon">&#9998;</div>' +
+      '<h3>Coming Soon</h3><p>This lesson is not yet written.</p></div>';
+    return;
+  }
+
+  var levelLabels = { beginner: 'Beginner', pro: 'Pro', senior: 'Senior' };
+  var metaBadges = lesson.audienceLevels.map(function(lv) {
+    var t = lv[0].toUpperCase();
+    return '<span class="badge badge-' + t + '" style="font-size:11px;padding:2px 8px">' + (levelLabels[lv] || lv) + '</span>';
+  }).join('');
+
+  var tagPills = (lesson.tags || []).map(function(t) {
+    return '<span class="tag-pill">' + escHtml(t) + '</span>';
+  }).join('');
+
+  var prevBtn = prev
+    ? '<button class="nav-btn" data-nav="' + prev.id + '">' +
+      '<span class="nav-arrow">&#8592;</span>' +
+      '<div><span class="nav-lbl">Previous</span>' +
+      '<span class="nav-ttl">' + escHtml(prev.title) + '</span></div></button>'
+    : '<div></div>';
+
+  var nextBtn = next
+    ? '<button class="nav-btn nav-btn-r" data-nav="' + next.id + '">' +
+      '<div><span class="nav-lbl">Next</span>' +
+      '<span class="nav-ttl">' + escHtml(next.title) + '</span></div>' +
+      '<span class="nav-arrow">&#8594;</span></button>'
+    : '<div></div>';
+
+  area.innerHTML =
+    '<div class="lesson-meta-row">' + metaBadges +
+    '<span class="est-time">~' + lesson.estimatedMinutes + ' min</span>' +
+    (tagPills ? '<span class="tag-row">' + tagPills + '</span>' : '') +
+    '</div>' +
+    '<div class="prose">' + html + '</div>' +
+    '<div class="lesson-nav">' + prevBtn + nextBtn + '</div>';
+
+  area.querySelectorAll('[data-nav]').forEach(function(el) {
+    el.addEventListener('click', function() { navigate(el.dataset.nav); });
+  });
+}
+
+function syncDoneBtn(btn, id) {
+  var isDone = progress.has(id);
+  btn.textContent = isDone ? '✓ Completed' : 'Mark Complete';
+  btn.className = 'btn-done' + (isDone ? ' is-done' : '');
+  btn.onclick = function() {
+    if (progress.has(id)) progress.delete(id); else progress.add(id);
+    saveProgress(progress);
+    syncDoneBtn(btn, id);
+    renderSidebar();
+  };
+}
+
+function renderPaywall() {
+  var area = document.getElementById('content-area');
+  area.innerHTML =
+    '<div class="paywall">' +
+    '<div class="pw-icon">&#128274;</div>' +
+    '<h2>This module is in the full course</h2>' +
+    '<p>You have free access to <strong>Module 0</strong> (Orientation) and <strong>Module 1</strong> (Foundations) — ' +
+    '15 lessons covering everything you need to start.</p>' +
+    '<p class="pw-includes">The full course includes:</p>' +
+    '<ul class="pw-list">' +
+    '<li>&#10003; Module 2 — Core Building Blocks (10 lessons)</li>' +
+    '<li>&#10003; Module 3 — 15 Complete End-to-End System Designs</li>' +
+    '<li>&#10003; Module 4 — Deep Dives for Senior Engineers</li>' +
+    '<li>&#10003; Module 5 — Interview Mastery Playbook</li>' +
+    '<li>&#10003; Module 6 — Globalisation & Real-World Deployment</li>' +
+    '<li>&#10003; Module 8 — 34 Design Problems (Easy → Hard)</li>' +
+    '<li>&#10003; Module 9 — System Design Patterns</li>' +
+    '<li>&#10003; Module 10 — Full Primer (12 lessons)</li>' +
+    '</ul>' +
+    '<a href="' + GUMROAD_URL + '" class="pw-btn" target="_blank" rel="noopener">Get the Full Course &rarr;</a>' +
+    '<p class="pw-note">One-time purchase &nbsp;·&nbsp; Instant download &nbsp;·&nbsp; No subscription</p>' +
+    '</div>';
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+(function init() {
+  var lastId = localStorage.getItem(STORAGE_LAST);
+  var firstAvail = null;
+  for (var i = 0; i < flatLessons.length; i++) {
+    if (flatLessons[i].available) { firstAvail = flatLessons[i]; break; }
+  }
+  var hasLast = lastId && flatLessons.some(function(x) { return x.id === lastId && x.available; });
+  if (hasLast) {
+    navigate(lastId);
+  } else if (firstAvail) {
+    navigate(firstAvail.id);
+  } else {
+    renderSidebar();
+  }
+})();
+</script>
+</body>
+</html>

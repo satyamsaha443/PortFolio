@@ -1,0 +1,211 @@
+<h1>Load Balancers (Round Robin, Least Connections, IP Hash)</h1>
+<blockquote>
+<p><strong>Lesson 2.1</strong> · Beginner + Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<h2>The Problem</h2>
+<p>You have one API server handling 1,000 requests/sec. Traffic spikes to 10,000 req/sec. A single server cannot handle it.</p>
+<p>You add nine more servers. Now you have 10 servers. But how does a client know which server to talk to? If every client still sends requests to the same address, you are back to one server doing all the work.</p>
+<p><strong>A load balancer</strong> solves this: a single entry point that distributes incoming requests across multiple backend servers.</p>
+<pre><code>                    ┌─────────────────┐
+Client requests ──► │  Load Balancer  │
+                    └────────┬────────┘
+                             │
+           ┌─────────────────┼─────────────────┐
+           ▼                 ▼                 ▼
+      ┌─────────┐       ┌─────────┐       ┌─────────┐
+      │Server 1 │       │Server 2 │       │Server 3 │
+      └─────────┘       └─────────┘       └─────────┘
+</code></pre>
+<hr>
+<h2>What Load Balancers Do</h2>
+<p>Beyond just distributing traffic, load balancers provide:</p>
+<ol>
+<li><strong>Health checking</strong> — continuously probe backend servers; stop routing to unhealthy ones</li>
+<li><strong>SSL termination</strong> — decrypt HTTPS at the load balancer so backend servers receive plain HTTP</li>
+<li><strong>Session persistence</strong> — optionally route the same user to the same server</li>
+<li><strong>Connection draining</strong> — when removing a server, let in-flight requests complete before disconnecting</li>
+<li><strong>Rate limiting</strong> — reject clients that exceed request limits</li>
+<li><strong>Observability</strong> — log all requests, expose metrics</li>
+</ol>
+<hr>
+<h2>Layer 4 vs Layer 7 Load Balancers</h2>
+<h3>Layer 4 (Transport Layer)</h3>
+<p>Routes based on IP address and TCP port. Does not inspect the request content. Faster but less flexible.</p>
+<pre><code>Packet arrives: src=203.0.113.1:54321 → dst=10.0.0.1:443
+L4 LB routes based on IP/port only
+</code></pre>
+<p><strong>Examples:</strong> AWS Network Load Balancer, HAProxy (L4 mode)</p>
+<h3>Layer 7 (Application Layer)</h3>
+<p>Routes based on HTTP content — URL path, headers, cookies. Slower but much more powerful.</p>
+<pre><code>GET /api/users    → route to user-service
+GET /api/payments → route to payment-service
+GET /static/image → route to CDN or file server
+</code></pre>
+<p><strong>Examples:</strong> AWS Application Load Balancer, nginx, HAProxy (L7 mode), Envoy</p>
+<p><strong>Use L7 for most web applications.</strong> The performance difference is negligible for typical web workloads, and the routing flexibility is invaluable.</p>
+<hr>
+<h2>Routing Algorithms</h2>
+<h3>Round Robin</h3>
+<p>Send requests to servers in order: 1 → 2 → 3 → 1 → 2 → 3...</p>
+<pre><code>Request 1 → Server 1
+Request 2 → Server 2
+Request 3 → Server 3
+Request 4 → Server 1  ← back to start
+</code></pre>
+<p><strong>Strengths:</strong> Simple, even distribution when all requests take similar time.</p>
+<p><strong>Weakness:</strong> Does not account for server load. If Server 1 has a slow query running, it still receives the same number of new requests as idle servers.</p>
+<p><strong>Weighted Round Robin:</strong> Assign weights — Server 1 gets 3x traffic of Server 2. Useful when servers have different capacities.</p>
+<hr>
+<h3>Least Connections</h3>
+<p>Route each new request to the server with the fewest active connections.</p>
+<pre><code>Server 1: 45 active connections
+Server 2: 12 active connections  ← next request goes here
+Server 3: 38 active connections
+</code></pre>
+<p><strong>Strengths:</strong> Better than round robin when requests have variable processing time. Naturally balances load based on actual server busyness.</p>
+<p><strong>Weakness:</strong> Requires tracking connection counts. Slightly more overhead than round robin.</p>
+<p><strong>Weighted Least Connections:</strong> Combine server weight with connection count. A server with 4 cores gets twice the weight of a server with 2 cores.</p>
+<hr>
+<h3>IP Hash</h3>
+<p>Hash the client&#39;s IP address to determine which server handles the request. The same IP always goes to the same server.</p>
+<pre><code>hash(203.0.113.1) % 3 = 1  → Server 1  (always)
+hash(198.51.100.2) % 3 = 0  → Server 0  (always)
+</code></pre>
+<p><strong>Strengths:</strong> Provides <strong>session affinity</strong> — if your application stores session state in server memory, the same user always hits the same server.</p>
+<p><strong>Weakness:</strong> Uneven distribution if some IP addresses generate much more traffic. Fails to rebalance when a server is added or removed (IP → server mapping changes).</p>
+<p><strong>When to use:</strong> You need session stickiness but cannot move sessions to a shared store (Redis). Generally, prefer stateless servers + a shared session store over IP hash.</p>
+<hr>
+<h3>Least Response Time</h3>
+<p>Route to the server with the lowest combination of active connections and response time. The most sophisticated of the common algorithms.</p>
+<pre><code>Server 1: 20 connections, avg 50ms response
+Server 2: 10 connections, avg 120ms response
+Server 3: 15 connections, avg 30ms response  ← best score
+</code></pre>
+<p><strong>Strengths:</strong> Best real-world performance for variable workloads.</p>
+<p><strong>Weakness:</strong> Most complex to implement. Requires measuring and tracking response times.</p>
+<hr>
+<h3>Random</h3>
+<p>Pick a server at random. Surprisingly effective at large scale — with enough requests, the distribution is statistically even.</p>
+<p><strong>Use case:</strong> Extremely high throughput scenarios where the overhead of tracking state (connection counts, response times) is itself a bottleneck.</p>
+<hr>
+<h2>Sticky Sessions (Session Affinity)</h2>
+<p>Some applications store user state (shopping cart, auth token) in server memory. To prevent users from losing state when requests hit different servers, load balancers can be configured for <strong>sticky sessions</strong> — the same user always goes to the same server.</p>
+<p>Implemented via:</p>
+<ul>
+<li><strong>Cookie-based:</strong> LB injects a cookie (<code>SERVERID=server2</code>). Subsequent requests with that cookie go to server2.</li>
+<li><strong>IP hash:</strong> As described above.</li>
+</ul>
+<p><strong>Sticky sessions are an antipattern for scalable systems.</strong> They make scaling harder (you cannot freely add/remove servers), break during server failure, and defeat the purpose of horizontal scaling.</p>
+<p>The correct solution: move session state to a shared store (Redis). Then any server can handle any request.</p>
+<hr>
+<h2>Health Checks</h2>
+<p>Load balancers continuously probe backends to detect failures:</p>
+<pre><code>LB → Server 1: GET /health → 200 OK → healthy
+LB → Server 2: GET /health → timeout → marked UNHEALTHY → removed from pool
+LB → Server 3: GET /health → 200 OK → healthy
+</code></pre>
+<p>Health check types:</p>
+<ul>
+<li><strong>TCP check:</strong> Can the LB open a TCP connection to the server?</li>
+<li><strong>HTTP check:</strong> Does <code>GET /health</code> return 200?</li>
+<li><strong>Deep health check:</strong> Does the <code>/health</code> endpoint also verify DB connectivity, cache access, disk space?</li>
+</ul>
+<p><strong>Deep health checks</strong> are better — a server might accept HTTP connections but be unable to serve real requests if its database connection is broken.</p>
+<hr>
+<h2>Global Load Balancing (DNS-based)</h2>
+<p>For global systems with users on multiple continents, a single regional load balancer is not enough. <strong>Global load balancing</strong> routes users to the nearest datacenter:</p>
+<pre><code>User in London ──► DNS lookup ──► returns IP of EU datacenter
+User in Tokyo  ──► DNS lookup ──► returns IP of APAC datacenter
+User in NY     ──► DNS lookup ──► returns IP of US-East datacenter
+</code></pre>
+<p>Implemented via <strong>GeoDNS</strong> or <strong>Anycast routing</strong> (same IP, multiple physical locations — the network routes to the nearest one).</p>
+<p>Examples: AWS Route 53 with latency-based routing, Cloudflare, AWS Global Accelerator.</p>
+<hr>
+<h2>Load Balancer Failure</h2>
+<p>The load balancer itself is a potential single point of failure. Solution: <strong>run two load balancers in active-passive configuration.</strong></p>
+<pre><code>Active LB ──────────────► Backend servers
+     │
+     │ heartbeat
+     ▼
+Passive LB (standby)
+
+If Active LB fails:
+Passive LB detects failure → takes over the virtual IP → becomes Active
+</code></pre>
+<p>This failover typically completes in under a second using protocols like VRRP (Virtual Router Redundancy Protocol).</p>
+<hr>
+<h2>Real Products</h2>
+<table>
+<thead>
+<tr>
+<th>Product</th>
+<th>Type</th>
+<th>Common use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>nginx</strong></td>
+<td>L7 software LB</td>
+<td>Most common self-hosted web LB</td>
+</tr>
+<tr>
+<td><strong>HAProxy</strong></td>
+<td>L4/L7 software LB</td>
+<td>High performance, very configurable</td>
+</tr>
+<tr>
+<td><strong>AWS ALB</strong></td>
+<td>Managed L7 LB</td>
+<td>AWS web applications</td>
+</tr>
+<tr>
+<td><strong>AWS NLB</strong></td>
+<td>Managed L4 LB</td>
+<td>AWS ultra-high throughput</td>
+</tr>
+<tr>
+<td><strong>Cloudflare</strong></td>
+<td>Global L7</td>
+<td>DDoS protection + global routing</td>
+</tr>
+<tr>
+<td><strong>Envoy</strong></td>
+<td>L7 proxy/LB</td>
+<td>Service mesh (Istio), microservices</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Best for</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Round Robin</td>
+<td>Uniform requests, similar server specs</td>
+</tr>
+<tr>
+<td>Weighted Round Robin</td>
+<td>Servers with different capacities</td>
+</tr>
+<tr>
+<td>Least Connections</td>
+<td>Variable request duration</td>
+</tr>
+<tr>
+<td>IP Hash</td>
+<td>Sticky sessions (avoid if possible)</td>
+</tr>
+<tr>
+<td>Least Response Time</td>
+<td>Best general-purpose performance</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./02-message-queues.md">Lesson 2.2 — Message Queues &amp; Event Streaming</a></p>
+</blockquote>

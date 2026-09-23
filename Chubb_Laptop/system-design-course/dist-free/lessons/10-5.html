@@ -1,0 +1,59 @@
+<h1>How to Prepare</h1>
+<blockquote>
+<p><strong>Lesson 10.5</strong> · All levels · 20 min</p>
+</blockquote>
+<hr>
+<h2>The Memorization Trap</h2>
+<p>The prevailing approach is: find popular system design problems, watch YouTube videos showing solutions, read blog posts with architectural diagrams, memorize the answers, repeat.</p>
+<p>This works at first. You watch a video explain how to design Twitter. The solution makes sense: microservices, message queues, Redis cache, Cassandra database. You memorize the architecture. In your interview, you get asked to design Twitter. You draw the diagram from memory.</p>
+<p>The strategy may work but as more and more interviewers recognize the cookie-cutter answers, the strategy fails.</p>
+<p>First, you freeze when facing unfamiliar problems. You memorized 30 solutions. The interviewer asks you to design something you haven&#39;t seen. You try adapting your Twitter design to fit. It doesn&#39;t work cleanly. You stumble. The interviewer notices.</p>
+<p>Second, interviewers recognize memorized answers. Hundreds of candidates have watched the same videos and read the same blog posts. When your Twitter design matches the popular YouTube solution exactly, the interviewer&#39;s instincts activate. They probe deeper. You can&#39;t answer because you memorized the what, not the why. For L5+ interviews, the cookie-cutter answers may only be enough talking points for the first 15-20min, the interviewer will probe deeper and deeper until they find the edge of your knowledge.</p>
+<p>Third, the approach completely fails at L6+. Senior interviews require deep understanding. These interviews are mostly about deep dives It would become obvious whether you have actual experience or not. The interviewer asks follow-up questions until they find the edge of your knowledge. Memorized facts crumble quickly under pressure.</p>
+<h2>The Better Approach</h2>
+<p>Learn the fundamentals. Understand how things actually work. Build genuine technical depth.</p>
+<p>For L4-L5 engineers with limited time, the hybrid approach works best. Master the common patterns and the templates. Study 10-15 common problems to internalize the template. But for each problem, don&#39;t just memorize the solution. Understand why each component exists. Question every design choice. What happens if we remove the cache? Why Cassandra instead of PostgreSQL? Why Redis over Memcached?</p>
+<p>This deeper engagement transforms memorization into understanding. When you face unfamiliar problems, you recognize patterns. You adapt rather than freeze.</p>
+<h2>Why System Design School Exists</h2>
+<p>System Design School takes the fundamentals-first approach. You won&#39;t find memorizable Twitter solutions. You&#39;ll find building blocks for constructing any solution.</p>
+<p>This primer provides a quick crash course: essential components, interview templates, and the mental models needed to solve common problems. It&#39;s designed for rapid learning and last-minute preparation.</p>
+<p>The full course goes deep. It&#39;s organized into two main tracks:</p>
+<p>Fundamentals covers the core building blocks that appear in every system design interview:</p>
+<ul>
+<li>Microservices &amp; Communication: How services talk to each other. Message queues, Kafka, circuit breakers, service discovery. Why async communication prevents cascading failures.</li>
+<li>Scaling Services: Load balancing, auto-scaling, caching patterns, CDNs. When to use cache-aside versus write-through. How to handle cache thundering herd.</li>
+<li>Data Storage: B-trees, LSM trees, SQL versus NoSQL. When to use document databases versus key-value stores. OLTP versus OLAP workloads.</li>
+<li>Scaling Data: Replication (primary-replica, multi-leader), partitioning (consistent hashing, range-based), change data capture. How to handle partition rebalancing.</li>
+<li>Batch &amp; Stream Processing: MapReduce, stream processing, lambda architecture. When to use batch versus stream.</li>
+<li>Patterns: Rate limiting, unique ID generation, saga pattern, fan-out/fan-in. Reusable solutions to common problems.</li>
+</ul>
+<p>Domain Knowledge covers specialized topics that appear in specific problem types:</p>
+<ul>
+<li>Transactions: Database isolation levels, pessimistic versus optimistic locking, flash sale inventory patterns. How to prevent double-booking.</li>
+<li>Distributed Systems: CAP theorem, PACELC theorem, consistency models, consensus algorithms (Raft, Paxos), failure handling. The theory behind the practice.</li>
+<li>Geospatial Search: Geohash, quadtrees, H3 hexagonal indexing, S2 library. How Uber finds nearby drivers.</li>
+<li>Search Engines: Inverted indexes, TF-IDF, BM25, Elasticsearch architecture. How search actually works.</li>
+<li>Media Systems: Video transcoding, file chunking, adaptive bitrate streaming. How Netflix delivers video.</li>
+<li>Probabilistic Data Structures: Bloom filters, count-min sketch, HyperLogLog. Memory-efficient approximations for massive scale.</li>
+</ul>
+<p>For L4-L5, the primer gets you interview-ready fast. The full course adds depth. For L6+, you need the full course—surface knowledge fails under aggressive probing.</p>
+<h2>Where to Start</h2>
+<p>This primer follows a logical progression. First, understand system design concepts. Then learn the interview framework.</p>
+<p>Interviewing tomorrow? See the System Design Master Template for the pattern that solves most problems.</p>
+<p>Want core concepts quickly? Review Understanding Core Design Challenges and How to Scale a System.</p>
+<p>New to system design? Start with the main components section.</p>
+<p>Familiar with components but need interview structure? Check the step-by-step interview walkthrough.</p>
+<h2>How This Primer Is Organized</h2>
+<p>The rest of this primer builds four capabilities, in order, and each one builds on
+the last.</p>
+<p>Foundations are the building blocks and the master template that assemble a
+working system — the components below and the Master Template.
+Scaling covers the moves that push a design past one machine, in
+Core Design Challenges and
+Designing for Scale. Consistency is how to stay
+correct when data is replicated and updated concurrently. The Interview Method
+turns a vague prompt into a design under time pressure, in the
+decomposition framework and the
+step-by-step walkthrough.</p>
+<p>Interactive widgets throughout let you tweak each idea and watch it respond.</p>
+<hr>

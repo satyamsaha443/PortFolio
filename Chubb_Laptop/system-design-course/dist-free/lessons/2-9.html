@@ -1,0 +1,281 @@
+<h1>Blob / Object Storage (S3, GCS) — When to Use</h1>
+<blockquote>
+<p><strong>Lesson 2.9</strong> · Beginner + Pro + Senior · 25 min</p>
+</blockquote>
+<hr>
+<h2>The Problem: Files Are Not Rows</h2>
+<p>Your users upload profile pictures. Where do you store them?</p>
+<p><strong>Option A: Database (BLOB column)</strong></p>
+<pre><code class="language-sql">ALTER TABLE users ADD COLUMN avatar BYTEA;
+UPDATE users SET avatar = [binary data] WHERE id = 123;
+</code></pre>
+<ul>
+<li>Database size explodes</li>
+<li>Backups become massive</li>
+<li>Serving a 2MB image from a DB query is wildly inefficient</li>
+<li>No CDN integration</li>
+</ul>
+<p><strong>Option B: File system on your server</strong></p>
+<pre><code>/var/uploads/avatars/user_123.jpg
+</code></pre>
+<ul>
+<li>Works on one server</li>
+<li>What happens when you scale to 10 servers? Files are only on one.</li>
+<li>Server disk fills up</li>
+<li>No built-in redundancy</li>
+</ul>
+<p><strong>Option C: Object storage (S3, GCS)</strong></p>
+<pre><code>s3://my-bucket/avatars/user_123.jpg
+</code></pre>
+<ul>
+<li>Infinitely scalable</li>
+<li>99.999999999% (11 nines) durability</li>
+<li>Accessible from any server</li>
+<li>Direct CDN integration</li>
+<li>Per-request pricing, no capacity planning</li>
+</ul>
+<p>Object storage is the correct answer for files at any scale beyond a prototype.</p>
+<hr>
+<h2>What Is Object Storage?</h2>
+<p>Object storage treats data as <strong>objects</strong>, not files or blocks:</p>
+<ul>
+<li>Each object has a <strong>key</strong> (path-like identifier), <strong>data</strong> (the bytes), and <strong>metadata</strong> (key-value pairs)</li>
+<li>Objects are stored in <strong>buckets</strong> (flat namespaces — no real directories, just key prefixes)</li>
+<li>Objects are immutable — you cannot partially update them; you replace the whole object</li>
+<li>Access is via HTTP (REST API) — <code>GET /bucket/key</code>, <code>PUT /bucket/key</code>, <code>DELETE /bucket/key</code></li>
+</ul>
+<pre><code>Bucket: my-app-media
+  Key: avatars/user_123.jpg      → 45KB JPEG + metadata {content-type: image/jpeg}
+  Key: videos/post_456.mp4       → 245MB MP4
+  Key: documents/report_2024.pdf → 12MB PDF
+  Key: backups/db_2024-03-15.sql → 8GB SQL dump
+</code></pre>
+<hr>
+<h2>Amazon S3 (Simple Storage Service)</h2>
+<p>S3 is the original and most widely used object storage service. Launched in 2006, it now stores trillions of objects.</p>
+<h3>Core Concepts</h3>
+<p><strong>Bucket:</strong> A container for objects. Globally unique name. Region-specific.</p>
+<p><strong>Key:</strong> The object&#39;s identifier within a bucket. Looks like a path (<code>avatars/user_123.jpg</code>) but is actually just a string — S3 has no real directory structure.</p>
+<p><strong>Object:</strong> The data + metadata. Max size: 5TB per object. Use multipart upload for files &gt; 100MB.</p>
+<p><strong>Storage Classes:</strong> S3 has multiple tiers based on access frequency:</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Use case</th>
+<th>Cost</th>
+<th>Retrieval</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>S3 Standard</td>
+<td>Frequently accessed</td>
+<td>~$0.023/GB/month</td>
+<td>Instant</td>
+</tr>
+<tr>
+<td>S3 Standard-IA</td>
+<td>Infrequent access (monthly)</td>
+<td>~$0.0125/GB/month</td>
+<td>Instant</td>
+</tr>
+<tr>
+<td>S3 Glacier</td>
+<td>Archive, accessed rarely</td>
+<td>~$0.004/GB/month</td>
+<td>1–5 minutes</td>
+</tr>
+<tr>
+<td>S3 Glacier Deep Archive</td>
+<td>Long-term archive, accessed yearly</td>
+<td>~$0.00099/GB/month</td>
+<td>12 hours</td>
+</tr>
+</tbody></table>
+<p><strong>Intelligent Tiering:</strong> S3 automatically moves objects between tiers based on access patterns. Good for data with unpredictable access.</p>
+<h3>Durability and Availability</h3>
+<p>S3 Standard achieves <strong>11 nines of durability</strong> (99.999999999%):</p>
+<ul>
+<li>Objects are stored redundantly across <strong>three availability zones</strong></li>
+<li>If one AZ burns down, your data survives</li>
+<li>The probability of losing an S3 object is 0.000000001% per year</li>
+</ul>
+<p>For reference, 11 nines means losing one object out of 100 billion per year.</p>
+<hr>
+<h2>Common Patterns</h2>
+<h3>Direct Upload (Client → Server → S3)</h3>
+<pre><code>1. Client sends file to API server
+2. API server validates (size, type, auth)
+3. API server uploads to S3
+4. API server returns the S3 URL to client
+</code></pre>
+<p><strong>Problem:</strong> Large files double-transit through your servers (client → server → S3). Wastes bandwidth and server resources.</p>
+<h3>Presigned URLs (Client → S3 Direct)</h3>
+<pre><code>1. Client requests an upload URL from API server
+2. API server generates a presigned URL (temporary, signed S3 URL)
+3. Client uploads DIRECTLY to S3 using the presigned URL
+4. Client notifies API server &quot;upload complete&quot;
+5. API server stores S3 key in database
+</code></pre>
+<pre><code class="language-python"># Generate a presigned URL (valid for 15 minutes)
+presigned_url = s3_client.generate_presigned_url(
+    &#39;put_object&#39;,
+    Params={&#39;Bucket&#39;: &#39;my-bucket&#39;, &#39;Key&#39;: f&#39;uploads/{user_id}/{filename}&#39;,
+            &#39;ContentType&#39;: &#39;image/jpeg&#39;},
+    ExpiresIn=900  # 15 minutes
+)
+# Return presigned_url to client
+# Client POSTs directly to presigned_url
+</code></pre>
+<p>Presigned URLs are the standard pattern for large file uploads. The API server only handles small metadata operations, never the raw bytes.</p>
+<h3>CDN in Front of S3</h3>
+<p>S3 is not a CDN. It serves from one region. Put CloudFront (or any CDN) in front:</p>
+<pre><code>Client → CloudFront edge (nearest) → S3 bucket (one region)
+                                      ↑ only on cache miss
+</code></pre>
+<p>The CDN caches S3 objects globally. Users in Tokyo get files from Tokyo CDN edge, not from your US-East S3 bucket.</p>
+<hr>
+<h2>Lifecycle Policies</h2>
+<p>Automatically manage objects based on age:</p>
+<pre><code class="language-json">{
+  &quot;Rules&quot;: [{
+    &quot;Status&quot;: &quot;Enabled&quot;,
+    &quot;Transitions&quot;: [
+      { &quot;Days&quot;: 30,  &quot;StorageClass&quot;: &quot;STANDARD_IA&quot; },
+      { &quot;Days&quot;: 90,  &quot;StorageClass&quot;: &quot;GLACIER&quot; },
+      { &quot;Days&quot;: 365, &quot;StorageClass&quot;: &quot;DEEP_ARCHIVE&quot; }
+    ],
+    &quot;Expiration&quot;: { &quot;Days&quot;: 2555 }  // Delete after 7 years
+  }]
+}
+</code></pre>
+<p>Objects start in Standard, move to cheaper tiers as they age, and eventually delete automatically. Zero manual intervention.</p>
+<hr>
+<h2>Versioning</h2>
+<p>Enable versioning to keep all versions of an object:</p>
+<pre><code>PUT s3://bucket/report.pdf         → version 1
+PUT s3://bucket/report.pdf         → version 2
+PUT s3://bucket/report.pdf         → version 3
+
+GET s3://bucket/report.pdf         → returns version 3
+GET s3://bucket/report.pdf?versionId=abc123 → returns version 1
+DELETE s3://bucket/report.pdf      → creates delete marker; all versions still exist
+</code></pre>
+<p>Versioning protects against accidental deletion and overwrites. Essential for compliance scenarios.</p>
+<hr>
+<h2>Google Cloud Storage (GCS) and Azure Blob Storage</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>S3</th>
+<th>GCS</th>
+<th>Azure Blob</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>API</td>
+<td>S3 REST</td>
+<td>JSON/XML REST</td>
+<td>REST</td>
+</tr>
+<tr>
+<td>Durability</td>
+<td>11 nines</td>
+<td>11 nines</td>
+<td>16 nines</td>
+</tr>
+<tr>
+<td>Multi-cloud</td>
+<td>S3-compatible ecosystem</td>
+<td>Good BigQuery integration</td>
+<td>Azure ecosystem</td>
+</tr>
+<tr>
+<td>Free egress to</td>
+<td>CloudFront</td>
+<td>Cloud CDN</td>
+<td>Azure CDN</td>
+</tr>
+<tr>
+<td>Best for</td>
+<td>AWS-native apps</td>
+<td>GCP/BigQuery workloads</td>
+<td>Azure-native apps</td>
+</tr>
+</tbody></table>
+<p>GCS and Azure Blob are functionally similar to S3. Choose based on your cloud provider.</p>
+<hr>
+<h2>Object Storage vs File Storage vs Block Storage</h2>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Examples</th>
+<th>Access</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Object storage</strong></td>
+<td>S3, GCS, Azure Blob</td>
+<td>HTTP REST</td>
+<td>Media files, backups, static assets, data lakes</td>
+</tr>
+<tr>
+<td><strong>File storage (NAS)</strong></td>
+<td>AWS EFS, Google Filestore</td>
+<td>NFS/SMB (filesystem)</td>
+<td>Shared files across servers, legacy apps</td>
+</tr>
+<tr>
+<td><strong>Block storage</strong></td>
+<td>AWS EBS, GCP Persistent Disk</td>
+<td>Block device (like a disk)</td>
+<td>OS volumes, databases, anything needing low latency</td>
+</tr>
+</tbody></table>
+<p><strong>Rule of thumb:</strong></p>
+<ul>
+<li>Need to store files your users upload (images, videos, documents)? → Object storage</li>
+<li>Need a shared filesystem mounted on multiple servers? → File storage</li>
+<li>Need a disk for a database or VM? → Block storage</li>
+</ul>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Consideration</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Store user-uploaded files</td>
+<td>Always use object storage</td>
+</tr>
+<tr>
+<td>Large file uploads</td>
+<td>Presigned URLs for direct client→S3 upload</td>
+</tr>
+<tr>
+<td>Global fast delivery</td>
+<td>CDN in front of object storage</td>
+</tr>
+<tr>
+<td>Cost optimization</td>
+<td>Lifecycle policies to move to cheaper tiers</td>
+</tr>
+<tr>
+<td>Durability</td>
+<td>Object storage (11 nines) far exceeds any server disk</td>
+</tr>
+<tr>
+<td>When NOT to use</td>
+<td>Real-time access, frequent small updates (use block storage)</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./10-search-systems.md">Lesson 2.10 — Search Systems (Elasticsearch &amp; Inverted Index)</a></p>
+</blockquote>

@@ -1,0 +1,223 @@
+<h1>What Is System Design?</h1>
+<blockquote>
+<p><strong>Lesson 1.1</strong> · Beginner · 20 min</p>
+</blockquote>
+<hr>
+<h2>The One-Line Definition</h2>
+<p>System design is the process of defining the <strong>architecture, components, and data flow</strong> of a software system to satisfy a set of requirements.</p>
+<p>That sounds abstract. Here is what it means in practice: given a problem like &quot;build Twitter&quot; or &quot;design a URL shortener that handles 10,000 requests per second,&quot; you need to decide:</p>
+<ul>
+<li>What services exist and how they talk to each other</li>
+<li>Where data is stored and how it is structured</li>
+<li>How the system behaves when traffic spikes or a server dies</li>
+<li>What trade-offs you made and why</li>
+</ul>
+<hr>
+<h2>Why System Design Matters</h2>
+<p>Writing code is a solved problem. Every engineer can write a function that shortens a URL. The unsolved problem is:</p>
+<blockquote>
+<p>How do you shorten 1 billion URLs per day, serve redirects in under 10ms globally, survive a data centre outage, and do it for $50/month per million users?</p>
+</blockquote>
+<p>That is system design. It is the skill that separates engineers who ship features from engineers who build platforms.</p>
+<hr>
+<h2>Two Types of Requirements</h2>
+<p>Every system design starts with requirements. There are two kinds:</p>
+<h3>Functional Requirements</h3>
+<p><strong>What the system does.</strong> These are the features.</p>
+<table>
+<thead>
+<tr>
+<th>Example system</th>
+<th>Functional requirement</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>URL shortener</td>
+<td>Given a long URL, return a short code; redirect short codes to the original URL</td>
+</tr>
+<tr>
+<td>Chat app</td>
+<td>Send and receive messages in real time</td>
+</tr>
+<tr>
+<td>Video platform</td>
+<td>Upload, transcode, and stream video</td>
+</tr>
+</tbody></table>
+<h3>Non-Functional Requirements</h3>
+<p><strong>How well the system does it.</strong> These are the quality attributes.</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>What it means</th>
+<th>Example target</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Availability</strong></td>
+<td>Fraction of time the system is up</td>
+<td>99.99% (52 minutes downtime/year)</td>
+</tr>
+<tr>
+<td><strong>Latency</strong></td>
+<td>Time to respond to a request</td>
+<td>p99 &lt; 100ms</td>
+</tr>
+<tr>
+<td><strong>Throughput</strong></td>
+<td>Requests the system can handle</td>
+<td>50,000 reads/sec</td>
+</tr>
+<tr>
+<td><strong>Durability</strong></td>
+<td>Data survives failures</td>
+<td>Zero data loss</td>
+</tr>
+<tr>
+<td><strong>Consistency</strong></td>
+<td>All users see the same data</td>
+<td>Eventual vs strong</td>
+</tr>
+<tr>
+<td><strong>Scalability</strong></td>
+<td>System grows with load</td>
+<td>10x traffic with no code change</td>
+</tr>
+</tbody></table>
+<p>Non-functional requirements are where most system design interviews are actually won or lost. Anyone can draw boxes. The skill is knowing which quality attributes to prioritise and what you sacrifice to get them.</p>
+<hr>
+<h2>The Design Process</h2>
+<p>A good system design follows a consistent process. In Module 5 you will learn a complete 45-minute interview framework — this is the same process compressed into a timed structure:</p>
+<pre><code>1. Clarify requirements
+   → What does this system need to do? What does it NOT need to do?
+   → What scale? DAU, QPS, storage?
+
+2. Estimate scale
+   → Back-of-envelope math: how many requests, how much data?
+
+3. Define the API
+   → What are the inputs and outputs of each operation?
+
+4. Sketch the high-level architecture
+   → Draw the boxes: clients, servers, databases, caches, queues
+   → Include the data model: tables, documents, keys, relationships
+
+5. Deep-dive on components
+   → Pick the hardest parts and design them properly
+
+6. Address trade-offs, bottlenecks, and failures
+   → What breaks first? What did this design sacrifice?
+</code></pre>
+<blockquote>
+<p><strong>Note on data model:</strong> Some practitioners call this out as a separate step between API and architecture. Either way works — what matters is that you do it. The 6-step version in Module 5 folds it into the architecture step; this expanded view makes it explicit.</p>
+</blockquote>
+<hr>
+<h2>What Makes a Design Good?</h2>
+<p>There is no perfect design. Every design is a set of trade-offs. A good design is one where:</p>
+<ol>
+<li><p><strong>You can explain every decision.</strong> &quot;I used a relational database because the data has clear relationships and we need ACID transactions&quot; is better than &quot;I used Postgres because I know it.&quot;</p>
+</li>
+<li><p><strong>The constraints are explicit.</strong> You know what the system cannot do and why.</p>
+</li>
+<li><p><strong>It handles the stated scale.</strong> A design that works for 1,000 users but breaks at 1 million is not a good design for a million-user product.</p>
+</li>
+<li><p><strong>Failures are considered.</strong> What happens when a server crashes? When the database is slow? When the network drops?</p>
+</li>
+</ol>
+<hr>
+<h2>System Design vs. Object-Oriented Design</h2>
+<p>System design interviews differ fundamentally from object-oriented design (OOD) interviews.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>OOD</th>
+<th>System Design</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Focus</strong></td>
+<td>Code structure within a single application</td>
+<td>Infrastructure across multiple services</td>
+</tr>
+<tr>
+<td><strong>Units</strong></td>
+<td>Classes, objects, methods</td>
+<td>Services, databases, queues, caches</td>
+</tr>
+<tr>
+<td><strong>Primary concern</strong></td>
+<td>Clean code, maintainability, SOLID principles</td>
+<td>Performance, reliability, cost at scale</td>
+</tr>
+<tr>
+<td><strong>Diagram type</strong></td>
+<td>Class diagrams, UML</td>
+<td>Boxes-and-arrows architecture diagrams</td>
+</tr>
+<tr>
+<td><strong>Right answer</strong></td>
+<td>More deterministic (best practices exist)</td>
+<td>Trade-off dependent (context drives choices)</td>
+</tr>
+</tbody></table>
+<p>The skills overlap — both require decomposition and reasoning about abstractions — but the emphasis differs. OOD asks: &quot;Is this code clean and maintainable?&quot; System design asks: &quot;Can this survive 10x traffic and a data center outage?&quot;</p>
+<hr>
+<h2>System Design vs. Software Architecture</h2>
+<p>These terms overlap, but here is a useful distinction:</p>
+<ul>
+<li><strong>Software architecture</strong> is about code structure — how classes, modules, and packages relate to each other within a single application.</li>
+<li><strong>System design</strong> is about infrastructure — how multiple services, databases, and external systems relate to each other across a network.</li>
+</ul>
+<p>System design operates at the level of boxes-and-arrows diagrams. Software architecture operates at the level of class diagrams.</p>
+<hr>
+<h2>What Interviewers Are Actually Looking For</h2>
+<p>System design interviews are not tests of knowledge. They are tests of <strong>engineering judgment</strong>. Interviewers want to see:</p>
+<ol>
+<li><strong>You can ask the right clarifying questions</strong> before jumping to solutions.</li>
+<li><strong>You reason about scale</strong> with numbers, not vibes.</li>
+<li><strong>You know the trade-offs</strong> of your choices and can defend them.</li>
+<li><strong>You can prioritize</strong> — you know which parts matter most for the given requirements.</li>
+<li><strong>You communicate clearly</strong> — you can explain a complex system to someone who has not seen it before.</li>
+</ol>
+<p>No one expects you to design a perfect system in 45 minutes. They expect you to demonstrate that your thinking process produces good systems over time.</p>
+<hr>
+<h2>Key Vocabulary for This Module</h2>
+<p>These terms will appear throughout the course. You do not need to memorize definitions — you need to understand what problems they solve.</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Problem it solves</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Load balancer</strong></td>
+<td>Distribute traffic across multiple servers</td>
+</tr>
+<tr>
+<td><strong>Cache</strong></td>
+<td>Avoid re-computing or re-fetching expensive data</td>
+</tr>
+<tr>
+<td><strong>Database sharding</strong></td>
+<td>Split one large database into smaller pieces</td>
+</tr>
+<tr>
+<td><strong>Message queue</strong></td>
+<td>Decouple two services so they do not fail together</td>
+</tr>
+<tr>
+<td><strong>CDN</strong></td>
+<td>Serve static content from a location near the user</td>
+</tr>
+<tr>
+<td><strong>Replication</strong></td>
+<td>Keep copies of data on multiple servers for redundancy</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./02-client-server.md">Lesson 1.2 — The Client–Server Model</a></p>
+</blockquote>

@@ -1,0 +1,223 @@
+<h1>CAP Theorem — The Pizza Shop Example</h1>
+<blockquote>
+<p><strong>Lesson 1.9</strong> · Beginner + Pro + Senior · 25 min</p>
+</blockquote>
+<hr>
+<h2>The Setup: A Pizza Shop with Two Registers</h2>
+<p>Imagine a pizza shop with two cash registers — one at the front counter and one at the drive-through. Both registers share a list of available pizza toppings.</p>
+<p>When a customer orders an extra-large with anchovies, the register marks &quot;anchovies: low stock.&quot; But the two registers are at opposite ends of the shop. Updating each other takes a few seconds.</p>
+<p>Now a problem: another customer at the drive-through orders anchovies at the exact same moment. What should the drive-through register do?</p>
+<p><strong>Option A:</strong> Refuse to take the order until it confirms with the front counter that anchovies are still available. (The drive-through goes offline during synchronization.)</p>
+<p><strong>Option B:</strong> Accept the order, and if both registers oversell, sort it out later with the customer. (Consistency might be violated.)</p>
+<p>This is the CAP Theorem in everyday life.</p>
+<hr>
+<h2>The Three Properties</h2>
+<p><strong>CAP Theorem</strong> (proven by Eric Brewer, 2000) states that a distributed system can guarantee at most <strong>two of the following three properties</strong> simultaneously:</p>
+<h3>C — Consistency</h3>
+<p>Every read receives the most recent write or an error. All nodes in the system see the same data at the same time.</p>
+<p>In the pizza shop: both registers always show the exact same topping inventory. Neither will show anchovies available if the other already sold the last portion.</p>
+<h3>A — Availability</h3>
+<p>Every request receives a non-error response (not necessarily the most recent data). The system is always operational.</p>
+<p>In the pizza shop: both registers always accept orders, even if they have slightly out-of-date information about inventory.</p>
+<h3>P — Partition Tolerance</h3>
+<p>The system continues to operate even when network messages between nodes are delayed or lost.</p>
+<p>In the pizza shop: the system still works even if the phone line between the front counter and the drive-through breaks.</p>
+<hr>
+<h2>The Theorem</h2>
+<p>In any realistic distributed system, <strong>network partitions will happen</strong>. Networks drop packets. Connections time out. A datacenter loses power. You cannot opt out of P.</p>
+<p>Therefore, the real choice is between <strong>C and A when a partition occurs:</strong></p>
+<ul>
+<li><strong>CP system:</strong> Prioritize consistency. When a partition occurs, refuse requests rather than risk returning stale data.</li>
+<li><strong>AP system:</strong> Prioritize availability. When a partition occurs, continue serving requests even if data might be stale.</li>
+</ul>
+<p><strong>CA (no partition tolerance) is only possible on a single machine</strong> — which is not a distributed system.</p>
+<hr>
+<h2>CP Systems: Consistency + Partition Tolerance</h2>
+<p>CP systems refuse to answer when they cannot guarantee consistent data.</p>
+<p><strong>Behaviour during a partition:</strong></p>
+<ul>
+<li>Node A cannot reach Node B</li>
+<li>Node A returns an error: &quot;Service unavailable&quot;</li>
+<li>Users see errors until the partition heals</li>
+</ul>
+<p><strong>Real-world CP databases:</strong></p>
+<ul>
+<li><strong>HBase</strong> — returns errors during partition</li>
+<li><strong>MongoDB</strong> (with majority write concern) — waits for majority of nodes to acknowledge</li>
+<li><strong>Apache ZooKeeper</strong> — distributed coordination, strict consistency</li>
+<li><strong>Redis Cluster</strong> — when using strong consistency mode</li>
+</ul>
+<p><strong>Use CP when:</strong></p>
+<ul>
+<li>Financial transactions — you cannot show an incorrect balance</li>
+<li>Inventory management — you cannot oversell the last item</li>
+<li>Leader election — two nodes must not simultaneously believe they are the leader</li>
+<li>Booking systems — two users must not book the same seat</li>
+</ul>
+<hr>
+<h2>AP Systems: Availability + Partition Tolerance</h2>
+<p>AP systems continue serving requests during a partition, accepting that some responses may be stale.</p>
+<p><strong>Behaviour during a partition:</strong></p>
+<ul>
+<li>Node A cannot reach Node B</li>
+<li>Both nodes continue to accept reads and writes</li>
+<li>When the partition heals, they reconcile (eventual consistency)</li>
+</ul>
+<p><strong>Real-world AP databases:</strong></p>
+<ul>
+<li><strong>Cassandra</strong> — designed for high availability, eventual consistency</li>
+<li><strong>DynamoDB</strong> (default) — highly available, eventually consistent reads</li>
+<li><strong>CouchDB</strong> — offline-first, syncs when reconnected</li>
+<li><strong>DNS</strong> — returns possibly stale records, updates propagate over time</li>
+</ul>
+<p><strong>Use AP when:</strong></p>
+<ul>
+<li>Social media likes/views — showing 10,001 instead of 10,000 is acceptable</li>
+<li>Shopping cart — it is better to let the user add items than to reject them</li>
+<li>Metrics and analytics — approximate counts are fine</li>
+<li>DNS — brief staleness is acceptable; unavailability is not</li>
+</ul>
+<hr>
+<h2>The Pizza Shop Decision</h2>
+<p>Back to the pizza shop:</p>
+<p>If you run a <strong>premium restaurant</strong> (CP), a wrong order is catastrophic. You close the drive-through during a communication failure rather than risk overselling a dish.</p>
+<p>If you run a <strong>fast food chain</strong> (AP), availability matters more than occasional overselling. The drive-through stays open. If two registers both sell the last anchovy pizza, you apologize and give the customer a free pizza for the inconvenience.</p>
+<hr>
+<h2>Eventual Consistency</h2>
+<p>AP systems use <strong>eventual consistency</strong>: given enough time without new updates, all replicas will converge to the same value.</p>
+<p>How long is &quot;eventually&quot;? Typically milliseconds to seconds. But during that window, different users may see different data.</p>
+<pre><code>User A writes: &quot;anchovies: 0&quot;  → written to Replica 1
+User B reads:  &quot;anchovies: 5&quot;  → read from Replica 2 (stale)
+
+1 second later: replication propagates
+User B reads:  &quot;anchovies: 0&quot;  → now consistent
+</code></pre>
+<p>Eventual consistency is fine for most data in most systems. It is not fine for bank balances.</p>
+<hr>
+<h2>PACELC: Beyond CAP</h2>
+<p>CAP only describes behaviour during partitions. But what about normal operation?</p>
+<p><strong>PACELC</strong> (Daniel Abadi, 2012) extends CAP:</p>
+<blockquote>
+<p>If there is a Partition (P), choose between Availability (A) and Consistency (C). Else (E), choose between Latency (L) and Consistency (C).</p>
+</blockquote>
+<p>Even without partitions, there is a trade-off between latency and consistency:</p>
+<ul>
+<li><strong>Strong consistency</strong> requires waiting for all replicas to acknowledge a write. This adds latency.</li>
+<li><strong>Eventual consistency</strong> returns immediately without waiting. Faster, but potentially stale.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Partition behaviour</th>
+<th>Normal behaviour</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DynamoDB</td>
+<td>PA (favours availability)</td>
+<td>EL (favours low latency)</td>
+</tr>
+<tr>
+<td>Spanner (Google)</td>
+<td>PC (favours consistency)</td>
+<td>EC (favours consistency)</td>
+</tr>
+<tr>
+<td>Cassandra</td>
+<td>PA</td>
+<td>EL</td>
+</tr>
+<tr>
+<td>MongoDB</td>
+<td>PC (with majority write)</td>
+<td>EC</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Consistency Models (Beyond Binary)</h2>
+<p>Real systems offer a spectrum of consistency models, not just &quot;strong&quot; vs &quot;eventual&quot;:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Description</th>
+<th>Latency</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Strong consistency</strong></td>
+<td>Read always sees latest write</td>
+<td>Highest (global coordination)</td>
+</tr>
+<tr>
+<td><strong>Linearizability</strong></td>
+<td>Operations appear instantaneous and in real-time order</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>Sequential consistency</strong></td>
+<td>All nodes see operations in the same order, but not necessarily real-time</td>
+<td>Medium-high</td>
+</tr>
+<tr>
+<td><strong>Causal consistency</strong></td>
+<td>Causally related operations appear in order</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>Eventual consistency</strong></td>
+<td>All replicas converge eventually</td>
+<td>Lowest</td>
+</tr>
+<tr>
+<td><strong>Read-your-writes</strong></td>
+<td>You always see your own writes</td>
+<td>Low-medium</td>
+</tr>
+<tr>
+<td><strong>Monotonic reads</strong></td>
+<td>Once you read a value, you never see an older value</td>
+<td>Low</td>
+</tr>
+</tbody></table>
+<p>Most databases let you choose a consistency level per operation (e.g., Cassandra&#39;s <code>ONE</code>, <code>QUORUM</code>, <code>ALL</code>).</p>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Consistency</th>
+<th>Availability</th>
+<th>Partition Tolerance</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>CP systems</strong></td>
+<td>Yes</td>
+<td>No (errors during partition)</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>AP systems</strong></td>
+<td>No (stale reads)</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>CA systems</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No (single node only)</td>
+</tr>
+</tbody></table>
+<p>The practical question: <strong>&quot;What is acceptable to show the user when a network failure occurs — an error, or potentially stale data?&quot;</strong></p>
+<ul>
+<li>Error is acceptable: use CP</li>
+<li>Stale data is acceptable: use AP</li>
+</ul>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./10-acid-vs-base.md">Lesson 1.10 — ACID vs BASE: The Banking Example</a></p>
+</blockquote>

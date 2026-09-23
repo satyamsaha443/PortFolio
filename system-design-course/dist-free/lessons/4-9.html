@@ -1,0 +1,174 @@
+<h1>Event-Driven Architecture — Pros, Cons, Anti-Patterns</h1>
+<blockquote>
+<p><strong>Lesson 4.9</strong> · Pro + Senior · 40 min</p>
+</blockquote>
+<hr>
+<h2>What Is Event-Driven Architecture?</h2>
+<p>In a traditional (request-response) architecture, Service A calls Service B directly and waits for a response.</p>
+<pre><code>Request-Response:
+Service A ──POST /orders──► Service B
+          ◄──200 OK──────── Service B
+(A waits; A is coupled to B&#39;s availability)
+</code></pre>
+<p>In event-driven architecture, Service A publishes an event to a bus. Service B (and C, D, E) subscribe and react asynchronously. A does not know or care who is listening.</p>
+<pre><code>Event-Driven:
+Service A ──publishes &quot;order.created&quot;──► Kafka
+                                           │
+                               ┌───────────┼──────────────┐
+                               ▼           ▼              ▼
+                       Service B      Service C       Service D
+                    (inventory)   (notifications)   (analytics)
+</code></pre>
+<p>Service A finishes immediately after publishing. Services B, C, D process at their own pace.</p>
+<hr>
+<h2>Core Benefits</h2>
+<h3>Loose Coupling</h3>
+<p>Service A does not import or call Service B. It publishes an event with a well-defined schema. B, C, D can be added, removed, or changed without touching A.</p>
+<p>Adding a new feature: &quot;send a WhatsApp message when an order is placed&quot; — add a new consumer. Zero changes to the order service.</p>
+<h3>Resilience</h3>
+<p>If Service B crashes, the event stays in Kafka. When B restarts, it resumes processing from where it left off. Service A was never affected.</p>
+<p>In request-response: if B is down, A&#39;s request fails immediately.</p>
+<h3>Scalability</h3>
+<p>Consumers scale independently. If notification volume spikes, add more notification consumers. Order creation throughput is not affected.</p>
+<h3>Time Decoupling</h3>
+<p>Producer and consumer do not need to be running simultaneously. A batch job can publish events at 3am; consumers process them when they wake up.</p>
+<hr>
+<h2>Core Drawbacks</h2>
+<h3>Eventual Consistency</h3>
+<p>After A publishes &quot;order.created&quot;:</p>
+<ul>
+<li>B (inventory) may not have processed it yet</li>
+<li>C (notifications) may not have sent the email yet</li>
+</ul>
+<p>If a user queries &quot;was my order confirmed?&quot; immediately after placing it, the data may not be consistent across all services yet.</p>
+<p><strong>Acceptable for:</strong> Sending emails (minor delay is fine), updating analytics (seconds of lag is fine).</p>
+<p><strong>Not acceptable for:</strong> Financial transactions where you need immediate confirmation, inventory checks at checkout (must be synchronous to prevent overselling).</p>
+<h3>Debugging Complexity</h3>
+<p>A request-response flow is easy to trace: A called B called C. An event-driven flow is scattered across Kafka topics and consumer groups. Distributed tracing (Lesson 4.4) and correlation IDs are essential.</p>
+<h3>Message Ordering</h3>
+<p>Kafka guarantees ordering within a partition. If order events for the same order go to different partitions, the consumer may see &quot;order.cancelled&quot; before &quot;order.created.&quot; </p>
+<p><strong>Solution:</strong> Use the entity ID (order_id) as the partition key. All events for the same order go to the same partition → guaranteed ordering.</p>
+<h3>Schema Evolution</h3>
+<p>Once you publish an event schema, all consumers depend on it. If you add a required field, old consumers break. If you remove a field, consumers that depend on it break.</p>
+<p><strong>Solution:</strong> Use a schema registry (Confluent Schema Registry). Enforce backward/forward compatibility rules. Always add fields as optional, never remove fields, never change field types.</p>
+<hr>
+<h2>When to Use Events vs Request-Response</h2>
+<p>Use <strong>synchronous request-response</strong> when:</p>
+<ul>
+<li>The caller needs the result immediately (checkout payment must succeed before confirming)</li>
+<li>The operation needs to be atomic (you need to know if it succeeded)</li>
+<li>Real-time user interaction (web API, query, search)</li>
+</ul>
+<p>Use <strong>async events</strong> when:</p>
+<ul>
+<li>The caller does not need to wait (sending an email, updating analytics)</li>
+<li>Multiple systems need to react to the same event (fan-out)</li>
+<li>Operations are long-running (video transcoding, report generation)</li>
+<li>You want to decouple services and allow independent scaling</li>
+</ul>
+<hr>
+<h2>Anti-Pattern 1: Event Chains</h2>
+<p>Service A publishes event → B handles it, publishes another event → C handles it, publishes another event → D handles it.</p>
+<pre><code>A: order.created
+  ↓
+B: inventory.reserved → C: payment.charged → D: shipping.created → E: email.sent
+</code></pre>
+<p>If this is synchronous causality (D must happen after C which must happen after B), this is effectively a distributed synchronous call chain with all the latency and failure modes of each hop.</p>
+<p><strong>Fix:</strong> Use a Saga orchestrator (Lesson 4.3) to coordinate dependent steps. Or, if only A&#39;s event is the trigger, have B, C, D, E all subscribe to <code>order.created</code> in parallel.</p>
+<hr>
+<h2>Anti-Pattern 2: Event Sourcing Overuse</h2>
+<p>Event sourcing: instead of storing current state, store every event that led to the current state. State is reconstructed by replaying events.</p>
+<pre><code>Instead of: { order_id: 42, status: &quot;shipped&quot; }
+Store: [order.created, payment.charged, order.confirmed, order.shipped]
+State = replay all events
+</code></pre>
+<p>Event sourcing is powerful for audit trails, temporal queries (&quot;what was the state on Tuesday?&quot;), and debugging. But:</p>
+<ul>
+<li>Querying current state requires replaying events (slow without snapshots)</li>
+<li>Complex to implement correctly</li>
+<li>Overkill for most use cases</li>
+</ul>
+<p><strong>Use event sourcing only when:</strong> audit trail is a legal requirement, temporal queries are a business need, or you need full event replay for testing.</p>
+<hr>
+<h2>Anti-Pattern 3: Large Events</h2>
+<p>Temptation: put everything in the event so consumers have all the data they need.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;order.created&quot;,
+  &quot;order_id&quot;: 42,
+  &quot;user&quot;: { &quot;id&quot;: 1234, &quot;name&quot;: &quot;Alice&quot;, &quot;email&quot;: &quot;...&quot;, &quot;full_address&quot;: &quot;...&quot; },
+  &quot;items&quot;: [...],  // all order items with full product details
+  &quot;payment&quot;: { &quot;card_last4&quot;: &quot;4242&quot;, ... }  // sensitive data
+}
+</code></pre>
+<p>Problems:</p>
+<ul>
+<li>Kafka message size limit (default 1MB)</li>
+<li>Sensitive data in the event log (PCI violations for payment data)</li>
+<li>Schema coupling: every consumer depends on the full user/product schema</li>
+</ul>
+<p><strong>Fix:</strong> Thin events — only include IDs and key facts. Consumers fetch additional data they need from the owning service.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;order.created&quot;,
+  &quot;order_id&quot;: 42,
+  &quot;user_id&quot;: 1234,
+  &quot;total&quot;: 99.99,
+  &quot;created_at&quot;: &quot;2024-01-15T09:00:00Z&quot;
+}
+</code></pre>
+<hr>
+<h2>Anti-Pattern 4: Missing Dead Letter Queue (DLQ)</h2>
+<p>A consumer fails to process a message (parsing error, downstream service unavailable). What happens?</p>
+<p>Without a DLQ: the message is retried forever, blocking the consumer from processing subsequent messages.</p>
+<p>With a DLQ: after N retries, the failed message moves to a Dead Letter Queue (DLQ). Other messages continue processing normally. An operator can inspect the DLQ, fix the issue, and replay the failed messages.</p>
+<p>Always configure a DLQ for production consumers.</p>
+<hr>
+<h2>Choreography Pitfall: Lost Business Logic</h2>
+<p>With pure choreography, the business flow is implicit in the sequence of events across services. There is no single place where the overall process is visible.</p>
+<p>When something goes wrong: &quot;The order was created but never shipped — what happened?&quot; requires reading logs across 5 services.</p>
+<p><strong>Mitigation:</strong> Use an orchestrator for complex multi-step processes. Use choreography for simple fan-out (multiple services react to one event independently).</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Key benefit</td>
+<td>Loose coupling; resilience (message survives consumer downtime); fan-out</td>
+</tr>
+<tr>
+<td>Key drawback</td>
+<td>Eventual consistency; debugging complexity; schema evolution</td>
+</tr>
+<tr>
+<td>Ordering guarantee</td>
+<td>Kafka: within partition; use entity ID as partition key</td>
+</tr>
+<tr>
+<td>Schema evolution</td>
+<td>Schema registry; backward compatible (add optional fields only)</td>
+</tr>
+<tr>
+<td>DLQ</td>
+<td>After N retries, message goes to DLQ; prevents consumer stall</td>
+</tr>
+<tr>
+<td>Thin events</td>
+<td>Include only IDs; consumers fetch details from owning service</td>
+</tr>
+<tr>
+<td>Event chains</td>
+<td>Anti-pattern for dependent steps; use saga orchestrator instead</td>
+</tr>
+<tr>
+<td>When to use</td>
+<td>Fan-out, async work, decoupled services; not for synchronous user-facing ops</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./10-multi-region-active-active.md">Lesson 4.10 — Multi-Region Active-Active Architecture</a></p>
+</blockquote>

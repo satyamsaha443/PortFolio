@@ -1,0 +1,250 @@
+<h1>The Client–Server Model</h1>
+<blockquote>
+<p><strong>Lesson 1.2</strong> · Beginner · 20 min</p>
+</blockquote>
+<hr>
+<h2>The Core Idea</h2>
+<p>Every interaction on the internet follows the same pattern:</p>
+<ol>
+<li>A <strong>client</strong> sends a <strong>request</strong></li>
+<li>A <strong>server</strong> processes it and sends a <strong>response</strong></li>
+</ol>
+<p>Your browser is a client. Google.com is a server. When you type a URL and press Enter, your browser sends an HTTP request to Google&#39;s servers, and the servers respond with HTML.</p>
+<p>That is it. Everything else in this course is a variation of this pattern.</p>
+<hr>
+<h2>What Is a Client?</h2>
+<p>A client is any program that <strong>initiates requests</strong>. Clients are consumers of a service.</p>
+<table>
+<thead>
+<tr>
+<th>Client type</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Web browser</td>
+<td>Chrome, Safari, Firefox</td>
+</tr>
+<tr>
+<td>Mobile app</td>
+<td>Instagram iOS, WhatsApp Android</td>
+</tr>
+<tr>
+<td>Desktop app</td>
+<td>Slack, Figma, VS Code</td>
+</tr>
+<tr>
+<td>Server acting as client</td>
+<td>A backend calling another backend&#39;s API</td>
+</tr>
+<tr>
+<td>CLI tool</td>
+<td><code>curl</code>, <code>wget</code></td>
+</tr>
+</tbody></table>
+<p>The last one matters for system design: <strong>servers are often clients too.</strong> When your API server fetches from a database, the API server is the client and the database is the server.</p>
+<hr>
+<h2>What Is a Server?</h2>
+<p>A server is any program that <strong>listens for and responds to requests</strong>. Servers are providers of a service.</p>
+<p>Servers are not special hardware. A server is just a program. You can run a server on your laptop. The distinction is behavioural, not physical.</p>
+<p>Common server types you will design in this course:</p>
+<table>
+<thead>
+<tr>
+<th>Server type</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Web server</strong></td>
+<td>Serves static files (HTML, CSS, JS, images)</td>
+</tr>
+<tr>
+<td><strong>Application server</strong></td>
+<td>Runs business logic (your API code)</td>
+</tr>
+<tr>
+<td><strong>Database server</strong></td>
+<td>Stores and queries data</td>
+</tr>
+<tr>
+<td><strong>Cache server</strong></td>
+<td>Stores frequently-accessed data in memory</td>
+</tr>
+<tr>
+<td><strong>Message broker</strong></td>
+<td>Receives messages and distributes them to consumers</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>The Request–Response Cycle</h2>
+<p>Here is what happens when you open twitter.com:</p>
+<pre><code>1. Browser → DNS server
+   &quot;What is the IP address of twitter.com?&quot;
+   DNS: &quot;104.244.42.65&quot;
+
+2. Browser → Twitter web server (TCP connection established)
+   &quot;GET / HTTP/1.1  Host: twitter.com&quot;
+
+3. Twitter web server → Browser
+   HTML + CSS + JavaScript files
+
+4. Browser executes JavaScript → Browser → Twitter API server
+   &quot;GET /api/timeline?user=123&quot;
+
+5. Twitter API server → Database
+   &quot;SELECT posts WHERE user_id = 123 ORDER BY created_at DESC LIMIT 20&quot;
+
+6. Database → API server → Browser
+   JSON response with tweet data
+
+7. Browser renders the tweets
+</code></pre>
+<p>Each arrow is a client-server interaction. This one page load involves at least five separate client-server round trips.</p>
+<hr>
+<h2>Stateless vs. Stateful Servers</h2>
+<p>This distinction matters enormously for scaling.</p>
+<h3>Stateless Servers</h3>
+<p>A <strong>stateless server</strong> treats every request as independent. It does not remember anything about previous requests. All the information needed to handle a request is in the request itself (or in a database).</p>
+<pre><code>Client → Server A: &quot;Get user profile for token abc123&quot;
+Server A → DB: Fetches profile, returns response
+
+Client → Server B: &quot;Get user profile for token abc123&quot;
+Server B → DB: Fetches profile, returns response (same result)
+</code></pre>
+<p>Any server can handle any request. You can add more servers freely.</p>
+<h3>Stateful Servers</h3>
+<p>A <strong>stateful server</strong> remembers client context between requests. If a client connects to Server A and Server A stores state in memory, that client <em>must</em> keep talking to Server A.</p>
+<pre><code>Client → Server A: &quot;Start a checkout session&quot;
+Server A: stores session in memory
+
+Client → Server B: &quot;Complete checkout&quot;
+Server B: &quot;What session? I know nothing about you.&quot; ← FAIL
+</code></pre>
+<p>Stateful servers are hard to scale because adding a new server does not help clients already attached to old ones.</p>
+<p><strong>The lesson:</strong> design your servers to be stateless. Store state in a database or cache, not in server memory.</p>
+<hr>
+<h2>Peers and Peer-to-Peer (P2P)</h2>
+<p>The client-server model has a counterpart: <strong>peer-to-peer (P2P)</strong>.</p>
+<p>In P2P, every node is both a client and a server. There is no central authority.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Client-Server</th>
+<th>Peer-to-Peer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Control</td>
+<td>Centralised</td>
+<td>Distributed</td>
+</tr>
+<tr>
+<td>Single point of failure</td>
+<td>Yes (the server)</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Consistency</td>
+<td>Easy</td>
+<td>Hard</td>
+</tr>
+<tr>
+<td>Examples</td>
+<td>Every website</td>
+<td>BitTorrent, Bitcoin, WebRTC</td>
+</tr>
+</tbody></table>
+<p>For most systems you will design, client-server wins because it is easier to reason about, easier to secure, and easier to keep consistent. P2P is used when you specifically need decentralisation (file sharing, video calls, blockchains).</p>
+<hr>
+<h2>Ports and Processes</h2>
+<p>A server listens on a <strong>port</strong> — a number from 0 to 65535. Different services use different ports by convention:</p>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Service</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>80</td>
+<td>HTTP</td>
+</tr>
+<tr>
+<td>443</td>
+<td>HTTPS</td>
+</tr>
+<tr>
+<td>5432</td>
+<td>PostgreSQL</td>
+</tr>
+<tr>
+<td>6379</td>
+<td>Redis</td>
+</tr>
+<tr>
+<td>27017</td>
+<td>MongoDB</td>
+</tr>
+</tbody></table>
+<p>When you connect to <code>https://example.com</code>, your browser automatically uses port 443 because of the <code>https://</code> prefix. The port is implicit in the URL scheme.</p>
+<p>This matters for system design when you are designing internal services: your API server might listen on port 8080, your database on 5432, your cache on 6379.</p>
+<hr>
+<h2>The Three-Tier Architecture</h2>
+<p>Most web applications use a three-tier architecture:</p>
+<pre><code>┌─────────────────────────────────────────┐
+│  Tier 1: Presentation (Client)          │
+│  Browser / Mobile App                   │
+└──────────────────┬──────────────────────┘
+                   │ HTTP/HTTPS
+┌──────────────────▼──────────────────────┐
+│  Tier 2: Application (Server)           │
+│  API Server — business logic            │
+└──────────────────┬──────────────────────┘
+                   │ SQL / Redis / etc.
+┌──────────────────▼──────────────────────┐
+│  Tier 3: Data (Server)                  │
+│  Database + Cache                       │
+└─────────────────────────────────────────┘
+</code></pre>
+<ul>
+<li><strong>Tier 1</strong> renders the UI and sends user actions to Tier 2</li>
+<li><strong>Tier 2</strong> contains all the business logic — it validates, transforms, and orchestrates</li>
+<li><strong>Tier 3</strong> stores and retrieves data</li>
+</ul>
+<p>This separation of concerns is the foundation of almost every web system you will design. Scale each tier independently: more API servers for compute, read replicas for database reads, a cache layer to avoid hitting the database at all.</p>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Key point</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Client</td>
+<td>Initiates requests; can be a browser, app, or another server</td>
+</tr>
+<tr>
+<td>Server</td>
+<td>Listens for and responds to requests</td>
+</tr>
+<tr>
+<td>Stateless server</td>
+<td>No memory between requests; easy to scale horizontally</td>
+</tr>
+<tr>
+<td>Stateful server</td>
+<td>Remembers client context; hard to scale</td>
+</tr>
+<tr>
+<td>Three-tier</td>
+<td>Presentation, Application, Data — the default web architecture</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./03-http-dns-tcp.md">Lesson 1.3 — HTTP, DNS &amp; TCP/IP</a></p>
+</blockquote>

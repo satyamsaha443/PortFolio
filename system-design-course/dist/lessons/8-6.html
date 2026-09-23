@@ -1,0 +1,146 @@
+<h1>Design Tinder</h1>
+<blockquote>
+<p><strong>Lesson 8.6</strong> · Pro · 75 min</p>
+</blockquote>
+<hr>
+<h2>Problem statement</h2>
+<p>Design the core of a location-based dating app: a user sees a feed of nearby candidate profiles, swipes like or pass on each one, and when two people like each other they match and can start talking.</p>
+<p>In scope: the candidate feed, recording swipes, and detecting mutual matches. Post-match messaging is the Chat / Messenger case, treated as a separate service downstream of a match. Profile photo storage and delivery are out of scope — assume large blobs served behind a CDN. Ranking quality, payments, and identity verification are also out of scope.</p>
+<h2>Clarifying questions</h2>
+<p>Each answer fixes an assumption the design leans on.</p>
+<p>What counts as a match? Both users swipe like on each other — a double opt-in. Neither side&#39;s like alone is a match.</p>
+<p>Do we build the post-match chat? No. Messaging is the Chat / Messenger case; this design stops at &quot;two users are now matched.&quot;</p>
+<p>How fresh must the candidate feed be? Seconds to minutes of staleness is fine. Nobody expects a brand-new nearby user to appear in their feed instantly.</p>
+<p>What&#39;s the scale unit? Swipes per day, not profile views per day — the number that will turn out to size the system.</p>
+<p>Is ranking or payments in scope? No. Assume a ranker already exists and produces a score per candidate; defer its internals, the same way the Instagram design defers feed ranking.</p>
+<h2>What makes this problem distinctive</h2>
+<p>Tinder looks like a nearby-search problem: find profiles near me, filter by preference, done. That is only half the problem, and the smaller half. Every swipe is a write, and a user issues one swipe for every card in their feed — the feed is read far less often than its contents are acted on. The system that has to survive load is the swipe path, not the candidate-search path.</p>
+<p>Two invariants sit underneath that write path and cannot bend. A match is not something a user directly creates — it is a derived consequence of two independent likes, so the system must notice a mutual like without scanning anything. And a profile a user has already swiped must never resurface in their feed; the system must track every exclusion cheaply enough to check it on every request.</p>
+<p>Key idea. The swipe write firehose, not the candidate-feed read, is the load that shapes this design — and every swipe must respect two invariants: a match is derived, and a swiped profile never comes back.</p>
+<h2>Key concepts</h2>
+<p>This section covers the concepts needed to solve this problem — prerequisites for the design work that follows.</p>
+<h3>Geospatial indexing</h3>
+<p>Finding &quot;who is nearby&quot; cannot mean scanning every user&#39;s coordinates on every request. Space is divided into a grid of cells (a geohash string or an H3 hexagon), and each user&#39;s profile is tagged with its cell. Proximity search then becomes &quot;look up this cell and its immediate neighbors&quot; instead of a full scan — the same nearby-search problem Uber solves for drivers, applied here to profiles instead of moving vehicles. See the geospatial search course article for the indexing mechanics in full.</p>
+<h3>Likes and derived matches</h3>
+<p>A swipe records one user&#39;s one-way decision about another: like or pass. A match is not stored by either user&#39;s action directly — it exists only once both directions of a pair have liked each other. Detecting it means checking whether the reverse edge already exists, not scanning a table for pairs.</p>
+<p>Derived state. A match is computed from two swipe rows, not written directly by any single request. If both swipes exist, the match must exist; if the match record is lost but both swipes remain, the system can rebuild it.</p>
+<h3>The seen filter: a Bloom filter</h3>
+<p>The feed&#39;s &quot;never re-show a swiped profile&quot; rule means checking, for every candidate, whether the user has already swiped it. Keeping the full list of swiped ids per user is exact but grows without bound for active users. A Bloom filter is a compact, probabilistic set: a fixed-size bit array plus a handful of hash functions. Adding an id runs it through each hash function and sets the bit at each resulting position. Checking an id runs the same hash functions and looks at those same bit positions — if any of them is still unset, the id was definitely never added (no false negatives); if all of</p>
+<p>That asymmetry fits this exact rule — the guarantee runs the direction that matters, since a false positive only hides a candidate that was actually unseen, never resurfaces one the user rejected. This is why a Bloom filter satisfies the rule before any sharding or service design is added.</p>
+<h3>Shard keys and access patterns</h3>
+<p>Splitting a large table across multiple machines means picking a shard key — the field used to decide which machine owns a row. Rows that share a shard key live together and can be queried together in one place; rows that don&#39;t share it may land on different machines and force a query to visit several. When a system has two access patterns that read the same data along different axes, one shard key will make one pattern cheap and the other expensive — never both.</p>
+<p>Which axis to optimize for depends on which pattern runs more often — a question the high-level design section works out concretely for swipes.</p>
+<p>Key idea. A match is derived from two directed likes, never scanned for; a Bloom filter&#39;s one-directional guarantee is exactly what &quot;never re-show&quot; requires; and a shard key can only make one access pattern cheap at a time.</p>
+<h2>1. Requirements</h2>
+<h3>1.1 Functional requirements</h3>
+<p>The actions in the problem statement are the requirements.</p>
+<p>Candidate feed. Given a user&#39;s location and preferences, return nearby profiles they have not already swiped.</p>
+<p>Swipe. Record a like or pass on a profile. This is the highest-volume write in the system.</p>
+<p>Mutual match. When two users like each other, create a match and notify both.</p>
+<p>List matches. A user can see their current matches.</p>
+<h3>1.2 Non-functional requirements</h3>
+<p>Swipe write throughput. The swipe path must absorb billions of writes a day without falling over.</p>
+<p>Match correctness. A mutual like must produce exactly one match and notify both users — never zero, never two.</p>
+<p>Feed latency. Candidate-feed reads should return in the low hundreds of milliseconds.</p>
+<p>No repeats. A user must never be shown a profile they have already swiped.</p>
+<p>Availability and durability. Swipes and matches must survive process and node failure; the feed may degrade before the swipe path does.</p>
+<h3>1.3 The constraint versus the property</h3>
+<p>The property never to compromise is match correctness under a race: two near-simultaneous likes must still produce exactly one match, not zero and not two. The constraint that drives the rest of the design is swipe write throughput — everything from sharding to the seen filter has to survive that load first.</p>
+<p>Key idea. Match correctness is the property to protect; swipe write throughput is the constraint everything else is designed around.</p>
+<h2>2. Back-of-the-envelope estimation</h2>
+<h3>2.1 Writes: the swipe firehose</h3>
+<p>Assume about 50 million daily active users, each swiping roughly 100 profiles a day. That&#39;s 50M × 100 = 5,000M, or 5 billion swipes a day. A day holds 24 × 3,600 = 86,400 seconds, so the average write rate is 5×10⁹ ÷ 86,400 ≈ 58,000 swipes a second. Evening peaks run several times higher — at a 3× multiplier that&#39;s roughly 58,000 × 3 ≈ 174,000 writes a second.</p>
+<h3>2.2 Reads: the candidate feed</h3>
+<p>Each user pulls a fresh batch of candidates some tens of times a day (for example, 20). That&#39;s 50M × 20 = 1,000M, or 1 billion feed reads a day, averaging around 11,600 reads a second. Reads run at roughly a fifth of the write rate — the reverse of a typical read-heavy CRUD system.</p>
+<h3>2.3 Storage and the seen filter</h3>
+<p>Each swipe row is tiny: swiper id, swipee id, direction, timestamp — about 32 bytes. At 5 billion swipes a day that&#39;s roughly 160 GB of raw swipe data daily, before indexes. For the seen filter, a Bloom filter sized for a 1% false-positive rate costs about 9.6 bits per entry (from the standard formula bits/entry ≈ -log₂(p) / ln 2, evaluated at p = 0.01) — a fraction of the roughly 64 bits an exact per-entry record would need.</p>
+<p>A match needs both users to like each other, so matches are a small fraction of swipes — the read side (matches list, notifications) never comes close to swipe-write volume.</p>
+<p>Key idea. The system must absorb roughly 58,000 swipe writes a second on average and 174,000 at peak — several times the candidate-feed read rate. Matches are a trickle by comparison; size for the writes.</p>
+<h2>3. API design</h2>
+<p>Every endpoint derives the acting user from the authenticated session — the swiper, the match owner — never from the request body.</p>
+<h3>3.1 Get the candidate feed</h3>
+<p>Location, preference filtering, and seen-filter removal all happen server-side against the authenticated user; the client only renders what comes back.</p>
+<h3>3.2 Swipe</h3>
+<p>This is the hot write. On a like, the server checks for the reverse like and derives the match. matched comes back true inline when the reverse like already existed; otherwise, if a match happens later, it arrives by push.</p>
+<h3>3.3 List matches</h3>
+<p>Key idea. The API manages match detection asynchrony: swipes return immediately, inlining matches if known, or utilizing push notifications for later matches.</p>
+<h2>4. Data model</h2>
+<h3>4.1 User and geo index</h3>
+<p>A user&#39;s profile includes a geo_cell derived from coordinates to support proximity searches.</p>
+<p>The geo index inverts that column: cell_id → set of user_ids, so a candidate search is a lookup on a handful of cells instead of a scan.</p>
+<h3>4.2 Swipe</h3>
+<p>Every functional requirement so far — the feed&#39;s seen filter, and match detection — reads this table along the swiper direction, so it&#39;s keyed that way from the start.</p>
+<p>Primary key (swiper_id, swipee_id). One row per directed pair; a later swipe on the same target overwrites in place.</p>
+<h3>4.3 Match</h3>
+<p>A match needs a stable identity that both directions of a like compute to the same value, so a duplicate detection never creates a duplicate row.</p>
+<p>match_id = hash(min(user_a, user_b), max(user_a, user_b)) — deterministic regardless of which side triggered the match, which is what makes an insert-if-absent safe under a race (worked out in the mutual-match deep dive below).</p>
+<h3>4.4 Seen filter</h3>
+<p>One Bloom filter per user, updated on every swipe, read on every feed request.</p>
+<h3>4.5 Where each entity lives</h3>
+<p>User profiles and the geo index are durable, replicated storage — the source of truth for who exists and where. Swipes are durable too, sharded by swiper_id (the high-level design derives why). Matches are a small, durable table. The seen filter is a cache: it can be rebuilt by replaying a user&#39;s swipe history, so its loss is a rebuild, not data loss.</p>
+<p>Key idea. One user forces a geo index; one swipe forces a swiper-keyed table; one mutual pair forces a deterministic match id; one &quot;never re-show&quot; rule forces a rebuildable seen filter.</p>
+<h2>5. High-level design</h2>
+<h3>5.1 One database</h3>
+<p>In a naive design, a single database holds all users and all swipes. A candidate feed is a distance query over the users table; a swipe is an insert; a match check is a scan for the reverse row.</p>
+<p>Five things break this at scale.</p>
+<p>Finding candidates means a distance calculation over every user row — a full scan.</p>
+<p>Billions of swipe writes a day overwhelm a single store.</p>
+<p>Detecting a mutual like means scanning swipes for a matching reverse row.</p>
+<p>The feed keeps re-showing profiles the user already swiped, because nothing tracks exclusions cheaply.</p>
+<p>Assembling a filtered, ranked feed from scratch on every request is too slow to do live.</p>
+<h3>5.2 Fix 1: a geo index and a candidate service</h3>
+<p>Index every profile by geo cell and put a dedicated candidate service in front of it, so a feed request touches a handful of cells instead of every row.</p>
+<p>This fixes candidate search. Swipes still hit the same overloaded store.</p>
+<h3>5.3 Fix 2: a swipe service sharded by swiper</h3>
+<p>The swipe write is the firehose from the estimation section, so give it its own service and its own sharded store — one shard per range of swiper_id. Every user&#39;s own swipes land on one shard, which keeps a per-user write local and, as the deep dive works out, keeps the feed&#39;s exclusion check local too.</p>
+<p>Writes now spread across shards and scale independently of candidate search. Match detection still means scanning for a reverse row.</p>
+<h3>5.4 Fix 3: detect the match with a reverse-key read</h3>
+<p>When A likes B, the write lands on shard(A). The system immediately performs a point read on shard(B) for (swiper=B, swipee=A). A hit means B already liked A — insert the match, keyed by the deterministic id from the data model, using insert-if-absent so a race can&#39;t create two rows.</p>
+<p>Matches are now detected without ever scanning the swipe table. The feed still re-shows profiles a user has already swiped, because nothing outside the swipe table tracks that cheaply.</p>
+<h3>5.5 Fix 4: a per-user seen filter</h3>
+<p>A feed must never re-show profiles a user has already swiped. Fetching the full swipe history from database shards on every request is too database-intensive.</p>
+<p>Instead, the system stores a separate Bloom filter for each user at a unique Redis key (e.g., seen:{swiper_id}). This separation yields significant memory savings. Storing $10,000$ profiles as $64$-bit IDs in a standard hash set requires roughly $300\text{ KB}$ per user. This number includes pointer and data structure overhead. In contrast, a Bloom filter sized for $10,000$ entries with a $1%$ false-positive rate costs $9.6\text{ bits}$ per entry. This totals a fixed $96,000\text{ bits}$ (approximately $12\text{ KB}$) per user, achieving a $25\text{x}$ storage reduction.</p>
+<p>When a user swipes, the Swipe service writes the event to the database shard. It also updates the user&#39;s Bloom filter in Redis. During feed generation, the Candidate service fetches the user&#39;s filter and tests candidate profiles against it. It discards any profile that matches, preventing re-shows. Since the filter resides in memory, these lookups are highly efficient. If a cache node fails, the system rebuilds the filter by reading the user&#39;s swipe history from the database.</p>
+<p>Re-shows are fixed. One problem remains: assembling geo lookup, preference filtering, and seen-filter removal live, on every request, is still too slow for a low-hundreds-of-milliseconds budget.</p>
+<h3>5.6 Fix 5: precompute a candidate queue</h3>
+<p>A background job pre-filters by geo cell and preference into a per-user queue of candidate ids. A feed request pulls from the queue, applies the fast-changing seen-filter check, ranks, and returns — no live geo query on the hot path.</p>
+<h3>5.7 The composed design</h3>
+<p>Each component answers one failure of the naive design: the geo index and candidate service fix the full-scan search, swiper-sharded swipes fix the write firehose, the reverse-key read fixes match detection, the seen filter fixes re-shows, and the precomputed queue fixes feed latency.</p>
+<h3>5.8 Sequence: swipe with an immediate match</h3>
+<p>Key idea. Every fix derives from one failure of the naive design — full-scan search, write overload, match scans, re-shows, and live-assembly latency — not from a pre-known list of components.</p>
+<h2>6. Deep dives</h2>
+<h3>6.1 Mutual-match detection</h3>
+<p>The reverse lookup is a single point read on the swipee&#39;s shard, so on the common case — no reverse like yet — it costs one cheap read on the hot swipe path, and it&#39;s safe to run inline. The race is the near-simultaneous case: if A→B and B→A arrive in the same window, each write may land before the other side&#39;s reverse-lookup runs, so both checks can report a hit.</p>
+<p>The deterministic match_id = hash(min(A,B), max(A,B)) collapses that race: however many times a match gets detected from either direction, both directions compute the identical id. Creating the match is an insert-if-absent on that id, so the second detection is a no-op, and exactly one match row and one notification pair result. If the swipee&#39;s shard is briefly unavailable, the like is still durably written and the match-check retries asynchronously — a match is delayed, never lost.</p>
+<h3>6.2 The swipe firehose and hot profiles</h3>
+<p>Before reading on. Sharding swipes by swiper_id spreads writes evenly. What happens to the reads generated by one extremely popular profile?</p>
+<p>Sharding by swiper_id means every user&#39;s outgoing likes land on one shard, and no single popular user creates a write hotspot — each admirer&#39;s like lands on the admirer&#39;s own shard, not the popular user&#39;s. But every one of those likes triggers a reverse-lookup read against the popular user&#39;s shard (&quot;has this popular user already liked me back?&quot;). A profile with an outsized number of admirers turns into a burst of reverse-read traffic concentrated on one shard, even though the writes stay perfectly spread.</p>
+<p>The fix reuses the seen-filter idea from Key concepts: the system maintains a small Bloom filter of outgoing likes for every user, cached or replicated off the shard that owns it. Because a popular user has liked only a tiny fraction of their admirers, the filter absorbs almost all of the reverse-lookup traffic without touching the shard directly — the hotspot the sharding decision created gets relieved by the same probabilistic-membership trick that already solved re-shows.</p>
+<h3>6.3 Candidate generation</h3>
+<p>Before reading on. Given a geo index, a preference filter, and a seen-filter, in what order should a candidate request apply them, and why does the order matter?</p>
+<p>The filters are ordered cheap-to-expensive. The system first queries the user&#39;s geo cell plus its immediate neighbors. This boundary-aware search narrows millions of users down to a local candidate set. It then filters by stated preferences (age, distance, gender), ideally keeping only candidates whose own preferences also admit the user. Only then does it query the user&#39;s Bloom filter for each surviving candidate ID. The filter&#39;s no-false-negative guarantee ensures that a swiped profile is never wrongly reported as unseen. A false positive only drops a small fraction of unseen profiles, which</p>
+<p>What&#39;s left is ranked — recency, activity, and a compatibility score from the ranker deferred in the problem statement — and the results are cached in the per-user candidate queue from the high-level design, so a swipe session is served from memory and refilled in the background rather than recomputed live on every card.</p>
+<p>If ranking is unavailable, fall back to distance-sorted candidates rather than failing the feed. A brief seen-filter outage may cause a few profiles to resurface. This is a mild annoyance rather than a correctness failure. Key production metrics to monitor include the candidate-queue hit rate and empty-feed rate. The system also tracks geo-query latency.</p>
+<p>Key idea. Sharding by swiper_id spreads writes evenly but concentrates reverse-lookup reads on popular profiles; the same Bloom-filter trick that stops re-shows also relieves that hotspot; and ordering candidate filters cheap-to-expensive keeps the feed inside its latency budget.</p>
+<h2>7. Variants</h2>
+<h3>10× scale</h3>
+<p>Ten times the swipes means ten times the write firehose: more swipe shards, more aggressive batching per shard, and moving the match-check fully behind an async queue so a slow reverse-lookup never adds latency to the swipe write itself. The geo index shards finer in dense metros, where a single cell can otherwise hold far more users than a shard should own — the same hot-cell problem Uber solves by splitting a cell across sub-shards. Seen-filter memory grows linearly with users but stays shardable per user. Matches remain a trickle relative to swipes and scale without trouble.</p>
+<h3>Global distribution</h3>
+<p>Dating is inherently geo-local — two users only match if they&#39;re near each other — so the system partitions cleanly by region. Deploying per-region clusters (profiles, geo index, swipe shards, matches) ensures that a user&#39;s candidates, swipes, and matches all stay within their home region. Cross-region travel — &quot;show me profiles where I&#39;m currently visiting&quot; — is the rare case that needs a user&#39;s data served from a region other than their home one.</p>
+<h3>Recommendation quality</h3>
+<p>Ranking candidates well — who to show first — is its own machine-learning system: it consumes the swipe stream as training signal and scores candidates at generation time. This design treats the ranker as an existing dependency the candidate service calls, the same way the Instagram feed defers ranking internals; the model itself is a separate problem.</p>
+<p>Key idea. The architecture holds at 10× scale and across regions with sharding and finer geo cells; only ranking quality is a genuinely separate system, deferred throughout.</p>
+<h2>8. The transferable pattern</h2>
+<p>The reusable shape: separate a write-heavy stream of independent events (swipes) from a read path over derived state (matches, feed). Detecting a relationship between two entities uses a reverse-key point read plus a deterministic id and insert-if-absent, rather than scanning. And enforcing a &quot;never show this again&quot; rule uses a probabilistic set whose error runs in the safe direction. The same shape reappears anywhere two independent actors must discover a mutual condition without a coordinator — from social-graph mutual follows to matching in a marketplace.</p>
+<h2>Review: the 30-second answer</h2>
+<p>Two paths: a swipe write firehose and a candidate-feed read, and the firehose is the one that sizes the system.</p>
+<p>Finding nearby candidates is the same geospatial-indexing problem Uber solves for drivers.</p>
+<p>A match is a mutual like, detected on write with a reverse-key read — never scanned for.</p>
+<p>A Bloom filter guarantees a swiped profile is never shown again.</p>
+<p>Matches are rare; swipes are not.</p>
+<h2>Quiz</h2>
+<h2>Sources and further reading</h2>
+<p>Geospatial indexing explained — Ben Feifke — geohash bit-interleaving and S2&#39;s Hilbert-curve cells, and why proximity search is cell-plus-neighbors-plus-exact-distance-refine.</p>
+<p>H3: Uber&#39;s hexagonal hierarchical spatial index — Uber Engineering — the hexagonal cell grid, its resolutions, and the k-ring neighbor lookup the candidate search reuses.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

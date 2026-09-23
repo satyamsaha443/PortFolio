@@ -1,0 +1,615 @@
+<h1>30 Most Common System Design Questions — with Model Answers</h1>
+<blockquote>
+<p><strong>Lesson 5.3</strong> · All Levels · 90 min</p>
+</blockquote>
+<hr>
+<p>Every system design interview recycles the same 30 problems. The questions are not arbitrary — each one is a canonical test of a specific architectural concern: fan-out, consistency boundaries, hot-spot handling, data locality, and so on. This lesson gives you a repeatable answer structure for all 30, grouped by the difficulty tier you should expect to face them in.</p>
+<p><strong>Answer structure for each question:</strong></p>
+<ul>
+<li>The question as asked</li>
+<li>Key clarifications to request first</li>
+<li>Core components to cover</li>
+<li>The #1 bottleneck or trade-off that separates good answers from great ones</li>
+<li>Signal phrase — what a senior candidate says that a junior doesn&#39;t</li>
+</ul>
+<hr>
+<h2>Tier 1 — Beginner (Q1–Q6)</h2>
+<p>These questions have well-known solutions. Interviewers use them to assess whether you can drive a conversation, ask the right clarifying questions, and communicate a clean design. Being overly terse is the most common failure mode.</p>
+<hr>
+<h3>Q1. Design a URL Shortener</h3>
+<p><strong>As asked:</strong> &quot;Design a service like bit.ly that converts long URLs to short ones.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the expected write QPS and expected lifespan of a short URL — are we designing for 1 million new URLs/day or 100 million?</li>
+<li>Should custom aliases be supported, or only randomly generated codes?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Base-62 encoding to generate a 6–7 character code from an auto-increment ID (a 7-char base-62 string gives 3.5 trillion unique codes)</li>
+<li>Write path: API → generate short code → write to <code>(short_code, long_url, created_at, expiry)</code> table</li>
+<li>Read path: API → look up short code → <code>HTTP 301 Redirect</code> (cached) or <code>302</code> (always hits origin)</li>
+<li>Cache layer (Redis) in front of the DB; most URLs follow an 80/20 access pattern</li>
+<li>Separate analytics pipeline if click tracking is required — never put counters on the hot read path</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Cache stampede on a viral link. When a popular URL is not yet cached, thousands of concurrent requests hit the DB simultaneously. Fix with a Redis lock or probabilistic early expiry.</p>
+<p><strong>Signal phrase:</strong> &quot;I&#39;d use a <code>301</code> redirect for CDN-cacheability, but <code>302</code> if we need to track every click — they&#39;re not the same thing and choosing incorrectly destroys analytics.&quot;</p>
+<hr>
+<h3>Q2. Design a Key-Value Store</h3>
+<p><strong>As asked:</strong> &quot;Design a distributed key-value store like DynamoDB or Redis.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Is this an in-memory cache (microsecond latency, volatile) or a persistent store (milliseconds, durable)?</li>
+<li>What consistency model — single-leader strong, or eventual with tunable quorum?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Consistent hashing ring to distribute keys across nodes; virtual nodes (vnodes) per physical node to reduce hot spots</li>
+<li>LSM tree (write-optimised) for persistent storage; B-tree for read-optimised workloads</li>
+<li>Replication factor N with quorum reads (R) and writes (W); Dynamo-style <code>R + W &gt; N</code> for strong reads</li>
+<li>Vector clocks or Last-Write-Wins (LWW) for conflict resolution</li>
+<li>Gossip protocol for cluster membership and failure detection</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Hot key — one key receives 10% of all traffic. Consistent hashing does not solve this. Fix with key-level sharding (append a random suffix 0–9, fan out reads and merge) or a dedicated in-memory tier in front.</p>
+<p><strong>Signal phrase:</strong> &quot;The choice between LWW and vector clocks is actually a product question — LWW loses data silently on concurrent writes, which is fine for session caches but unacceptable for shopping carts.&quot;</p>
+<hr>
+<h3>Q3. Design a Rate Limiter</h3>
+<p><strong>As asked:</strong> &quot;Design a rate limiter that restricts users to 100 requests per minute.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Is this a global rate limiter (across all servers) or per-server? Global requires a shared state store.</li>
+<li>Should we throttle at the API gateway, per user, per IP, or per endpoint?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Redis with sliding window log (store timestamps of last N requests per user key) or token bucket (store <code>{tokens, last_refill}</code> per key)</li>
+<li>Lua script for atomic check-and-decrement inside Redis (prevents race conditions)</li>
+<li>API gateway middleware intercepts requests before they reach application servers</li>
+<li><code>429 Too Many Requests</code> response with <code>Retry-After</code> header</li>
+<li>Separate rate-limit config store (per-user tiers, per-endpoint limits) decoupled from the hot path</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Redis itself becomes a bottleneck at extreme QPS (&gt;500K rps). Fix with local token buckets per server that synchronise to Redis every 100ms — trading perfect accuracy for throughput. Accept a small overshoot.</p>
+<p><strong>Signal phrase:</strong> &quot;Fixed window counters are simple but have a boundary burst problem — 100 requests in the last second of minute 1 plus 100 in the first second of minute 2 is 200 rps through a 100/min limiter. Sliding window log fixes it but costs O(N) memory per user.&quot;</p>
+<hr>
+<h3>Q4. Design a Parking Lot System</h3>
+<p><strong>As asked:</strong> &quot;Design a software system to manage a multi-level parking lot.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What vehicle types must be supported — motorcycles, compact cars, large trucks?</li>
+<li>Is this a single location or a network of lots (changes the data model significantly)?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Object model: <code>ParkingLot → Floor → Row → Spot</code>; spots have a type (<code>BIKE</code>, <code>COMPACT</code>, <code>LARGE</code>)</li>
+<li>Spot assignment: find the nearest available spot of the right type — floor-level bitmap for O(1) availability check</li>
+<li>Ticket: <code>{ticket_id, vehicle_plate, spot_id, entry_time}</code> with a fee calculator on exit</li>
+<li>Concurrency: optimistic locking on spot reservation (check-and-mark in a single transaction)</li>
+<li>Entry/exit hardware integration via a lightweight event API</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Concurrent entries at peak hours. Two cars can race for the same spot. Fix with a database <code>SELECT ... FOR UPDATE</code> on the spot row, or a Redis SETNX lock keyed by spot ID.</p>
+<p><strong>Signal phrase:</strong> &quot;Spot assignment looks like a simple query, but at scale it&#39;s a distributed resource allocation problem — the same pattern as room booking, seat reservation, and inventory allocation.&quot;</p>
+<hr>
+<h3>Q5. Design a Basic Chat Application</h3>
+<p><strong>As asked:</strong> &quot;Design a one-on-one messaging system like WhatsApp direct messages.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Does the system need message persistence and history, or only real-time delivery?</li>
+<li>What&#39;s the scale — 1 million concurrent users or 1 billion?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>WebSocket connections from clients to a connection server (stateful); one server can hold ~100K connections</li>
+<li>Message service: persists messages to a <code>messages</code> table <code>(msg_id, sender_id, receiver_id, content, timestamp, status)</code></li>
+<li>Inbox service: each user has an inbox; unread messages are fetched on reconnect via a pull-on-connect model</li>
+<li>Presence service: Redis pub/sub or heartbeat pings to track online/offline state</li>
+<li>Push notifications (APNs/FCM) for offline users</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Connection server statefulness — WebSocket connections are not load-balanced like HTTP. Fix with a routing layer: the connection server registers each client&#39;s server address in Redis so any server can relay a message to the right connection server via an internal queue.</p>
+<p><strong>Signal phrase:</strong> &quot;WebSockets give you push, but they&#39;re stateful — you can&#39;t route a message to a user without knowing which connection server holds their socket. That&#39;s the hard part.&quot;</p>
+<hr>
+<h3>Q6. Design a Leaderboard</h3>
+<p><strong>As asked:</strong> &quot;Design a real-time leaderboard for a mobile game with 10 million daily active users.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Is this a global all-time leaderboard or a weekly rolling window?</li>
+<li>Does the ranking need to be exact or can we show approximate rank?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Redis Sorted Set (<code>ZADD leaderboard &lt;score&gt; &lt;user_id&gt;</code>): O(log N) writes and reads, <code>ZREVRANK</code> for user rank, <code>ZREVRANGE</code> for top-K — everything is single-command</li>
+<li>Score update pipeline: game server → Kafka → score-update consumer → Redis (decouple from game hot path)</li>
+<li>Periodic snapshot to a relational DB for historical analysis and cold storage</li>
+<li>Weekly leaderboard: create a new sorted set each Monday, expire after 8 days</li>
+<li>Pagination: <code>ZREVRANGE leaderboard 0 99</code> for top 100; <code>ZREVRANK</code> for the &quot;my rank&quot; panel</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> At 10M DAU with frequent score updates, Redis write throughput can saturate a single node. Fix with leaderboard sharding by user segment, then a merge layer for the global top-N view.</p>
+<p><strong>Signal phrase:</strong> &quot;Redis Sorted Sets are tailor-made for this — O(log N) inserts and O(log N) rank queries at any scale. The interesting problem is the global merge when you shard.&quot;</p>
+<hr>
+<h2>Tier 2 — Intermediate (Q7–Q14)</h2>
+<p>These questions introduce fan-out, search, and distributed coordination. Interviewers expect you to navigate trade-offs without prompting.</p>
+<hr>
+<h3>Q7. Design Instagram (Photo Sharing)</h3>
+<p><strong>As asked:</strong> &quot;Design a photo-sharing platform where users follow each other and see a feed of photos.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the read/write ratio? Instagram-style feeds are ~100:1 read-heavy.</li>
+<li>What&#39;s the maximum fanout? Celebrity accounts with 50M followers change the architecture.</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Media service: upload to object storage (S3); CDN in front for reads; generate thumbnails asynchronously via a media-processing worker</li>
+<li>Graph service: <code>follows</code> table <code>(follower_id, followee_id)</code>; store bidirectional for fast lookups</li>
+<li>Feed service: <strong>push-on-write (fanout-on-write)</strong> — on new post, write post ID to every follower&#39;s feed cache in Redis; the feed is a Redis List or Sorted Set per user</li>
+<li>Timeline read: fetch post IDs from user&#39;s feed cache, hydrate with post metadata via batch fetch</li>
+<li>Celebrity exception: <strong>pull-on-read</strong> for users with &gt;1M followers — their posts are injected at read time, not precomputed</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Fanout write amplification for celebrity accounts. One post to 50M followers = 50M Redis writes in seconds. The hybrid push/pull model is the canonical solution.</p>
+<p><strong>Signal phrase:</strong> &quot;Fanout-on-write keeps reads cheap but write latency spikes for high-follower accounts — you need to detect celebrity accounts at write time and fall back to pull.&quot;</p>
+<hr>
+<h3>Q8. Design a Notification System</h3>
+<p><strong>As asked:</strong> &quot;Design a system that sends email, SMS, and push notifications to users.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What are the delivery guarantees — at-least-once or exactly-once? For financial alerts, exactly-once matters.</li>
+<li>What&#39;s the expected throughput — 1K notifications/sec or 1M/sec?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Notification API: accepts <code>{user_id, type, template_id, payload}</code> and publishes to a Kafka topic per channel</li>
+<li>Template service: renders templates with user-specific data; decoupled from delivery</li>
+<li>Channel workers: separate consumer groups per channel (email → SendGrid, SMS → Twilio, push → FCM/APNs)</li>
+<li>Retry mechanism: exponential backoff with dead-letter queue (DLQ) for failed deliveries</li>
+<li>User preference service: per-user channel opt-ins and quiet hours; check before enqueue</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Third-party rate limits. SendGrid caps at 100 rps per IP; Twilio limits concurrent SMS. Fix with per-channel rate-limited queues and a token bucket upstream of each vendor client.</p>
+<p><strong>Signal phrase:</strong> &quot;Notifications look like a simple pub/sub problem until you hit vendor rate limits and user preferences — the orchestration logic is the hardest part, not the delivery itself.&quot;</p>
+<hr>
+<h3>Q9. Design a Search Autocomplete</h3>
+<p><strong>As asked:</strong> &quot;Design the autocomplete feature on a search bar (like Google&#39;s type-ahead).&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Should results be personalised per user, or global trending queries?</li>
+<li>What&#39;s the acceptable latency — 100ms feels instant; 500ms feels broken.</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Trie data structure in memory: each node stores the top-K completions for that prefix, pre-aggregated at write time</li>
+<li>Query log pipeline: capture raw search queries → aggregate counts hourly via Spark/Flink → update Trie</li>
+<li>Serving layer: Trie sharded by first character or prefix hash; Redis hash as an alternative for smaller vocab</li>
+<li>CDN/browser cache: common prefixes (&quot;the&quot;, &quot;how to&quot;) can be cached at the edge for 60 seconds</li>
+<li>Personalization layer: blend global results with user&#39;s own recent query history at merge time</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Trie update latency. A trending term (a breaking news event) needs to surface in suggestions within minutes, but batch Trie rebuilds take hours. Fix with a real-time &quot;trending&quot; overlay that bypasses the Trie for queries above a spike threshold.</p>
+<p><strong>Signal phrase:</strong> &quot;The Trie is the obvious data structure, but the hard problem is keeping it fresh — a static Trie built nightly won&#39;t capture a trending search term within the hour.&quot;</p>
+<hr>
+<h3>Q10. Design a Web Crawler</h3>
+<p><strong>As asked:</strong> &quot;Design a web crawler that indexes the entire web.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Is this a one-time crawl or a continuous re-crawl to detect updates?</li>
+<li>How do we handle politeness — respecting <code>robots.txt</code> and crawl-delay?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>URL frontier: a priority queue (Kafka or Redis sorted set) of URLs to crawl; priorities based on PageRank, freshness, and domain crawl budget</li>
+<li>Fetcher workers: distributed pool of workers that download pages and extract links; stateless and horizontally scalable</li>
+<li>Deduplication: URL-level (bloom filter, ~1B URLs = 1.2 GB at 10 bits/URL) and content-level (SimHash of page content)</li>
+<li>DNS resolver cache: crawlers spend 30–60% of time on DNS — cache DNS responses aggressively, run a local resolver</li>
+<li>Link extractor: parse HTML, normalise URLs, push new URLs back to frontier</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Politeness and crawl budget. A naive crawler hammers a single domain with 1000 concurrent requests and gets banned. Fix with per-domain rate limiting: one Kafka partition per domain, one worker per partition, with domain-level token buckets.</p>
+<p><strong>Signal phrase:</strong> &quot;The URL frontier isn&#39;t a simple queue — it needs to enforce politeness, avoid re-crawling stale content unnecessarily, and prioritise high-value pages. Priority queuing is the core data structure, not BFS.&quot;</p>
+<hr>
+<h3>Q11. Design a Pastebin</h3>
+<p><strong>As asked:</strong> &quot;Design a text-sharing service like Pastebin where users can store and share snippets.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the maximum paste size — 1 MB or 100 MB?</li>
+<li>Should pastes expire, and should there be view-count analytics?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Object storage (S3/Blob) for paste content — not the DB; DB holds metadata only <code>(paste_id, user_id, title, content_url, expiry, visibility, created_at)</code></li>
+<li>Short ID generation: same base-62 approach as URL shortener; 8 characters gives ~218 trillion IDs</li>
+<li>Read path: API → DB metadata lookup → fetch content from object storage → return; CDN for public pastes</li>
+<li>Expiry: scheduled job or TTL-triggered deletion from both DB and object storage</li>
+<li>Syntax highlighting: client-side (Prism.js) — never do this server-side at scale</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Large pastes. Storing 100 MB pastes in PostgreSQL is a disaster. Always stream content to object storage and store only the URL reference in the DB.</p>
+<p><strong>Signal phrase:</strong> &quot;Pastebin is essentially URL shortener plus object storage — the metadata schema is trivial; the interesting design choice is the boundary between DB storage and blob storage.&quot;</p>
+<hr>
+<h3>Q12. Design a Task Scheduling System</h3>
+<p><strong>As asked:</strong> &quot;Design a system like cron that executes scheduled jobs (one-time and recurring).&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the required precision — second-level granularity, or minute-level is fine?</li>
+<li>How do we handle missed executions (e.g., the system was down at scheduled time)?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Job definition store: <code>(job_id, schedule_expression, handler_endpoint, payload, next_run_at, status)</code></li>
+<li>Scheduler process: polls the DB every second for jobs with <code>next_run_at &lt;= NOW()</code>, claims them with an optimistic lock, enqueues to a worker queue</li>
+<li>Worker pool: stateless workers consume from the queue, execute the job, report success/failure</li>
+<li>Distributed lock (Redis SETNX with TTL): prevents two schedulers from claiming the same job on split-brain</li>
+<li>Catch-up logic: on recovery, replay missed executions within a configurable window (e.g., last 24 hours)</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Scheduler is a single point of failure and a polling bottleneck. Fix with a leader-elected scheduler cluster (ZooKeeper/etcd election) and a partitioned job queue so multiple schedulers own non-overlapping job ranges.</p>
+<p><strong>Signal phrase:</strong> &quot;The hard problems in task scheduling are idempotency (jobs must be safe to run twice on crash-recovery) and clock drift (two scheduler nodes in different timezones can cause double-execution).&quot;</p>
+<hr>
+<h3>Q13. Design a Proximity Service (Yelp / Nearby Places)</h3>
+<p><strong>As asked:</strong> &quot;Design a service that returns businesses near a given GPS coordinate.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the search radius — 1 km, 5 km, 50 km?</li>
+<li>Is the business location data static (registered address) or dynamic (moving delivery driver)?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Geospatial index: <strong>Quadtree</strong> for static data or <strong>Geohash</strong> for simpler range queries; both decompose 2D space into hierarchical cells</li>
+<li>Geohash approach: encode <code>(lat, lng)</code> to a geohash string (e.g., <code>dp3wjz</code>); search the cell and its 8 neighbours to avoid boundary misses</li>
+<li>Business data store: read-heavy, write-occasional; store geohash in a column with an index; Postgres PostGIS handles this natively</li>
+<li>Cache layer: geohash cell → list of business IDs cached in Redis with 5-minute TTL; most users search the same popular areas</li>
+<li>Distance calculation: Haversine formula for exact distance sorting after the geohash pre-filter</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Geohash cell size mismatch — a sparse rural area and a dense Manhattan block get equal-sized cells. Fix with adaptive quadtree splitting: split cells when business count exceeds a threshold (e.g., 100).</p>
+<p><strong>Signal phrase:</strong> &quot;Geohash turns a 2D proximity search into a 1D string prefix query, which is trivially indexable — but you must always query the 8 neighbouring cells because a boundary split can put two nearby businesses in different cells.&quot;</p>
+<hr>
+<h3>Q14. Design a Hotel Booking System</h3>
+<p><strong>As asked:</strong> &quot;Design a system like Booking.com for searching and reserving hotel rooms.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>How far in advance can rooms be booked — up to 1 year?</li>
+<li>Is overbooking allowed (airlines do it; hotels generally don&#39;t)?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Inventory service: <code>room_inventory(hotel_id, room_type, date, total_rooms, reserved_rooms)</code> — one row per hotel/type/date</li>
+<li>Search service: availability query with filters (location, date range, price, amenities); backed by Elasticsearch for full-text and Postgres for inventory</li>
+<li>Reservation service: creates a booking; uses a DB transaction with <code>SELECT ... FOR UPDATE</code> on inventory rows to prevent double-booking</li>
+<li>Idempotency key: client sends a UUID with each booking request; server stores <code>idempotency_key → booking_id</code> to handle retries safely</li>
+<li>Payment integration: payment captured after reservation holds inventory for 15 minutes; release if payment fails</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Inventory contention on popular dates. Ten thousand users simultaneously booking the last room on New Year&#39;s Eve creates extreme lock contention. Fix with an optimistic concurrency control <code>(version</code> column) and retry, or accept a queue-based serialisation for that inventory row.</p>
+<p><strong>Signal phrase:</strong> &quot;Hotel inventory is a classic read-heavy but write-contentious workload — you can cache availability freely, but the reservation step must go through a serialised inventory check to prevent overbooking.&quot;</p>
+<hr>
+<h2>Tier 3 — Pro (Q15–Q22)</h2>
+<p>These questions require deep knowledge of data pipelines, storage internals, and multi-system coordination. Expect to defend your choices.</p>
+<hr>
+<h3>Q15. Design YouTube / Video Streaming</h3>
+<p><strong>As asked:</strong> &quot;Design a video hosting and streaming platform.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the upload size limit — 15 GB? What output formats and resolutions are required?</li>
+<li>Is live streaming in scope, or VOD only?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Upload pipeline: chunked upload (5 MB chunks) → raw storage → transcoding workers (FFmpeg) → adaptive bitrate (ABR) output (360p, 720p, 1080p, 4K) → CDN</li>
+<li>Metadata service: <code>videos(video_id, uploader_id, title, description, status, duration, created_at)</code> in Postgres</li>
+<li>Video delivery: HLS or MPEG-DASH manifests served from CDN; client player selects bitrate based on bandwidth</li>
+<li>View count: approximate with HyperLogLog in Redis; persist exact counts to Cassandra asynchronously</li>
+<li>Recommendation pipeline: offline ML model trained on watch history, refreshed daily; served from a feature store</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Transcoding queue depth. A viral upload triggers millions of views before transcoding completes. Fix with priority transcoding (process the first 60 seconds immediately for quick preview) and pre-warm CDN edge nodes for high-predicted-traffic videos.</p>
+<p><strong>Signal phrase:</strong> &quot;Video storage is cheap; transcoding is expensive. The architecture is fundamentally an async pipeline problem — the upload endpoint just hands off to a queue; everything interesting happens downstream.&quot;</p>
+<hr>
+<h3>Q16. Design a Payment Processing System</h3>
+<p><strong>As asked:</strong> &quot;Design a payment platform that processes credit card transactions.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Are we building the full stack (card issuer integration) or a payment orchestrator sitting on top of Stripe/Adyen?</li>
+<li>What are the regulatory requirements — PCI-DSS scope, regional mandates?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Payment API: accepts <code>{amount, currency, card_token, idempotency_key, merchant_id}</code> — card numbers never touch your servers (tokenised)</li>
+<li>Idempotency layer: <code>idempotency_key → payment_id</code> stored in DB; any retry returns the same result</li>
+<li>State machine: <code>INITIATED → PROCESSING → SUCCEEDED | FAILED | REFUNDED</code>; every state transition persisted atomically</li>
+<li>Ledger: double-entry accounting table <code>(debit_account, credit_account, amount, currency, payment_id)</code> — append-only, never updated</li>
+<li>Async reconciliation: compare ledger against bank settlement files nightly; flag discrepancies</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Exactly-once semantics across a network failure. A payment that times out may have succeeded at the processor. Fix with idempotency keys plus an explicit status poll: if a request times out, poll the payment status by idempotency key before retrying.</p>
+<p><strong>Signal phrase:</strong> &quot;Payments demand exactly-once delivery, not just at-least-once — an idempotency key and a status-check-before-retry pattern are mandatory, not optional.&quot;</p>
+<hr>
+<h3>Q17. Design Twitter / Social Media Feed</h3>
+<p><strong>As asked:</strong> &quot;Design the Twitter timeline — home feed, following, and posting.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the read/write ratio? Twitter&#39;s is approximately 1000:1 — feeds are read far more often than written.</li>
+<li>What&#39;s the maximum fanout — accounts with 100M+ followers?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Tweet service: write tweet → Kafka <code>tweets</code> topic → fanout worker</li>
+<li>Fanout worker: for each tweet, retrieve follower list, write tweet ID to each follower&#39;s feed cache (Redis List, capped at 800 entries)</li>
+<li>Feed read: fetch tweet IDs from Redis → batch-fetch tweet content from tweet cache → return merged, sorted feed</li>
+<li>Celebrity accounts (&gt;1M followers): skip fanout; inject their tweets into follower feeds at read time</li>
+<li>Search: Elasticsearch index updated in near-real-time from the Kafka stream</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Follower list fetch for high-follower accounts. Loading 100M follower IDs to fan out a single tweet takes minutes. Fix with pre-sharded follower lists and parallel fanout workers, combined with the pull-for-celebrities pattern.</p>
+<p><strong>Signal phrase:</strong> &quot;Twitter&#39;s feed architecture is the canonical example of the push vs pull trade-off — push gives O(1) reads but O(N) writes; pull gives O(N) reads but O(1) writes. The real answer is a hybrid keyed on follower count.&quot;</p>
+<hr>
+<h3>Q18. Design a Distributed Cache (Redis-like)</h3>
+<p><strong>As asked:</strong> &quot;Design a distributed caching system that supports get, set, and delete operations.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Should the cache support complex data types (sorted sets, lists) or only string key-value?</li>
+<li>What eviction policy — LRU, LFU, or TTL-only?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>In-memory hash table per node with a doubly linked list for LRU tracking (O(1) get/set/evict)</li>
+<li>Consistent hashing for key distribution; virtual nodes (150 vnodes per physical node) for balanced distribution</li>
+<li>Replication: each primary node has one async replica; failover via Sentinel or Raft-based cluster mode</li>
+<li>Eviction: <code>allkeys-lru</code> for cache use cases (evict any key); <code>volatile-lru</code> for mixed cache/persistent use cases (evict only keys with TTL)</li>
+<li>Memory pressure: <code>maxmemory</code> threshold triggers background eviction; avoid eviction during request latency budget</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Memory fragmentation. After millions of set/delete cycles, the allocator&#39;s internal free list is fragmented, and RSS memory exceeds used memory by 30–50%. Fix with <code>MEMORY PURGE</code> (jemalloc background defrag) or rolling restarts.</p>
+<p><strong>Signal phrase:</strong> &quot;Redis&#39;s single-threaded command execution is a feature, not a bug — it eliminates locking overhead and makes the memory model simple. The bottleneck is typically network I/O and memory, not CPU.&quot;</p>
+<hr>
+<h3>Q19. Design Google Maps</h3>
+<p><strong>As asked:</strong> &quot;Design a navigation and mapping service with real-time traffic.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Is turn-by-turn navigation for drivers in scope, or just static map rendering?</li>
+<li>How fresh does traffic data need to be — 30 seconds or 5 minutes?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Map tile service: pre-render tiles at each zoom level (256×256 px PNG); store in object storage + CDN; tiles are static and highly cacheable</li>
+<li>Graph representation: road network as a weighted directed graph (nodes = intersections, edges = road segments with travel time weights)</li>
+<li>Routing engine: Dijkstra or A* for shortest path; Contraction Hierarchies (CH) for real-world performance at scale (continent-wide routing in milliseconds)</li>
+<li>Real-time traffic: GPS probe data from mobile clients → Kafka → stream processor aggregates speed per road segment every 30 seconds → update edge weights</li>
+<li>ETA model: historical travel times + current traffic + time-of-day correction</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Graph update frequency vs routing cost. Re-running full Dijkstra on a 100M-edge graph every 30 seconds is infeasible. Fix with incremental edge weight updates: only re-route affected paths when edge weights change beyond a threshold.</p>
+<p><strong>Signal phrase:</strong> &quot;Maps routing is a shortest-path problem on a 100-million-node graph with continuously changing edge weights — Contraction Hierarchies precompute shortcuts to cut routing to milliseconds even on continental graphs.&quot;</p>
+<hr>
+<h3>Q20. Design an E-Commerce Platform (Amazon)</h3>
+<p><strong>As asked:</strong> &quot;Design a large-scale e-commerce platform with product catalog, cart, checkout, and orders.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Is this a first-party inventory model or a marketplace (third-party sellers)?</li>
+<li>What&#39;s the flash-sale scale — can we expect 10x normal traffic in a 1-minute window?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Product catalog: Elasticsearch for search and filtering; Postgres for authoritative product data; CDN for images</li>
+<li>Inventory service: per-SKU counters in Redis with atomic decrement on reservation; reconcile to DB asynchronously</li>
+<li>Cart service: session-scoped data in Redis; cart is not persisted until checkout begins</li>
+<li>Order service: orchestrates payment, inventory deduction, and fulfillment via Saga pattern (compensating transactions on failure)</li>
+<li>Search: Elasticsearch with inverted index; re-indexed on product update via CDC (Change Data Capture) from Postgres</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Inventory contention during flash sales. Every user races to decrement the same SKU counter. Fix with Redis atomic <code>DECR</code> (fast, in-memory) and accept that a small number of users will proceed to payment only to find out inventory sold out — handle with a waitlist or apology flow.</p>
+<p><strong>Signal phrase:</strong> &quot;The inventory check and reservation must be separated from payment — hold inventory with a Redis DECR, then release it if payment fails within 10 minutes.&quot;</p>
+<hr>
+<h3>Q21. Design a Ride-Sharing App (Uber)</h3>
+<p><strong>As asked:</strong> &quot;Design a ride-sharing platform where riders request trips and drivers are matched.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Is the matching algorithm geospatial (nearest driver) or more complex (surge pricing, ETAs)?</li>
+<li>What consistency is required for driver location — 1-second updates?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Location service: drivers send GPS updates every 4 seconds → geospatial index (Quadtree or Geohash in Redis) updated in real-time</li>
+<li>Matching service: when a rider requests, query the geospatial index for drivers within 5 km; rank by ETA; send offer to top candidate; wait 5 seconds; cascade to next if declined</li>
+<li>Trip service: <code>trips(trip_id, rider_id, driver_id, status, pickup, dropoff, fare_estimate)</code>; state machine from <code>REQUESTED</code> to <code>COMPLETED</code></li>
+<li>Dispatch via WebSocket: push trip requests to driver apps in real-time; driver response triggers next matching step</li>
+<li>Surge pricing: stream processor detects supply/demand imbalance per geohash cell; multiplier published to pricing service</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Driver location index write throughput. 5 million active drivers at 4-second update intervals = 1.25M writes/second. Fix with geohash-partitioned Redis clusters, writing each driver&#39;s location only once per update interval (TTL = 30 seconds for stale detection).</p>
+<p><strong>Signal phrase:</strong> &quot;Ride matching is a stateful matching problem under tight latency — the interesting challenge isn&#39;t finding a nearby driver, it&#39;s handling the driver-accepts/rejects cascade without leaving the rider waiting.&quot;</p>
+<hr>
+<h3>Q22. Design a Food Delivery Platform</h3>
+<p><strong>As asked:</strong> &quot;Design a food delivery system like DoorDash or Uber Eats.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>Is the delivery network first-party (employed couriers) or contractor-model?</li>
+<li>Real-time order tracking — how granular and how live?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Restaurant catalog: menu items, prices, and availability; cached aggressively (menus change infrequently)</li>
+<li>Order service: <code>order(order_id, customer_id, restaurant_id, items, status, courier_id, estimated_delivery_time)</code></li>
+<li>Courier assignment: same geospatial matching engine as ride-sharing; match a courier to a restaurant pickup zone</li>
+<li>Real-time tracking: courier GPS published to Kafka → WebSocket push to customer app showing live map</li>
+<li>ETA engine: <code>pickup_ETA = food_prep_time + courier_travel_to_restaurant</code>; <code>delivery_ETA = pickup_ETA + courier_travel_to_customer</code></li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Food prep time uncertainty. ETA estimates are only as good as the restaurant&#39;s prep time estimate. Fix with ML-based prep time prediction trained on per-restaurant historical order data.</p>
+<p><strong>Signal phrase:</strong> &quot;Food delivery is essentially ride-sharing plus a synchronisation constraint: the courier must arrive at the restaurant when the food is ready, not before and not long after.&quot;</p>
+<hr>
+<h2>Tier 4 — Senior (Q23–Q28)</h2>
+<p>These problems involve deep distributed systems. Expect to discuss CAP theorem, consensus, and multi-region replication in detail.</p>
+<hr>
+<h3>Q23. Design Google Drive / Distributed File Storage</h3>
+<p><strong>As asked:</strong> &quot;Design a cloud file storage and sync service.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the file size range — mostly documents (KB) or large media files (GB)?</li>
+<li>Does collaborative real-time editing need to be supported?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Chunked upload: split files into 4 MB chunks; upload chunks in parallel; store chunk hashes to detect which chunks changed on sync (delta sync)</li>
+<li>Metadata service: <code>files(file_id, owner_id, path, version, chunks[])</code> in a scalable metadata store (Spanner or Postgres with sharding)</li>
+<li>Chunk storage: content-addressable object storage keyed by SHA-256 of chunk content; identical chunks across users are deduplicated automatically</li>
+<li>Sync protocol: client maintains a local Merkle tree; compares with server Merkle tree on reconnect to find diffs</li>
+<li>Version history: immutable chunk store means every version is stored; metadata tracks version chains cheaply</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Sync conflicts on concurrent edits. Two offline clients edit the same file and reconnect. Fix with last-write-wins for binary files; for text files, present a conflict copy to the user (Dropbox model) or use OT/CRDT (Google Docs model).</p>
+<p><strong>Signal phrase:</strong> &quot;Content-addressable storage gives you deduplication and delta sync for free — if the chunk hash hasn&#39;t changed, you don&#39;t upload it.&quot;</p>
+<hr>
+<h3>Q24. Design a Real-Time Collaborative Document Editor</h3>
+<p><strong>As asked:</strong> &quot;Design Google Docs — multiple users editing the same document simultaneously.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the expected concurrency per document — 10 simultaneous editors or 1000?</li>
+<li>Does conflict resolution need to preserve intent (OT) or just converge (CRDT)?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Operational Transformation (OT) or CRDT (e.g., YATA, RGA): the algorithm that lets two concurrent edits converge to the same final state</li>
+<li>Document server: single authoritative server per document (leader); receives operations, transforms them, broadcasts to all clients; eliminates need for peer-to-peer conflict resolution</li>
+<li>Operation log: every operation stored as <code>(doc_id, seq_no, client_id, op_type, position, content, timestamp)</code>; replay log to reconstruct any historical state</li>
+<li>Presence service: cursor positions and user colors shared via a separate low-latency WebSocket channel</li>
+<li>Persistence: debounced snapshots every 30 seconds; full reconstruction from snapshot + log tail</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> OT server is a single-threaded serialisation point. At 1000 concurrent editors, the transformation throughput becomes a bottleneck. Fix with CRDT, which enables fully distributed convergence without a central transformation server.</p>
+<p><strong>Signal phrase:</strong> &quot;OT requires a central server to define operation order; CRDT enables peer-to-peer convergence. Google Docs uses OT; Figma uses CRDT. The choice depends on whether you control the network topology.&quot;</p>
+<hr>
+<h3>Q25. Design a Global CDN</h3>
+<p><strong>As asked:</strong> &quot;Design a content delivery network that serves static assets globally with low latency.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the cache hit ratio target — 95%? What&#39;s the TTL strategy?</li>
+<li>How should we handle cache invalidation for frequently updated content?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>PoP (Point of Presence) network: 200+ edge nodes co-located in carrier hotels globally; each PoP is a cluster of reverse-proxy cache servers</li>
+<li>Cache hierarchy: L1 = edge PoP (serves from local SSD); L2 = regional parent cache; origin = source of truth</li>
+<li>Anycast routing: single CDN IP announced from all PoPs; BGP routes the user&#39;s request to the nearest PoP automatically</li>
+<li>Origin shielding: all cache misses from a region hit a single shield PoP before reaching origin — prevents thundering herd on origin</li>
+<li>Cache invalidation: purge API sends invalidation tokens to all PoPs; edge nodes check token on next request before serving stale</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Cache invalidation propagation delay. After a purge, stale content can still be served for 2–30 seconds while invalidation propagates globally. Fix with a short <code>stale-while-revalidate</code> window and version-stamped URLs for truly critical updates (<code>/app.v2.1.3.js</code>).</p>
+<p><strong>Signal phrase:</strong> &quot;Anycast is the CDN&#39;s secret weapon — you don&#39;t need DNS-based geo-routing; BGP automatically finds the shortest path to the nearest PoP.&quot;</p>
+<hr>
+<h3>Q26. Design a Distributed Message Queue (Kafka-like)</h3>
+<p><strong>As asked:</strong> &quot;Design a high-throughput, fault-tolerant message queue.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What delivery semantics — at-most-once, at-least-once, or exactly-once?</li>
+<li>What&#39;s the expected message volume and retention period?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Log-structured storage: each partition is an append-only, sequentially written log on disk; sequential I/O reaches 600 MB/s vs 100 MB/s random; this is why Kafka is fast</li>
+<li>Topic partitioning: messages partitioned by key; each partition has one leader and N-1 replicas on different brokers</li>
+<li>Consumer groups: each consumer group maintains an independent offset per partition; multiple groups consume the same topic independently</li>
+<li>Replication: leader writes, followers pull; ISR (In-Sync Replicas) must acknowledge before leader commits; <code>acks=all</code> for durability</li>
+<li>Retention: messages retained for a configurable period (e.g., 7 days) regardless of consumption; consumers control their own offset</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Partition count vs consumer parallelism. You cannot have more consumers in a group than partitions. Fix by over-partitioning at creation time (you can increase partitions but never decrease without rebalancing).</p>
+<p><strong>Signal phrase:</strong> &quot;Kafka&#39;s performance comes from treating the disk as a circular buffer — sequential writes are as fast as memory, and consumers read directly from OS page cache without a copy.&quot;</p>
+<hr>
+<h3>Q27. Design a Live Video Streaming Platform (Twitch)</h3>
+<p><strong>As asked:</strong> &quot;Design a live streaming platform where creators broadcast to millions of viewers in real time.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the acceptable end-to-end latency — sub-second (gaming), or 5–10 seconds (broadcast TV quality)?</li>
+<li>How many concurrent viewers per stream at peak?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Ingest: broadcaster&#39;s encoder sends RTMP to the nearest ingest PoP; transcoded to HLS/DASH at multiple bitrates in real-time</li>
+<li>Transcoding farm: stateless GPU-accelerated workers per ingest stream; output segments (2-second HLS chunks) pushed to segment storage</li>
+<li>Distribution: stream segments served via CDN; viewers receive a playlist (<code>m3u8</code>) that updates every 2 seconds with new segment URLs</li>
+<li>Chat: separate WebSocket-based system; Kafka fan-out to IRC-style room servers; chat is decoupled from video entirely</li>
+<li>Stream health monitoring: bitrate, dropped frames, and encoder stats collected from broadcaster; alert on degradation</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Ingest transcoding cost. A single 1080p60 stream requires ~6 CPU cores to transcode in real time. At 100K concurrent live streams, this is 600K cores. Fix with hardware-accelerated transcoding (NVIDIA NVENC) and viewer-driven adaptive bitrate (ABR) to avoid transcoding all resolutions nobody is watching.</p>
+<p><strong>Signal phrase:</strong> &quot;Live streaming tolerates 5–10 seconds of latency because HLS chunking is fundamentally a batch process — if you need sub-second latency, you must switch to WebRTC, which is a completely different protocol stack.&quot;</p>
+<hr>
+<h3>Q28. Design a Recommendation Engine</h3>
+<p><strong>As asked:</strong> &quot;Design a recommendation system like Netflix&#39;s &#39;What to watch next&#39;.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What signals are available — explicit ratings, implicit watch history, or both?</li>
+<li>How fresh must recommendations be — real-time or updated daily?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Collaborative filtering (offline): matrix factorisation (ALS) on the user-item interaction matrix; produces user embeddings and item embeddings; recomputed daily via Spark</li>
+<li>Content-based filtering: item metadata (genre, cast, description) → TF-IDF or sentence embeddings; used for new items with no interaction history (cold start)</li>
+<li>Candidate generation: approximate nearest-neighbour (ANN) search (FAISS, ScaNN) on user embedding vs item embedding space; retrieve top 500 candidates</li>
+<li>Re-ranking: a lightweight ML model (XGBoost or two-tower neural network) takes the 500 candidates and applies real-time features (time of day, device, recent watches) to produce a final ranked list of 20</li>
+<li>Feature store: pre-computed user and item features written by offline jobs; served with millisecond latency by an online feature store (Redis or Feast)</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Cold start. New users and new items have no interaction history, making collaborative filtering useless. Fix with a popularity-based fallback for new users and content-based matching for new items until sufficient interactions accumulate (typically 10–20 events).</p>
+<p><strong>Signal phrase:</strong> &quot;Recommendation is a two-stage problem: candidate retrieval (recall) and ranking (precision). Confusing the two leads to systems that are either too slow or too imprecise.&quot;</p>
+<hr>
+<h2>Tier 5 — Staff/Principal (Q29–Q30)</h2>
+<p>These questions have no clean answer. The interviewer is looking for nuanced reasoning about fundamental trade-offs in distributed systems.</p>
+<hr>
+<h3>Q29. Design a Distributed Database (Cassandra-like)</h3>
+<p><strong>As asked:</strong> &quot;Design a wide-column distributed database that supports low-latency reads and writes at petabyte scale.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What consistency guarantees are required? Cassandra&#39;s configurable quorum is the defining design choice.</li>
+<li>What&#39;s the write/read ratio and access pattern — narrow rows or wide rows?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Consistent hashing ring with virtual nodes: data distributed by partition key hash; each node owns a token range</li>
+<li>Write path: <code>CommitLog</code> (sequential WAL for durability) → <code>MemTable</code> (in-memory sorted structure) → flushed to immutable <code>SSTable</code> on disk; write latency is purely in-memory plus a sequential disk write</li>
+<li>Read path: check MemTable → Bloom filter (skip SSTables that definitely don&#39;t contain the key) → SSTable binary search; multiple SSTables merged by timestamp</li>
+<li>Compaction: background merge of SSTables to reclaim space and reduce read amplification; <code>LeveledCompaction</code> for read-heavy; <code>SizeTieredCompaction</code> for write-heavy</li>
+<li>Replication: data replicated to N nodes using <code>NetworkTopologyStrategy</code> for rack-aware and AZ-aware placement; quorum reads/writes configurable per operation</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> Read amplification on wide rows. A <code>SELECT *</code> on a 50 MB wide row reads from multiple SSTables, each requiring a disk seek. Fix with data modelling: design tables for query patterns (one table per query), not for normalisation.</p>
+<p><strong>Signal phrase:</strong> &quot;Cassandra&#39;s design is a deliberate choice to prioritise write availability over read consistency — the LSM tree is write-optimised by construction, and the tunable consistency model (<code>ONE</code>, <code>QUORUM</code>, <code>ALL</code>) lets the application choose its consistency budget per operation.&quot;</p>
+<hr>
+<h3>Q30. Design a Globally Consistent Transaction System</h3>
+<p><strong>As asked:</strong> &quot;Design a database that provides ACID transactions across globally distributed data centres.&quot;</p>
+<p><strong>Clarifications:</strong></p>
+<ul>
+<li>What&#39;s the acceptable latency for a committed transaction — 50ms or 500ms? Global consensus takes time proportional to the speed of light.</li>
+<li>Is this active-active multi-region or active-passive?</li>
+</ul>
+<p><strong>Core components:</strong></p>
+<ul>
+<li>Consensus protocol: Paxos or Raft for single-region; Multi-Paxos or Spanner&#39;s TrueTime for multi-region; every write must be agreed upon by a quorum of replicas</li>
+<li>TrueTime API (Spanner&#39;s approach): GPS + atomic clocks provide a globally synchronised clock with bounded uncertainty (±7ms); timestamps are assigned as intervals, not points; a transaction waits out the uncertainty window before committing to ensure causality</li>
+<li>External consistency: if transaction T1 commits before T2 starts (in real time), T2 must see T1&#39;s writes — this is stronger than serializability and requires clock synchronisation</li>
+<li>2-Phase Commit (2PC) across shards: coordinator sends prepare, waits for all shard acknowledgements, then commits; abort if any shard fails to respond within timeout</li>
+<li>Read replicas: globally distributed read replicas serve stale reads at local latency; strong reads are routed to a quorum and pay the cross-region RTT</li>
+</ul>
+<p><strong>#1 bottleneck:</strong> The speed of light. A commit that requires quorum acknowledgement from replicas in us-east and eu-west takes a minimum of ~70ms for the round trip. This is physics, not engineering. Fix with careful data placement (co-locate data with the users who write it) and accept eventual consistency for cross-region reads where possible.</p>
+<p><strong>Signal phrase:</strong> &quot;Google Spanner proved that external consistency at global scale is possible, but it costs you ~100ms commit latency and requires GPS-synchronised atomic clocks — it&#39;s not a general-purpose solution, it&#39;s an engineering bet made at Google&#39;s scale.&quot;</p>
+<hr>
+<h2>Pattern Recognition</h2>
+<p>After 30 questions, one thing becomes clear: the same 6 underlying patterns appear over and over. Recognising the pattern in the first 5 minutes of an interview lets you reuse a battle-tested solution skeleton rather than reasoning from scratch.</p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Questions where it appears</th>
+<th>Core solution</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Fan-out (write vs read amplification)</strong></td>
+<td>Instagram, Twitter, YouTube, notifications</td>
+<td>Push for low-follower; pull for high-follower; hybrid at scale</td>
+</tr>
+<tr>
+<td><strong>Write-heavy append-only log</strong></td>
+<td>Kafka, Cassandra, payment ledger, crawler</td>
+<td>LSM tree, sequential disk I/O, compaction</td>
+</tr>
+<tr>
+<td><strong>Geospatial indexing</strong></td>
+<td>Proximity service, Uber, Google Maps, food delivery</td>
+<td>Geohash or Quadtree; always query neighbouring cells</td>
+</tr>
+<tr>
+<td><strong>Exact-once over unreliable network</strong></td>
+<td>Payments, task scheduler, notifications</td>
+<td>Idempotency key + status poll before retry</td>
+</tr>
+<tr>
+<td><strong>Strong vs eventual consistency</strong></td>
+<td>Hotel booking, distributed DB, collaborative editor, global transactions</td>
+<td>Strong = quorum + 2PC + coordination cost; eventual = CRDTs + last-write-wins + reconciliation</td>
+</tr>
+<tr>
+<td><strong>Cold start / bootstrapping</strong></td>
+<td>Recommendation engine, URL shortener, autocomplete</td>
+<td>Popularity fallback, content-based signals, seed data</td>
+</tr>
+</tbody></table>
+<p>The interview question changes the surface details — number of followers vs number of nearby drivers vs number of concurrent editors — but the underlying problem is the same. A candidate who names the pattern early signals that they have internalised the solution space rather than memorised individual answers.</p>
+<p><strong>One practical exercise:</strong> for each of the 30 questions, write down the pattern it belongs to before you design anything. If a question maps to two patterns, identify which one dominates the design. That single habit separates candidates who have genuinely prepared from those who have memorised a list of architectures.</p>
+<hr>
+<p><em>Next: Lesson 5.4 — Live Mock Interview Walkthroughs with Annotated Transcripts</em></p>

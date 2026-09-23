@@ -1,0 +1,247 @@
+<h1>Distributed Transactions (Saga, 2-Phase Commit)</h1>
+<blockquote>
+<p><strong>Lesson 4.3</strong> · Senior · 45 min</p>
+</blockquote>
+<hr>
+<h2>The Problem</h2>
+<p>In a monolith with a single database, a business operation that touches multiple tables is simple:</p>
+<pre><code class="language-sql">BEGIN;
+  UPDATE accounts SET balance = balance - 100 WHERE id = alice;
+  UPDATE accounts SET balance = balance + 100 WHERE id = bob;
+  INSERT INTO transactions (from_id, to_id, amount) VALUES (alice, bob, 100);
+COMMIT;
+-- All three succeed or all three fail. ACID guarantees it.
+</code></pre>
+<p>In a microservices architecture, each service has its own database. An &quot;order&quot; involves:</p>
+<ul>
+<li><strong>Order Service</strong> — create order record</li>
+<li><strong>Inventory Service</strong> — reserve the item</li>
+<li><strong>Payment Service</strong> — charge the credit card</li>
+<li><strong>Notification Service</strong> — send confirmation email</li>
+</ul>
+<p>These are four separate databases. You cannot wrap them in a single ACID transaction. What happens if payment succeeds but inventory reservation fails?</p>
+<hr>
+<h2>Option 1: Two-Phase Commit (2PC)</h2>
+<p>2PC coordinates a distributed transaction across multiple databases with a <strong>transaction coordinator</strong>.</p>
+<h3>Phase 1: Prepare</h3>
+<pre><code>Coordinator → Order Service:    &quot;Can you commit? Lock your rows.&quot;
+Coordinator → Inventory Service: &quot;Can you commit? Lock your rows.&quot;
+Coordinator → Payment Service:  &quot;Can you commit? Lock your rows.&quot;
+
+All services: acquire locks, write to WAL (write-ahead log), respond &quot;YES&quot; (or &quot;NO&quot; if something fails)
+</code></pre>
+<h3>Phase 2: Commit (or Abort)</h3>
+<pre><code>If ALL replied YES:
+  Coordinator → all services: &quot;COMMIT&quot;
+  All services: commit their local transactions, release locks
+
+If ANY replied NO:
+  Coordinator → all services: &quot;ABORT&quot;
+  All services: rollback their local transactions
+</code></pre>
+<h3>Why 2PC Is Rarely Used in Microservices</h3>
+<p><strong>Blocking:</strong> During the prepare phase, all participating services hold locks. If the coordinator crashes after Phase 1 but before Phase 2, all services remain locked indefinitely — waiting for a message that never comes.</p>
+<p><strong>Availability:</strong> If any participant is unavailable, the transaction cannot proceed. With 4 services at 99.9% each: <code>0.999^4 = 99.6%</code> availability. Every service added reduces overall availability.</p>
+<p><strong>Performance:</strong> Distributed locking at scale is slow. Every cross-service operation requires round trips.</p>
+<p><strong>2PC is appropriate for:</strong> Tightly coupled services where strong consistency is required and both services are internal. Used in databases (like PostgreSQL with foreign data wrappers). Rarely used for business-level microservice coordination.</p>
+<hr>
+<h2>Option 2: Saga Pattern</h2>
+<p>Instead of a single distributed transaction, break the operation into a sequence of <strong>local transactions</strong>, each publishing an event. If a step fails, run <strong>compensating transactions</strong> to undo previous steps.</p>
+<p>A saga is either:</p>
+<ul>
+<li><strong>Choreography-based:</strong> Services react to events (no central coordinator)</li>
+<li><strong>Orchestration-based:</strong> A central orchestrator tells each service what to do</li>
+</ul>
+<hr>
+<h3>Choreography-Based Saga</h3>
+<p>Each service subscribes to events and publishes new events.</p>
+<pre><code>Order Service creates order → publishes &quot;order.created&quot;
+  │
+  ▼
+Inventory Service subscribes to &quot;order.created&quot;
+  → reserves item → publishes &quot;inventory.reserved&quot;
+  → fails to reserve → publishes &quot;inventory.failed&quot;
+  │
+  ▼
+Payment Service subscribes to &quot;inventory.reserved&quot;
+  → charges card → publishes &quot;payment.completed&quot;
+  → charge fails → publishes &quot;payment.failed&quot;
+  │
+  ▼
+Order Service subscribes to &quot;payment.completed&quot;
+  → marks order CONFIRMED
+  → publishes &quot;order.confirmed&quot;
+  │
+  ▼
+Notification Service subscribes to &quot;order.confirmed&quot;
+  → sends email
+</code></pre>
+<p><strong>Compensation (rollback):</strong></p>
+<pre><code>Payment Service subscribes to &quot;inventory.failed&quot;
+  → (nothing to undo if payment not yet attempted)
+
+Inventory Service subscribes to &quot;payment.failed&quot;
+  → releases inventory reservation → publishes &quot;inventory.released&quot;
+
+Order Service subscribes to &quot;inventory.failed&quot; or &quot;payment.failed&quot;
+  → marks order FAILED
+</code></pre>
+<p><strong>Pros:</strong> No central coordinator; services are loosely coupled.</p>
+<p><strong>Cons:</strong> Hard to understand the flow (scattered across services); difficult to debug; no single place to see the overall transaction state.</p>
+<hr>
+<h3>Orchestration-Based Saga</h3>
+<p>A central <strong>Saga Orchestrator</strong> drives the entire flow.</p>
+<pre><code class="language-python">class OrderSagaOrchestrator:
+    def execute(self, order_id):
+        # Step 1
+        result = inventory_service.reserve(order_id)
+        if result.failed:
+            self.compensate_inventory(order_id)
+            return FAIL
+
+        # Step 2
+        result = payment_service.charge(order_id)
+        if result.failed:
+            inventory_service.release(order_id)  # compensate
+            return FAIL
+
+        # Step 3
+        order_service.confirm(order_id)
+        notification_service.send_confirmation(order_id)
+        return SUCCESS
+</code></pre>
+<p>The orchestrator knows the entire flow. Compensation is explicit and centralized.</p>
+<p><strong>Pros:</strong> Clear flow; easy to understand and debug; single source of truth for saga state.</p>
+<p><strong>Cons:</strong> Orchestrator is a central dependency; can become a bottleneck.</p>
+<hr>
+<h2>Comparison: 2PC vs Saga</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>2PC</th>
+<th>Saga</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Consistency</strong></td>
+<td>Strong (ACID-like)</td>
+<td>Eventual (BASE)</td>
+</tr>
+<tr>
+<td><strong>Failure recovery</strong></td>
+<td>Automatic rollback</td>
+<td>Explicit compensating transactions</td>
+</tr>
+<tr>
+<td><strong>Availability</strong></td>
+<td>Lower (all must be available)</td>
+<td>Higher (each step independent)</td>
+</tr>
+<tr>
+<td><strong>Latency</strong></td>
+<td>Higher (coordination rounds)</td>
+<td>Lower per step</td>
+</tr>
+<tr>
+<td><strong>Coupling</strong></td>
+<td>Tight (all locked during tx)</td>
+<td>Loose (events/messages)</td>
+</tr>
+<tr>
+<td><strong>Complexity</strong></td>
+<td>Simpler (DB handles it)</td>
+<td>Higher (compensation logic)</td>
+</tr>
+<tr>
+<td><strong>Use case</strong></td>
+<td>Strongly consistent financial ops</td>
+<td>Long-running business processes</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>The Outbox Pattern — Reliable Event Publishing</h2>
+<p>A saga&#39;s first step publishes an event. What if the service crashes after writing to its DB but before publishing the event?</p>
+<pre><code class="language-python"># BROKEN — not atomic:
+db.insert(order)        # succeeds
+kafka.publish(event)    # crashes before this
+# Order in DB but no event published → saga never starts
+</code></pre>
+<p><strong>Outbox pattern:</strong></p>
+<pre><code class="language-python"># CORRECT — atomic:
+with db.transaction():
+    db.insert(order)
+    db.insert(outbox, event)   # write event to same DB transaction
+
+# Separate process reads outbox and publishes to Kafka
+outbox_publisher.run()  # SELECT FROM outbox → kafka.publish → DELETE from outbox
+</code></pre>
+<p>The event is written to an outbox table in the same local transaction as the business data. A separate &quot;outbox publisher&quot; process polls the outbox and publishes events to Kafka. If publishing fails, it retries. This guarantees at-least-once event delivery.</p>
+<hr>
+<h2>Compensating Transactions</h2>
+<p>Compensating transactions must be:</p>
+<ol>
+<li><strong>Idempotent:</strong> Running the compensation twice is safe. <code>release_reservation(order_id)</code> should succeed even if called twice.</li>
+<li><strong>Always possible:</strong> Some operations cannot be undone. Sending an email cannot be unsent — accept this or design for it (don&#39;t send the email until the very last step).</li>
+<li><strong>Eventually consistent:</strong> Between the forward step and compensation, data is temporarily inconsistent. The system converges to a consistent state.</li>
+</ol>
+<hr>
+<h2>Real-World Example: E-Commerce Order</h2>
+<pre><code>Saga steps:
+1. Order Service: create order (status=pending)
+2. Inventory Service: reserve stock
+3. Payment Service: authorize card
+4. Shipping Service: create shipment
+5. Order Service: mark order (status=confirmed)
+6. Payment Service: capture payment (finalize charge)
+7. Notification Service: send confirmation
+
+Compensations (if step N fails):
+Step 3 fails → Step 2 compensation: release inventory reservation
+Step 4 fails → Step 3 compensation: void card authorization
+                Step 2 compensation: release inventory reservation
+Step 6 fails → Step 4 compensation: cancel shipment
+                (payment was only authorized, not captured → auto-expires)
+</code></pre>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Why not 2PC in microservices?</td>
+<td>Blocking (locks held until coordinator recovers); availability decreases with each participant</td>
+</tr>
+<tr>
+<td>Saga definition</td>
+<td>Sequence of local transactions; compensate if any step fails</td>
+</tr>
+<tr>
+<td>Choreography vs orchestration</td>
+<td>Choreography: event-driven, decoupled; Orchestration: central coordinator, easier to reason about</td>
+</tr>
+<tr>
+<td>Outbox pattern</td>
+<td>Write event to DB in same transaction; publisher reads and forwards to Kafka</td>
+</tr>
+<tr>
+<td>Compensating transaction requirements</td>
+<td>Idempotent; always possible; eventually consistent</td>
+</tr>
+<tr>
+<td>Consistency model</td>
+<td>Sagas are eventually consistent (no ACID across services)</td>
+</tr>
+<tr>
+<td>When to use 2PC</td>
+<td>Internal DB operations (e.g. XA transactions within one team&#39;s infrastructure)</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./04-observability.md">Lesson 4.4 — Observability: Logs, Metrics, Traces</a></p>
+</blockquote>

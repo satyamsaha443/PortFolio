@@ -1,0 +1,134 @@
+<h1>Design a Web Crawler</h1>
+<blockquote>
+<p><strong>Lesson 8.24</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem statement</h2>
+<p>Design a system that crawls the web: start from a set of seed URLs, fetch each page, extract its links, and keep going — billions of pages deep — so a downstream system (a search index, an archive, a training corpus) has the content.</p>
+<p>In scope: fetching pages, extracting and enqueueing links, deduplicating URLs and content, and recrawling for freshness. Out of scope: the search index or archive itself, ranking, and rendering client-side JavaScript (a variant).</p>
+<h2>Clarifying questions</h2>
+<p>Each answer fixes an assumption the design leans on.</p>
+<p>What&#39;s downstream? A search index, an archive, or a training corpus — something that consumes fetched content, not part of this design.</p>
+<p>Scale and completeness? Billions of pages, best-effort coverage — not a guarantee that every page on the web gets fetched.</p>
+<p>How fresh must pages be? Some pages change hourly; most rarely. Freshness is a per-page policy, not a single global answer.</p>
+<p>Render JavaScript? Usually deferred as an optional, expensive stage for the pages that need it.</p>
+<p>Respect robots.txt? Yes, always. Politeness and robots compliance are non-negotiable, not features to trade off.</p>
+<h2>What makes this problem distinctive</h2>
+<p>The naive version of this problem is &quot;a queue of URLs, workers fetch and enqueue the links.&quot; That&#39;s right in spirit and wrong in every detail that matters at scale, for two reasons.</p>
+<p>The same URL gets discovered from many different pages — a popular page might be linked from a million others. Without a way to recognize &quot;already seen,&quot; the crawler re-fetches it endlessly and never converges. And links are not evenly spread across hosts: a single site can have hundreds of internal links pointing back into itself. Fetch one host too fast and its server falls over, or it bans the crawler&#39;s IP — and once banned, that host is gone from the crawl entirely. The system needs a queue that is deduplicated and per-host rate-limited, not just a queue.</p>
+<p>Key idea. A plain shared queue re-fetches the same popular URL forever and hammers whichever host has the most internal links — dedup and per-host politeness are the two things a queue alone doesn&#39;t give you.</p>
+<h2>Key concepts</h2>
+<p>This section covers the concepts needed to solve this problem — prerequisites for the design work that follows.</p>
+<h3>Bloom filters for URL dedup</h3>
+<p>Testing &quot;have I seen this URL&quot; against billions of URLs with an exact set is expensive: even 64-bit hashes run roughly 80 GB at 10 billion URLs, and full URL strings run far larger. A Bloom filter is a compact, probabilistic set: it never wrongly says &quot;not seen&quot; for a URL actually added (no false negatives, so a real duplicate is always caught), but it can rarely claim &quot;seen&quot; for a URL that&#39;s genuinely new (a false positive, which just skips that one page). That asymmetry — skipping an occasional new page is a rounding error at web scale, re-fetching everything forever is not — is why a Bloom </p>
+<h3>Per-host politeness</h3>
+<p>A host&#39;s robots.txt can disallow parts of the site, and some hosts also declare a crawl-delay — a requested minimum gap between fetches. Ignoring either is how a crawler gets its IP blocked by a site, halting progress on that host until it backs off or is unblocked. Politeness means treating &quot;how fast can I hit this host&quot; as a property of the host, tracked and enforced independently of everything else being crawled.</p>
+<p>robots.txt. A file at a site&#39;s root declaring which paths crawlers may not fetch (User-agent, Allow, Disallow), standardized in RFC 9309. Crawl-delay — how long to wait between requests — is a common but non-standard extension: some sites declare it and some crawlers honor it, so a polite crawler defines its own interpretation and a default gap when it&#39;s absent.</p>
+<h3>Two-level queue: priority versus per-host order</h3>
+<p>A single queue can express &quot;what to fetch next&quot; (priority) or &quot;one host at a time&quot; (politeness), but not both at once — sorting by importance scatters one host&#39;s URLs throughout the queue, and grouping by host loses any sense of priority. Splitting into two levels resolves this: a front layer of queues buckets URLs by priority; a back layer holds one queue per host and releases its next URL only once that host&#39;s crawl-delay has elapsed. How URLs move between the two levels is worked out in the URL frontier deep dive below.</p>
+<h3>Content versus metadata split</h3>
+<p>A fetched page is large, opaque bytes; the record of that it was fetched — its URL, a content hash, an etag, when it was fetched — is small and structured. The same split as any large-object system: bytes belong in an object store, and a small metadata row referencing them belongs in a database. A conditional GET (sending the stored etag and getting a cheap &quot;unchanged&quot; response back if nothing has changed) is what makes checking a page for updates affordable without re-downloading it.</p>
+<p>Key idea. A Bloom filter makes &quot;have I seen this URL&quot; cheap at billions of entries; per-host politeness is enforced as a property of the host, not the crawler as a whole; a two-level queue is what lets priority and politeness coexist; and content/metadata split the same way any large-object system does.</p>
+<h2>1. Requirements</h2>
+<p>Before reading on. List the functional and non-functional requirements, then name the one property you would never compromise and the one constraint that drives the design.</p>
+<h3>1.1 Functional requirements</h3>
+<p>Fetch a URL and store its content.</p>
+<p>Extract links from a fetched page and enqueue the new ones.</p>
+<p>Deduplicate. Never redundantly enqueue a URL already seen, and never store the same content twice — scheduled recrawls (below) are the deliberate exception.</p>
+<p>Recrawl pages for freshness, based on how often each page tends to change.</p>
+<h3>1.2 Non-functional requirements</h3>
+<p>Politeness. Never overload a host; obey robots.txt and per-host crawl-delay. This is a correctness requirement — violating it gets the crawler banned.</p>
+<p>Scale and throughput. Billions of pages; thousands of fetches a second, sustained.</p>
+<p>No traps. Bounded work per URL; the crawler must not loop forever on an infinite URL space (a calendar with a &quot;next month&quot; link, for instance).</p>
+<p>Robustness. Survive oversized pages, timeouts, redirect loops, and malformed HTML without stalling a worker.</p>
+<p>Freshness. Keep fast-changing, important pages reasonably up to date.</p>
+<h3>1.3 The constraint versus the property</h3>
+<p>The property never to compromise is politeness: a crawler that overloads or gets banned from a host stops making progress on that host for as long as the block lasts. The constraint that drives the design is doing this at billions of URLs and thousands of fetches a second, which rules out a single shared queue and forces a structure that tracks dedup and per-host timing independently at scale.</p>
+<p>Key idea. Politeness is the property that can&#39;t bend; sustaining it at billions of URLs and thousands of fetches a second is the constraint the frontier design answers.</p>
+<h2>2. Back-of-the-envelope estimation</h2>
+<h3>2.1 Fetch throughput</h3>
+<p>Assume a target of about 10,000 pages a second, each page around 50 KB. That&#39;s 10,000 × 50 KB ≈ 500 MB/second of content flowing into the system — the number the fetcher fleet and content storage have to sustain.</p>
+<h3>2.2 The seen-set</h3>
+<p>Assume roughly 10 billion URLs need a &quot;have I seen this&quot; check. A Bloom filter at about 10 bits per URL costs 10,000,000,000 × 10 bits ≈ 12.5 GB — small enough to fit in memory on a handful of machines, versus roughly 80 GB for exact 64-bit hashes of the same count — and far more for full URL strings.</p>
+<h3>2.3 The frontier itself</h3>
+<p>Billions of discovered-but-not-yet-fetched URLs sit in the frontier at any given time, far more than fits in memory on one machine — the frontier has to be disk-backed and sharded, with only the next-to-fetch head of each host&#39;s queue kept hot.</p>
+<p>Key idea. The seen-set stays in the gigabytes even at billions of URLs; content bandwidth (hundreds of MB/second) and the disk-backed frontier are what actually have to scale.</p>
+<h2>3. API design</h2>
+<h3>3.1 Submit seed URLs</h3>
+<p>Seeds are the only URLs a caller provides directly; everything else is discovered by parsing fetched pages.</p>
+<h3>3.2 Read fetched content</h3>
+<p>This serves the downstream consumer (the search indexer, typically) the stored content reference and metadata for a URL already crawled.</p>
+<p>Key idea. The public API is thin — submit seeds, read results — because the real interface is internal: enqueue after dedup, ask what&#39;s next-fetchable per host, and mark a URL seen.</p>
+<h2>4. Data model</h2>
+<h3>4.1 Page</h3>
+<p>The record of a URL once it has actually been fetched.</p>
+<h3>4.2 Frontier entry</h3>
+<p>A link is not a page yet — it&#39;s a candidate, with a priority and a host to be politely scheduled against.</p>
+<h3>4.3 Seen (dedup state)</h3>
+<p>A membership test over billions of URLs — the Bloom filter from Key concepts, sharded by URL hash so no single node holds the whole thing.</p>
+<h3>4.4 Host</h3>
+<p>Politeness is a property of the host, so it gets its own record.</p>
+<h3>4.5 Where each entity lives</h3>
+<p>Page content bytes live in an object store; the Page row itself, FrontierEntry, and Host records live in databases sized for their access pattern (the frontier is disk-backed and sharded by host; Host is small and read on every fetch decision). Seen lives in its own sharded Bloom filter service, checkpointed so a restart doesn&#39;t forget what&#39;s already been crawled.</p>
+<p>Key idea. Four entities, each forced by the one before it: a page needs a frontier entry to have arrived from somewhere, the frontier needs a seen-set to avoid duplicates, and per-host politeness needs its own record independent of any single URL.</p>
+<h2>5. High-level design</h2>
+<p>Before reading on. You already have Bloom-filter dedup and the two-level priority/politeness queue from Key concepts. Sketch what happens from &quot;seed URL&quot; to &quot;new links back in the queue,&quot; and where each of those two mechanisms plugs in.</p>
+<h3>5.1 A queue and a worker pool</h3>
+<p>Start naive: seed URLs go on a single shared queue; a pool of workers pops a URL, fetches it, stores the content, and pushes any newly-discovered links back onto the same queue.</p>
+<p>Four things break this at scale.</p>
+<p>A popular URL discovered from a million pages gets pushed onto the queue a million times and re-fetched endlessly.</p>
+<p>Hundreds of links into one host get fetched by many workers simultaneously, overloading it and risking a ban.</p>
+<p>The queue holds billions of pending URLs — far past what fits in memory on one machine.</p>
+<p>Nothing ever revisits a page that was already crawled, so the content goes stale forever.</p>
+<h3>5.2 Fix 1: dedup before enqueue</h3>
+<p>Every discovered URL is normalized (lowercased host, sorted query parameters, fragment stripped) and checked against the Bloom filter from Key concepts before it&#39;s added to the queue; only unseen URLs get enqueued.</p>
+<p>Re-discovery loops are fixed. Hosts can still be hammered by many workers hitting them at once.</p>
+<h3>5.3 Fix 2: route by host, enforce crawl-delay</h3>
+<p>Route each URL to a per-host queue via consistent hashing, and let one worker at a time fetch from a given host, spaced out by that host&#39;s crawl-delay — a small per-host concurrency is possible, but one in-flight request is the safe default.</p>
+<p>Politeness is enforced. The frontier is still one shared structure with no persistence story, and nothing revisits an already-fetched page.</p>
+<h3>5.4 Fix 3: a sharded, persisted frontier</h3>
+<p>Make the frontier a disk-backed, sharded, prioritized queue — the front/back two-level structure from Key concepts — keeping only the next-to-fetch head of each host&#39;s queue in memory.</p>
+<h3>5.5 Fix 4: split content from metadata, recrawl by policy</h3>
+<p>Page bytes go to an object store; a small metadata row (url, content_hash, fetched_at, etag) goes to a database. A recrawl scheduler re-enqueues pages by how often they tend to change, using a conditional GET to skip pages that haven&#39;t.</p>
+<h3>5.6 The composed design</h3>
+<p>Each fix answers one failure of the naive queue: dedup fixes re-discovery loops, per-host routing fixes overload, the sharded two-level frontier fixes scale, and the content/metadata split with a recrawl scheduler fixes staleness.</p>
+<p>Key idea. Every component traces to one concrete failure of &quot;a queue and workers&quot; — re-discovery, host overload, frontier scale, and staleness — not a pre-known architecture diagram.</p>
+<h2>6. Deep dives</h2>
+<h3>6.1 The URL frontier</h3>
+<p>Before reading on. You want to crawl important pages first, and you also want to never fetch one host twice within its crawl-delay. Those two goals pull on the same queue in different directions. How do you satisfy both?</p>
+<p>The two goals don&#39;t share a sort key. Priority wants to order by importance; politeness wants to group by host and space out each group&#39;s fetches. A single queue can express one ordering, not both — the classic Mercator design resolves this by splitting into two levels. Front queues implement priority: a URL&#39;s importance (an estimated page rank, a freshness need) picks which front queue it enters. Back queues implement politeness: each back queue holds URLs for exactly one host, and a timing structure releases that host&#39;s next URL only once its crawl-delay has elapsed.</p>
+<p>Pinning one host to exactly one back queue (via consistent hashing) is the simplest way to make politeness enforceable: if a host&#39;s URLs were scattered across many back queues, multiple workers could pull from different queues and fetch that host simultaneously — enforceable then only with a shared per-host rate limiter every worker consults. One queue per host guarantees fetches to that host are serialized and spaced out by a single clock.</p>
+<p>Because the frontier holds billions of pending URLs, it&#39;s disk-backed, with only the ready head of each host&#39;s queue kept in memory; it&#39;s checkpointed so a crash doesn&#39;t force re-deriving pending work from the seen-set. A slow or unresponsive host stalls only its own back queue — other hosts keep fetching — and a host that suddenly floods the frontier with URLs has its queue capped, shedding low-priority entries rather than growing without bound. Per-host queue depth and fetch-rate dashboards are the signal: a deep queue with zero fetches means that host&#39;s crawl-delay (or a stall) is throttlin</p>
+<h3>6.2 Dedup at scale</h3>
+<p>Before reading on. A Bloom filter can occasionally say &quot;already seen&quot; for a URL that&#39;s actually new. What does that false positive cost, and why is it an acceptable trade at web scale?</p>
+<p>A false positive means the crawler silently skips one genuinely new URL. At web scale, missing an occasional page out of billions is a rounding error, and the false-positive rate is a knob — more bits per URL brings it down further, at a memory cost. What the Bloom filter can never do is a false negative: it never claims &quot;not seen&quot; for a URL actually seen before, which is the direction that would matter (an infinite re-fetch loop). The asymmetry runs the safe way, which is exactly why the earlier tradeoff in Key concepts holds up under scrutiny.</p>
+<p>URL dedup and content dedup are two separate mechanisms, keyed on different things. URL dedup (the Bloom filter) operates on the address — has this exact URL been queued before. Content dedup operates on the bytes: many different URLs — mirrors, session-id variants, printer-friendly pages — often serve identical or near-identical content. A content hash catches exact duplicates; a similarity hash (simhash or minhash) flags likely near-duplicates — a probabilistic check with tunable thresholds — keeping the same article from being stored and indexed under a dozen different URLs.</p>
+<p>At 10-plus billion URLs, the Bloom filter itself is sharded across nodes by URL hash, with each shard checkpointed so a restart doesn&#39;t force re-crawling everything to rebuild it. Losing or corrupting a shard means the affected slice of URLs gets re-crawled — wasted fetches, but the crawl still respects politeness and eventually catches up, so it degrades rather than fails outright.</p>
+<h3>6.3 Politeness, robots, and traps</h3>
+<p>Before reading on. A site has a calendar page that links to &quot;next month&quot; forever, and a robots.txt that disallows /private. What must the crawler do to avoid both an infinite crawl and a ban?</p>
+<p>Two separate hazards, two separate defenses. robots.txt compliance means fetching and caching each host&#39;s rules, honoring its Disallow paths and Crawl-delay, and defaulting to a conservative delay when none is specified — RFC 9309 standardizes the format. Non-compliance, not raw throughput, is how crawlers get blocked.</p>
+<p>Infinite URL spaces — a calendar&#39;s endless &quot;next month,&quot; faceted search permutations, a session id embedded in the path — generate an unbounded stream of technically-new URLs. Capping crawl depth and per-host page budgets bounds the damage; normalizing away session ids so those URLs collapse to the same normalized form lets the dedup mechanism from 6.2 catch what pattern detection misses. Every fetch also needs its own bounds regardless of the host: a timeout so one slow response can&#39;t stall a worker, a maximum page size so a multi-gigabyte response doesn&#39;t hang it either, and a cap on redirec</p>
+<p>Per-host error and ban-rate monitoring closes the loop: a host that starts returning 429 or 403 is signaling that the crawler is being throttled or blocked, and the correct response is to back off automatically, not retry harder.</p>
+<p>Key idea. A Bloom filter&#39;s one safe-direction error (skipping a rare new URL) is what makes it usable at scale; URL dedup and content dedup catch different kinds of duplicates; and every crawl hazard — infinite spaces, oversized pages, redirect loops, bans — gets its own explicit bound rather than being left to chance.</p>
+<h2>7. Variants</h2>
+<h3>10× scale</h3>
+<p>The frontier and seen-set shard further as URL count grows; the Bloom filter&#39;s memory grows with it but stays far under an exact set&#39;s cost, and the fetcher fleet scales with target throughput. Bandwidth and content storage become the dominant cost at this scale, pushing older content to tiered, cheaper storage and making prioritization — crawl the valuable pages, deprioritize the long tail — mandatory rather than a nice-to-have.</p>
+<h3>Fresh-focused crawling (news, prices)</h3>
+<p>When freshness dominates over raw coverage, the recrawl scheduler becomes the lead component: pages are revisited on tight, per-page change-rate estimates, conditional GET skips unchanged content cheaply, and the priority function weights volatility over novelty. The crawl becomes mostly re-crawl rather than first-time discovery.</p>
+<h3>JavaScript rendering</h3>
+<p>Pages that build their content client-side need a headless browser to render before the parser can extract anything — far more expensive per page than a raw HTML fetch. Routing only JS-dependent pages to a dedicated rendering pool keeps the cheap raw-HTML path fast for the majority that don&#39;t need it.</p>
+<p>Key idea. The frontier and dedup mechanisms hold at 10× scale; freshness-heavy crawling shifts the recrawl scheduler to the center of the design, and JavaScript rendering is isolated to its own expensive pool rather than slowing down every fetch.</p>
+<h2>8. The transferable pattern</h2>
+<p>A web crawler is a prioritized, deduplicated, per-host-rate-limited frontier wrapped around a fetch-and-parse loop. A Bloom filter catches duplicates cheaply, while depth caps and per-host budgets bound the infinite URL spaces dedup alone can&#39;t; host-partitioned queues with crawl-delay timing keep the crawler from being banned; the two-level frontier is what lets crawl-priority and per-host restraint coexist without one undermining the other. Content and metadata split the same way any large-object system splits them. The same shape reappears anywhere a system discovers unbounded work from a s</p>
+<h2>Review: the 30-second answer</h2>
+<p>A plain shared queue loops forever on popular URLs and hammers whatever host has the most internal links.</p>
+<p>A Bloom filter makes &quot;have I seen this URL&quot; cheap at billions of entries, at the cost of rare, harmless false positives.</p>
+<p>A two-level frontier — front queues for priority, one back queue per host for politeness — lets both goals coexist.</p>
+<p>Content bytes live in an object store; small metadata rows live in a database; a recrawl scheduler re-enqueues by change rate using conditional GET.</p>
+<p>Every crawl hazard (infinite URL spaces, oversized pages, redirect loops, bans) gets an explicit bound.</p>
+<h2>Quiz</h2>
+<h2>Sources and further reading</h2>
+<p>Introduction to Information Retrieval, Ch. 20: Web crawling and indexes — Manning, Raghavan &amp; Schütze — the Mercator-style frontier design and the politeness and dedup problems it solves.</p>
+<p>Robots Exclusion Protocol — RFC 9309, IETF (2022) — the standardized format for robots.txt User-agent, Allow, and Disallow rules; Crawl-delay remains a non-standard extension.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

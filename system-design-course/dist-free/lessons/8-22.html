@@ -1,0 +1,140 @@
+<h1>Design a Distributed Job Scheduler</h1>
+<blockquote>
+<p><strong>Lesson 8.22</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem statement</h2>
+<p>Design a system that runs jobs at a chosen time: &quot;run job X at time T&quot; once, or on a recurring schedule like &quot;every day at 09:00.&quot; The work must run reliably at scale, even when the machines running it crash, and it must run effectively once — never silently skipped, never harmfully duplicated.</p>
+<p>In scope: submitting one-off and recurring jobs, dispatching due jobs to workers, crash recovery, and effectively-once execution. Out of scope: the workers&#39; own job logic, and dependencies between jobs (a workflow/DAG engine, covered briefly as a variant).</p>
+<h2>Clarifying questions</h2>
+<p>Each answer fixes an assumption the design leans on.</p>
+<p>One-off, recurring, or both? Both — a fixed future time, and a repeating cron expression.</p>
+<p>Who runs the actual job? A pool of workers; the dispatcher that decides when is in scope, the job&#39;s own logic is not.</p>
+<p>What delivery guarantee? At-least-once delivery with an idempotent effect, not genuine exactly-once.</p>
+<p>How precise must &quot;at time T&quot; be? A seconds-level latency budget — jobs firing a little late is acceptable.</p>
+<p>Dependencies between jobs? Deferred to a workflow/DAG engine layered on top, not this design.</p>
+<p>What sizes the system? The peak dispatch rate at a hot instant, not the average rate across a day.</p>
+<h2>What makes this problem distinctive</h2>
+<p>A cron daemon that reads a table every minute and runs what&#39;s due sounds complete, until two things happen at once: a large share of a system&#39;s recurring jobs are set for midnight, and the machine running the daemon crashes mid-job. The daily average dispatch rate is a small number. The peak — every midnight job trying to fire in the same handful of seconds — can be orders of magnitude higher, and it&#39;s the number the design actually has to survive.</p>
+<p>The second problem compounds it: once dispatch is spread across many machines for scale, a crashed dispatcher can leave a job marked &quot;running&quot; forever, with nothing to notice or recover it — unless the system tracks not just that a job is running, but who claimed it and when that claim expires.</p>
+<p>Key idea. The daily average dispatch rate is easy; the midnight herd is what actually sizes the system, and a crashed dispatcher must be detected and recovered from without ever running a job twice by surprise.</p>
+<h2>Key concepts</h2>
+<p>This section covers the concepts needed to solve this problem — prerequisites for the design work that follows.</p>
+<h3>Time-bucketed dispatch</h3>
+<p>Scanning every stored job on every tick to find what&#39;s due doesn&#39;t scale past a small number of jobs. Bucketing jobs by their due time — one bucket per minute, say — means a dispatcher reads the current bucket plus a short lookback of past-due buckets, a tiny slice of the total store, regardless of how many jobs exist overall. The lookback is what catches jobs left behind by downtime or throttling. This is the same idea as releasing a web crawler&#39;s per-host queue when its crawl-delay elapses, applied to time instead of a host.</p>
+<h3>The lease</h3>
+<p>A lease is a time-bounded, atomic claim on a job: a dispatcher sets itself as owner and sets a lease_expiry a short window ahead, but only if the job is currently unclaimed or its previous lease already expired. A healthy owner keeps renewing the lease with a heartbeat; a crashed one stops renewing, and once the lease expires, any other dispatcher can claim the job and try again. This is the identical idea behind a message queue&#39;s visibility timeout — a message hides in flight and reappears if never acknowledged in time.</p>
+<h3>Effectively-once, not exactly-once</h3>
+<p>A crash can happen in the gap between a worker finishing a job&#39;s effect and recording that it finished — no lease duration eliminates that window. Genuine exactly-once delivery isn&#39;t achievable here; what&#39;s achievable is at-least-once delivery plus an idempotent effect, the same dedup pattern used in the payment system design: the job carries the caller&#39;s idempotency key, and a repeat execution checks whether that key is already recorded before doing anything, turning a duplicate delivery into a safe no-op.</p>
+<p>Key idea. Time-bucketing makes &quot;what&#39;s due right now&quot; a cheap, bounded read; a lease is what makes crash recovery possible without a dispatcher losing track of who owns what; and effectively-once is engineered from at-least-once delivery plus an idempotent effect, since true exactly-once delivery isn&#39;t on the table.</p>
+<h2>1. Requirements</h2>
+<p>Before reading on. Name three functional and three non-functional requirements, then name the one property you would never compromise.</p>
+<h3>1.1 Functional requirements</h3>
+<p>Submit a one-off job to run at a future time.</p>
+<p>Submit a recurring job with a cron expression that fires repeatedly.</p>
+<p>Dispatch each due job to a worker for execution, effectively once.</p>
+<p>Cancel or query a job or schedule — status, next run, attempt count.</p>
+<h3>1.2 Non-functional requirements</h3>
+<p>Durability across crashes or restarts — a submitted job is never lost.</p>
+<p>Effectively-once execution, via at-least-once delivery plus idempotency.</p>
+<p>Timely, scalable dispatch, within a seconds-level latency budget.</p>
+<p>Automatic crash recovery for a dead dispatcher, with no manual intervention.</p>
+<p>Graceful degradation during a hot timestamp, rather than an outage.</p>
+<h3>1.3 The constraint versus the property</h3>
+<p>The property never to compromise is effectively-once execution: a job never silently skipped, and never harmfully duplicated. The constraint that drives the design is the gap between the daily average dispatch rate and the peak at a hot instant — often hundreds of times larger — which is why the architecture is built around surviving that peak, not the average.</p>
+<p>Key idea. Effectively-once execution is the property that can&#39;t bend; surviving the peak-versus-average gap at a hot instant is the constraint the rest of the design answers.</p>
+<h2>2. Back-of-the-envelope estimation</h2>
+<h3>2.1 The daily average is easy</h3>
+<p>Assume roughly 1 billion job executions a day: 1,000,000,000 ÷ 86,400 ≈ 12,000 jobs a second, spread evenly. Storage for a billion pending jobs at roughly 1 KB each is about 1 TB — unremarkable.</p>
+<h3>2.2 The midnight bucket is the real number</h3>
+<p>Assume roughly 180 million daily cron jobs are all scheduled for midnight, firing within one minute: 180,000,000 ÷ 60 = 3,000,000 jobs a second at that instant.</p>
+<h3>2.3 Peak, not average, sizes the design</h3>
+<p>3,000,000 ÷ 12,000 ≈ 250 — the midnight peak runs roughly 250 times the daily average. Provisioning for the average and hoping the peak is manageable is exactly backwards.</p>
+<p>Key idea. The daily average (thousands a second) is a rounding error next to the midnight peak (millions a second) — the peak-to-average ratio is the number that actually drives the design.</p>
+<h2>3. API design</h2>
+<h3>3.1 Submit a job</h3>
+<p>A one-off job carries run_at; a recurring job carries cron instead. Everything else exists so a job that runs later — possibly repeatedly — can be tracked, retried safely, and cancelled.</p>
+<h3>3.2 Check job status</h3>
+<h3>3.3 Cancel a job or schedule</h3>
+<p>Cancels a future one-off job outright, or pauses a recurring schedule.</p>
+<p>Key idea. One field — run_at or cron — carries almost all the weight of the API; everything else exists to make a delayed, possibly-repeating job trackable, retryable, and cancellable.</p>
+<h2>4. Data model</h2>
+<h3>4.1 Job</h3>
+<p>A one-off unit of scheduled work, with the lease and idempotency machinery folded on.</p>
+<p>A recurring job can&#39;t be represented as one fixed-time row — &quot;every day at 09:00&quot; has no single run_at, it fires forever. The repeating definition is a different thing from any one occurrence.</p>
+<h3>4.2 Schedule</h3>
+<p>The recurring definition, separate from any single fire.</p>
+<p>When due, a Schedule spawns a concrete Job instance for that occurrence and advances next_run — the deep dive on recurring schedules covers this in full.</p>
+<h3>4.3 Where each entity lives</h3>
+<p>Job and Schedule live in a durable, authoritative store — the source of truth, written on submit and on completion. A separate, read-optimized due index, partitioned by run_at, is what dispatchers actually poll — submit-writes and due-reads have opposite access patterns, so they get different physical structures even though they describe the same jobs.</p>
+<p>Key idea. A job can&#39;t hold a recurring definition, which forces a separate Schedule entity; a job can&#39;t safely track &quot;who&#39;s running this,&quot; which forces the lease fields onto Job; and the store&#39;s write pattern (by job_id) differs enough from the dispatch read pattern (by due time) to warrant a separate due index.</p>
+<h2>5. High-level design</h2>
+<p>Before reading on. You already have time-bucketed dispatch, the lease, and effectively-once execution from Key concepts. Sketch what happens from &quot;a job&#39;s time arrives&quot; to &quot;it runs exactly the right number of times,&quot; and where each mechanism plugs in.</p>
+<p>Reading the diagrams. Each step marks the components newly added at that step with a dashed outline and a NEW badge, so you can see what changed from the step before.</p>
+<h3>5.1 One cron process, one table</h3>
+<p>Start naive: a single process reads a table every tick, finds due rows, and runs them inline.</p>
+<p>Five things break this.</p>
+<p>One process is a single point of failure and can&#39;t execute millions of jobs at the peak.</p>
+<p>Scanning a billion-row table every tick is ruinous, even when almost nothing is due.</p>
+<p>Nothing stops two dispatchers (once there are more than one) from running the same due job at once.</p>
+<p>A huge share of jobs firing in the same instant is a self-inflicted denial-of-service on the workers and whatever they call downstream.</p>
+<p>A job that fails gets no retry, no backoff, and no way to stop hammering something that&#39;s permanently broken.</p>
+<h3>5.2 Fix 1: a durable store and several stateless dispatchers</h3>
+<p>Move state out of any single process into a durable store, and run many stateless dispatchers against it.</p>
+<p>The dispatcher tier is no longer a single point of failure — the durable store itself must be replicated so it doesn&#39;t become the new one. Every dispatcher still scans the whole table on every tick.</p>
+<h3>5.3 Fix 2: a time-partitioned due index</h3>
+<p>Bucket jobs by due time — one bucket per minute — so a dispatcher reads only the current bucket plus a short past-due lookback.</p>
+<p>Dispatch reads now scale with what&#39;s due, not with total job count — though a single hot bucket can still be huge, which the deep dive shards further. Two dispatchers can still race on the same due job.</p>
+<h3>5.4 Fix 3: an atomic lease claim</h3>
+<p>A dispatcher claims a job with an atomic conditional update — set owner and lease_expiry, only if the job is currently unclaimed or its previous lease has expired.</p>
+<p>At most one dispatcher holds a valid lease at a time — though a paused or partitioned owner can still be mid-execution when its lease lapses, which is why the effect itself must stay idempotent (deep dive 6.3). A huge bucket of jobs due at once still fires all at once.</p>
+<h3>5.5 Fix 4: jitter and rate-limited dispatch</h3>
+<p>Spread each job&#39;s effective fire time with a small random jitter across a window, and cap total dispatch with a rate limiter.</p>
+<h3>5.6 Fix 5: retries, backoff, and a dead-letter queue</h3>
+<p>A job that fails transiently retries with exponential backoff; one that keeps failing past a capped attempt count goes to a dead-letter queue instead of retrying forever.</p>
+<h3>5.7 The composed design</h3>
+<p>Each fix answers one failure of the naive cron process: the durable store and stateless dispatchers fix the single point of failure, the time-bucketed index fixes scan cost, the atomic lease fixes double-claiming, jitter and rate limiting fix the herd, and retries with a dead-letter queue fix permanent failures.</p>
+<p>Key idea. Every component traces to one concrete failure of &quot;a cron process and a table&quot; — single point of failure, scan cost, double-claiming, the herd, and unbounded retries — not a pre-known architecture diagram.</p>
+<h2>6. Deep dives</h2>
+<h3>6.1 Time-based dispatch and the thundering herd</h3>
+<p>Before reading on. A fifth of the day&#39;s jobs are all set for 00:00. Two separate problems hide in that sentence: finding them cheaply, and firing them without knocking over everything downstream. Solve both.</p>
+<p>Finding due jobs cheaply is the time-bucketing from Key concepts: partition time into fixed intervals — one bucket per minute — so a dispatcher&#39;s read cost is proportional to jobs due right now, not to the total number of jobs ever stored. A single bucket can still be enormous, so it&#39;s sharded further by (time_bucket, hash(job_id)), spreading even a massive bucket across many shards and dispatchers.</p>
+<p>Firing them without a stampede is a separate problem the bucketing alone doesn&#39;t solve. Adding randomized jitter to each job&#39;s fire moment, spread across a window after its nominal due time, turns a single-instant spike into a smoothed-out stream. Jitter alone still isn&#39;t enough: a large enough bucket exceeds what downstream systems can absorb even after being spread across a window. A rate limiter caps total dispatch directly, so the stream drains at a survivable rate. Jobs fire slightly delayed by design — which the seconds-level latency budget from the requirements explicitly permits.</p>
+<h3>6.2 Crash recovery with leases</h3>
+<p>Before reading on. A dispatcher claims a due job, starts it, and dies. The job is now marked &quot;running&quot; but nobody is running it. How does the system notice and recover, without risking two runs?</p>
+<p>The claim itself is an atomic conditional write: set owner_id and lease_expiry a short duration ahead, only if the job is currently unclaimed or its lease has already expired — exactly one dispatcher wins, the same semantics as a conditional SET with expiry. A healthy owner renews its lease periodically via heartbeat; a crashed owner stops renewing, the lease expires on schedule, and another dispatcher reclaims the job. This mirrors a message queue&#39;s visibility timeout: a message hides from other consumers while in flight and reappears automatically if never acknowledged.</p>
+<p>Lease duration is a real tradeoff. Too short, and a healthy-but-slow worker can lose its lease mid-job, triggering a second execution of a job that was actually fine. Too long, and a genuinely crashed job stays undetected — and unrecovered — until the lease finally expires. The practical answer is a duration slightly longer than typical run time, with renewal for jobs that legitimately run long.</p>
+<p>Even a well-tuned lease has one unavoidable gap: a worker can finish a job&#39;s effect and then crash before acknowledging completion. The lease then expires exactly as if the worker had never started, and another dispatcher reclaims and re-executes a job that already ran. No lease duration eliminates this window — which is precisely why the effect itself has to be idempotent, not just the delivery.</p>
+<h3>6.3 Effectively-once execution</h3>
+<p>Before reading on. Why is genuine exactly-once impossible here, and what pair of mechanisms gives you the effect you actually want?</p>
+<p>Exactly-once delivery isn&#39;t achievable across independent machines: there&#39;s always a window between performing an effect and durably recording that it happened, and a crash in that window is indistinguishable from a crash before the effect ran at all. What&#39;s achievable instead is at-least-once delivery plus an idempotent effect, which together produce an exactly-once outcome even though delivery itself may repeat.</p>
+<p>The job carries the caller&#39;s idempotency key; before applying the effect, the worker checks whether that key is already recorded as done, the identical dedup move covered in the payment system design. That check-and-record step has to be atomic — if checking and recording aren&#39;t one indivisible operation, two concurrent redeliveries can both pass the check before either records the key, applying the effect twice anyway.</p>
+<p>The retry machinery itself — a queue, exponential jittered backoff, and a dead-letter queue for jobs that exceed a capped attempt count — is the same async-processing backbone used throughout distributed systems, not something rebuilt specifically for scheduling.</p>
+<h3>6.4 Recurring schedules and catch-up</h3>
+<p>Before reading on. The scheduler was down across a fire time. What&#39;s the right default, and what must you prevent when a run outlasts its next fire?</p>
+<p>A Schedule holds the cron expression and next_run; when due, the scheduler spawns a concrete Job instance for that occurrence and computes the following next_run. That spawn step must itself be idempotent per (schedule, fire-time) pair — otherwise a dispatcher reclaiming a schedule after a crash could spawn a duplicate job instance for the same occurrence.</p>
+<p>Missed fires have no single correct default; the right policy genuinely depends on the job. Skip discards stale fires — appropriate for something like a health check, which only cares about current state, not a backlog of past ones. Catch-up runs every missed period — appropriate for something like billing, where every period genuinely needs to execute regardless of how late. Exposing this as a per-schedule policy, rather than picking one default for everything, is what makes both cases correct.</p>
+<p>A separate hazard: if one occurrence&#39;s run outlasts the time its next occurrence is due, running both concurrently can corrupt whatever shared state the job touches. A per-schedule lock — only one active run of a given schedule at a time — prevents that overlap. Finally, daylight-saving transitions need the schedule&#39;s intended time zone, not just a UTC instant. Store the cron expression together with its IANA time zone, compute each next occurrence in that zone — handling local times that repeat or don&#39;t exist during a transition — and convert to UTC only as the derived dispatch instant. Stori</p>
+<p>Key idea. Sharding the hot bucket plus jitter and rate limiting is what turns a synchronized stampede into a survivable stream; a lease with heartbeat renewal recovers from a crash, but only idempotency closes the finish-then-crash gap no lease duration can; and a recurring schedule needs idempotent spawning, a per-schedule missed-fire policy, and a time-zone-aware cron definition to stay correct across restarts and daylight-saving transitions.</p>
+<h2>7. Variants</h2>
+<h3>10× scale</h3>
+<p>The architecture doesn&#39;t change shape — the durable store and due index shard further, the hot bucket spreads across more nodes, and the rate limiter and worker pool scale with peak capacity. Jitter widens to spread the herd over a longer window as its absolute size grows. The line item that grows fastest is dispatch at the hot instant; the daily average barely moves, so provisioning for the peak and filling the troughs with non-urgent, deferrable work keeps that capacity from sitting idle the rest of the day.</p>
+<h3>Higher-precision scheduling</h3>
+<p>Sub-second precision needs finer buckets than one per minute — a timing wheel, a ring of small time slots that a clock hand advances through with due jobs attached to each slot — at millisecond resolution, with dispatchers polling far more aggressively. The tradeoff cuts directly against the herd mitigation from the deep dives: tighter timing tolerances leave much less room for jitter, making the thundering-herd problem correspondingly harder to smooth out.</p>
+<h3>Workflow dependencies</h3>
+<p>Once jobs gain dependencies — run B only after A succeeds, with a defined compensation if a later step fails — the problem has crossed from scheduling into a workflow or DAG engine. A saga is the right tool for that ordering and compensation logic; this scheduler still fires the timed triggers underneath it, but ownership of ordering and rollback belongs to the workflow layer, not here.</p>
+<p>Key idea. The architecture holds at 10× scale by sharding further and provisioning for the peak; higher precision directly trades away jitter room, making the herd problem harder; and job dependencies are a workflow engine&#39;s problem, layered on top of — not inside — this scheduler.</p>
+<h2>8. The transferable pattern</h2>
+<p>A distributed job scheduler is a durable store of future work plus a time-indexed dispatcher that leases each item to a worker and makes the effect idempotent. Time-bucketing is what makes &quot;what&#39;s due right now&quot; cheap to find regardless of total volume; leasing is what makes crash recovery possible without losing track of ownership; idempotency keys are what make at-least-once delivery safe; jitter and rate limits are what let the design survive a traffic surge instead of amplifying it. It rhymes with a web crawler&#39;s frontier (release work when its time comes) and a payment system&#39;s idempotenc</p>
+<h2>Review: the 30-second answer</h2>
+<p>A durable job store is the source of truth; a time-bucketed due index is what makes dispatch cheap to find.</p>
+<p>An atomic lease — owner plus expiry, renewed by heartbeat — is what makes crash recovery possible without double-claiming.</p>
+<p>At-least-once delivery plus an idempotent effect equals effectively-once execution; genuine exactly-once delivery isn&#39;t achievable.</p>
+<p>Jitter and a rate limiter turn a synchronized stampede (the midnight herd) into a survivable, spread-out stream.</p>
+<p>The midnight bucket, not the daily average, is what actually sizes this system.</p>
+<h2>Quiz</h2>
+<h2>Sources and further reading</h2>
+<p>Distributed locks with Redis — Redis docs — the SET if-not-exists-plus-expiry mechanism behind a time-bounded job lease.</p>
+<p>Exactly-once semantics in Kafka — Conduktor — why cross-machine delivery is fundamentally at-least-once, and how idempotency turns it into an effectively-once outcome.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

@@ -1,0 +1,257 @@
+<h1>CDN — How Netflix Uses It</h1>
+<blockquote>
+<p><strong>Lesson 2.3</strong> · Beginner + Pro + Senior · 30 min</p>
+</blockquote>
+<hr>
+<h2>The Problem: Speed of Light</h2>
+<p>Your servers are in Virginia. A user in Sydney requests a 4MB JavaScript bundle. The round-trip from Sydney to Virginia is ~200ms. The file takes 10+ round trips to download over TCP. Total time: 2+ seconds before the user sees anything.</p>
+<p>Physics is the bottleneck. You cannot make light travel faster, but you can <strong>move your content closer to your users</strong>.</p>
+<hr>
+<h2>What Is a CDN?</h2>
+<p>A <strong>Content Delivery Network</strong> is a globally distributed network of servers (called <strong>edge nodes</strong> or <strong>PoPs — Points of Presence</strong>) that cache and serve content from locations near users.</p>
+<pre><code>Without CDN:
+User (Sydney) ──────────────────────► Origin Server (Virginia) ← 200ms RTT
+
+With CDN:
+User (Sydney) ──► CDN Edge (Sydney) ──────────────────────────── 5ms RTT
+                       │
+                       │ (cache miss, first user only)
+                       ▼
+                  Origin (Virginia) ─────────────────────────── 200ms (once)
+</code></pre>
+<p>After the first user in Sydney requests a file, the CDN edge in Sydney caches it. Every subsequent user in Sydney gets it from the Sydney edge — 5ms instead of 200ms.</p>
+<hr>
+<h2>How CDN Caching Works</h2>
+<h3>Cache Hit</h3>
+<ol>
+<li>User requests <code>https://cdn.example.com/logo.png</code></li>
+<li>Request routes to nearest CDN edge (Sydney)</li>
+<li>Sydney edge has <code>logo.png</code> in cache</li>
+<li>Edge serves it directly — origin never involved</li>
+<li>Latency: ~5ms</li>
+</ol>
+<h3>Cache Miss</h3>
+<ol>
+<li>User requests <code>https://cdn.example.com/logo.png</code></li>
+<li>Sydney edge does not have it (first request or cache expired)</li>
+<li>Edge fetches from origin server (Virginia) — 200ms round trip</li>
+<li>Edge caches the response</li>
+<li>Edge serves the file to the user</li>
+<li>All subsequent requests from Sydney: cache hit, ~5ms</li>
+</ol>
+<h3>Cache-Control Headers</h3>
+<p>The CDN respects HTTP cache headers from the origin:</p>
+<pre><code>Cache-Control: public, max-age=31536000, immutable
+</code></pre>
+<ul>
+<li><code>public</code>: CDN can cache this (not user-specific)</li>
+<li><code>max-age=31536000</code>: Cache for 1 year</li>
+<li><code>immutable</code>: Content will never change (safe for versioned assets)</li>
+</ul>
+<pre><code>Cache-Control: private, no-store
+</code></pre>
+<ul>
+<li><code>private</code>: Only the browser can cache (not CDN)</li>
+<li><code>no-store</code>: Do not cache at all (sensitive data)</li>
+</ul>
+<hr>
+<h2>What to Put on a CDN</h2>
+<table>
+<thead>
+<tr>
+<th>Content type</th>
+<th>Cache duration</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Images, videos, audio</td>
+<td>1 year (content-hashed URL)</td>
+<td>Never changes for a given hash</td>
+</tr>
+<tr>
+<td>JS/CSS bundles</td>
+<td>1 year (content-hashed)</td>
+<td>Hashed filename changes on deploy</td>
+</tr>
+<tr>
+<td>Fonts</td>
+<td>1 year</td>
+<td>Rarely change</td>
+</tr>
+<tr>
+<td>HTML pages</td>
+<td>5 minutes to 1 hour</td>
+<td>Changes on deploy</td>
+</tr>
+<tr>
+<td>API responses (public)</td>
+<td>Seconds to minutes</td>
+<td>Depends on data freshness requirements</td>
+</tr>
+<tr>
+<td>User-specific data</td>
+<td>Never (private)</td>
+<td>Leaks between users</td>
+</tr>
+</tbody></table>
+<p><strong>Content-hashed filenames</strong> are the gold standard for long-lived caching:</p>
+<pre><code>app.abc123.js → cache for 1 year
+Deploy new code:
+app.def456.js → cache for 1 year (new URL, no stale cache)
+</code></pre>
+<hr>
+<h2>CDN Invalidation</h2>
+<p>Sometimes you need to clear the cache before the TTL expires — a bug fix, a security patch, wrong content served.</p>
+<p><strong>Methods:</strong></p>
+<ol>
+<li><strong>Purge by URL:</strong> Instantly delete a specific cached object</li>
+<li><strong>Purge by tag:</strong> CDN vendors (Cloudflare, Fastly) support cache tags — purge all objects tagged <code>product-123</code></li>
+<li><strong>Versioned URLs:</strong> Avoid invalidation by changing the URL (deploy new filenames)</li>
+<li><strong>Wait for TTL:</strong> Simplest but slowest</li>
+</ol>
+<p>Purging is expensive at scale. Prefer short TTLs for content that changes or use versioned URLs to avoid purging entirely.</p>
+<hr>
+<h2>Netflix: The World&#39;s Largest CDN</h2>
+<p>Netflix built its own CDN called <strong>Open Connect</strong> specifically because commercial CDNs could not handle its scale or give it the control it needed.</p>
+<h3>The Problem Netflix Solved</h3>
+<p>Netflix accounts for ~15% of global internet traffic during peak hours. At peak, Netflix streams ~700 Gbps in the US alone. Commercial CDNs could not:</p>
+<ul>
+<li>Handle that volume cost-effectively</li>
+<li>Give Netflix control over encoding quality per location</li>
+<li>Allow embedding servers directly inside ISP networks</li>
+</ul>
+<h3>Open Connect Appliances (OCAs)</h3>
+<p>Netflix ships purpose-built servers (Open Connect Appliances) to ISPs and embeds them <strong>inside the ISP&#39;s network</strong> — sometimes in the same building as the ISP&#39;s routers.</p>
+<pre><code>Netflix HQ (upload)
+       │
+       ▼
+Netflix Open Connect Appliances
+       │
+       ├──► Inside Comcast&#39;s network (US)
+       ├──► Inside BT&#39;s network (UK)
+       ├──► Inside Telstra&#39;s network (AU)
+       └──► 1,000+ ISPs worldwide
+
+User streams from OCA inside their ISP — traffic never leaves ISP&#39;s network
+</code></pre>
+<p>Benefits:</p>
+<ul>
+<li><strong>Near-zero latency:</strong> Streaming from a server in the same building as your ISP&#39;s router</li>
+<li><strong>Reduced bandwidth costs:</strong> Netflix pays ISPs to host OCAs; ISPs save on upstream bandwidth costs</li>
+<li><strong>Higher quality:</strong> OCAs can store the highest-quality encodes of popular content</li>
+</ul>
+<h3>Pre-Positioning (Proactive Caching)</h3>
+<p>Most CDNs reactively cache (pull on first request). Netflix uses <strong>pre-positioning</strong> — proactively pushing popular content to edge servers before anyone requests it.</p>
+<p>Every night at off-peak hours, Netflix analyzes viewing patterns and pre-pushes content predicted to be popular the next day to relevant regional OCAs.</p>
+<pre><code>2am: Netflix predicts &quot;Wednesday&quot; will trend in the UK tomorrow
+     → Pushes all resolutions of &quot;Wednesday&quot; to UK OCAs
+8pm next day: UK users stream &quot;Wednesday&quot; from local OCA at full quality
+</code></pre>
+<hr>
+<h2>Edge Computing: CDNs That Run Code</h2>
+<p>Modern CDNs are not just caches — they run code at the edge.</p>
+<p><strong>Cloudflare Workers, AWS Lambda@Edge, Fastly Compute@Edge</strong> execute JavaScript/WASM functions at CDN edge nodes:</p>
+<pre><code class="language-javascript">// Cloudflare Worker — runs at 300+ edge locations globally
+addEventListener(&#39;fetch&#39;, event =&gt; {
+  event.respondWith(handleRequest(event.request))
+})
+
+async function handleRequest(request) {
+  const country = request.cf.country
+
+  // Serve different content by country (no round-trip to origin)
+  if (country === &#39;DE&#39;) {
+    return fetch(&#39;https://origin.example.com/de/&#39;, request)
+  }
+  return fetch(&#39;https://origin.example.com/en/&#39;, request)
+}
+</code></pre>
+<p>Use cases for edge computing:</p>
+<ul>
+<li>A/B testing (no latency hit — decision at the edge)</li>
+<li>Authentication (validate JWT at the edge, not origin)</li>
+<li>Personalization (inject user-specific content at edge)</li>
+<li>Bot protection</li>
+<li>Image optimization (resize on-the-fly at the edge)</li>
+</ul>
+<hr>
+<h2>CDN Providers</h2>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Strengths</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Cloudflare</strong></td>
+<td>Global network, DDoS protection, edge compute, free tier</td>
+</tr>
+<tr>
+<td><strong>AWS CloudFront</strong></td>
+<td>Deep AWS integration, Lambda@Edge</td>
+</tr>
+<tr>
+<td><strong>Fastly</strong></td>
+<td>Programmable edge (VCL/Compute@Edge), instant purging</td>
+</tr>
+<tr>
+<td><strong>Akamai</strong></td>
+<td>Largest network, enterprise features</td>
+</tr>
+<tr>
+<td><strong>Bunny CDN</strong></td>
+<td>Simple, cheap, good for smaller projects</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>CDN Limitations</h2>
+<ol>
+<li><strong>Not for dynamic, user-specific data</strong> — shopping carts, user dashboards, real-time data</li>
+<li><strong>Cache invalidation complexity</strong> — stale content can cause bugs</li>
+<li><strong>Geographic coverage gaps</strong> — not all regions have edge nodes; users in underserved areas still go to origin</li>
+<li><strong>Cost at scale</strong> — CDN egress costs add up; Netflix built their own to save costs</li>
+</ol>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Key point</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CDN purpose</td>
+<td>Move content close to users to reduce latency</td>
+</tr>
+<tr>
+<td>Cache hit</td>
+<td>Served from edge — fast (&lt; 10ms)</td>
+</tr>
+<tr>
+<td>Cache miss</td>
+<td>Fetched from origin, then cached — slower (once)</td>
+</tr>
+<tr>
+<td>Cache-Control</td>
+<td>Origin controls what and how long CDN caches</td>
+</tr>
+<tr>
+<td>Content-hashed URLs</td>
+<td>Enable 1-year cache TTLs safely</td>
+</tr>
+<tr>
+<td>Netflix Open Connect</td>
+<td>Purpose-built CDN with servers inside ISPs</td>
+</tr>
+<tr>
+<td>Edge compute</td>
+<td>Run code at CDN edge for personalization, auth, routing</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./04-rate-limiting.md">Lesson 2.4 — Rate Limiting &amp; Throttling</a></p>
+</blockquote>

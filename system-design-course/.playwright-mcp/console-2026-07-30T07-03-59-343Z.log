@@ -1,0 +1,5 @@
+[    1949ms] [WARNING]   WARN  [Statsig] Attempting to retrieve a StatsigClient but none was set. @ https://systemdesignschool.io/_next/static/chunks/9211-be6c3431e7550ed5.js:0
+[    1949ms] [WARNING]   WARN  [Statsig] useExperiment hook failed to find a valid Statsig client for experiment 'lock-problem-practice'. @ https://systemdesignschool.io/_next/static/chunks/9211-be6c3431e7550ed5.js:0
+[    3164ms] [WARNING] [GSI_LOGGER]: Your client application uses one of the Google One Tap prompt UI status methods that may stop functioning when FedCM becomes mandatory. Refer to the migration guide to update your code accordingly and opt-in to FedCM to test your changes. Learn more: https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#display_moment and https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#skipped_moment @ https://accounts.google.com/gsi/client:86
+[    3167ms] [ERROR] Not signed in with the identity provider. @ https://systemdesignschool.io/problems:0
+[    6076ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with NetworkError: Error retrieving a token. @ https://accounts.google.com/gsi/client:87

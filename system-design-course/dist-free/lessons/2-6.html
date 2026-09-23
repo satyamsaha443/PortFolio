@@ -1,0 +1,271 @@
+<h1>SQL Sharding &amp; Partitioning Strategies</h1>
+<blockquote>
+<p><strong>Lesson 2.6</strong> · Pro + Senior · 40 min</p>
+</blockquote>
+<hr>
+<h2>When One Database Is Not Enough</h2>
+<p>A single PostgreSQL instance on powerful hardware can handle:</p>
+<ul>
+<li>~100,000 simple reads/second</li>
+<li>~10,000 writes/second</li>
+<li>~10 TB of data before performance degrades</li>
+</ul>
+<p>Beyond that, you need to distribute your data. There are two dimensions:</p>
+<ul>
+<li><strong>Vertical partitioning:</strong> Split different tables across different databases</li>
+<li><strong>Horizontal partitioning (sharding):</strong> Split rows of the same table across multiple databases</li>
+</ul>
+<hr>
+<h2>Vertical Partitioning</h2>
+<p>Split your database by domain. Each service (or domain) owns its own database.</p>
+<pre><code>Before: One monolithic database
+┌────────────────────────────────────┐
+│ users │ orders │ products │ reviews│
+└────────────────────────────────────┘
+
+After: Separate databases per domain
+┌──────────┐  ┌──────────┐  ┌──────────┐
+│  Users   │  │  Orders  │  │ Products │
+│    DB    │  │    DB    │  │    DB    │
+└──────────┘  └──────────┘  └──────────┘
+</code></pre>
+<p><strong>Benefits:</strong></p>
+<ul>
+<li>Each DB scales independently</li>
+<li>Failure in one DB does not affect others</li>
+<li>Teams own their data — no schema conflicts</li>
+</ul>
+<p><strong>Drawbacks:</strong></p>
+<ul>
+<li>No cross-database JOINs (must do application-level joins)</li>
+<li>Distributed transactions become necessary for cross-domain operations</li>
+</ul>
+<p>This is essentially the database layer of a microservices architecture.</p>
+<hr>
+<h2>Horizontal Sharding</h2>
+<p>Split rows of the same table across multiple database instances. Each shard holds a subset of the rows.</p>
+<pre><code>users table (1 billion rows) split across 4 shards:
+
+Shard 0: users with id % 4 = 0  (250 million rows)
+Shard 1: users with id % 4 = 1  (250 million rows)
+Shard 2: users with id % 4 = 2  (250 million rows)
+Shard 3: users with id % 4 = 3  (250 million rows)
+</code></pre>
+<p>Each shard is a fully independent database. Queries for <code>user_id=1000</code> (1000 % 4 = 0) go to Shard 0 only.</p>
+<hr>
+<h2>Sharding Strategies</h2>
+<h3>1. Range-Based Sharding</h3>
+<p>Assign rows to shards based on a range of the sharding key.</p>
+<pre><code>Shard 0: user_id 1 – 10,000,000
+Shard 1: user_id 10,000,001 – 20,000,000
+Shard 2: user_id 20,000,001 – 30,000,000
+</code></pre>
+<p><strong>Strengths:</strong></p>
+<ul>
+<li>Range queries are efficient — <code>user_id BETWEEN 1 AND 5000000</code> goes to Shard 0 only</li>
+<li>Simple to add shards for new ranges</li>
+</ul>
+<p><strong>Weaknesses:</strong></p>
+<ul>
+<li><strong>Hotspots:</strong> New users always get the highest IDs — Shard 2 (new users) is hammered while Shard 0 (old users) is idle</li>
+<li><strong>Uneven distribution:</strong> If user activity correlates with registration time, shards are not equally loaded</li>
+</ul>
+<p><strong>Good for:</strong> Time-series data where you naturally query recent data. Shard 2023, Shard 2024.</p>
+<hr>
+<h3>2. Hash-Based Sharding</h3>
+<p>Hash the sharding key and use modulo to determine the shard.</p>
+<pre><code>shard = hash(user_id) % num_shards
+
+hash(1234) % 4 = 2 → Shard 2
+hash(5678) % 4 = 1 → Shard 1
+</code></pre>
+<p><strong>Strengths:</strong></p>
+<ul>
+<li>Even distribution of data and load across shards</li>
+<li>No hotspots</li>
+</ul>
+<p><strong>Weaknesses:</strong></p>
+<ul>
+<li>Range queries require hitting all shards: <code>SELECT * WHERE user_id BETWEEN 1 AND 1000</code> → must query all 4 shards</li>
+<li>Resharding is expensive: adding a shard changes the modulo, so almost all keys must move</li>
+</ul>
+<p><strong>Good for:</strong> Workloads dominated by point lookups (fetch user by ID).</p>
+<p><strong>Use consistent hashing</strong> (Lesson 2.5) instead of simple modulo to reduce resharding cost.</p>
+<hr>
+<h3>3. Directory-Based Sharding</h3>
+<p>A separate lookup table maps each key to its shard.</p>
+<pre><code>Shard lookup table:
+user_id 1–1000      → Shard 0
+user_id 1001–2500   → Shard 1
+user_id 2501–3000   → Shard 0  (Shard 0 had extra capacity)
+user_id 3001–5000   → Shard 2
+</code></pre>
+<p>The application queries the lookup table before querying the shard.</p>
+<p><strong>Strengths:</strong></p>
+<ul>
+<li>Flexible — reassign specific ranges to specific shards as load changes</li>
+<li>Supports heterogeneous shards (different sizes, different hardware)</li>
+</ul>
+<p><strong>Weaknesses:</strong></p>
+<ul>
+<li>The lookup table is a single point of failure and a hot spot</li>
+<li>Extra round trip per query (lookup → shard)</li>
+<li>Complexity of maintaining the mapping</li>
+</ul>
+<p><strong>Good for:</strong> Systems that need precise control over data placement.</p>
+<hr>
+<h2>Choosing the Sharding Key</h2>
+<p>The sharding key is the most important decision in a sharded system. A poor choice causes hotspots, cross-shard queries, or makes certain operations impossible.</p>
+<p><strong>Rules for a good sharding key:</strong></p>
+<ol>
+<li><strong>High cardinality:</strong> Enough distinct values to distribute evenly</li>
+<li><strong>Even distribution:</strong> Keys should map evenly to shards (avoid celebrity keys)</li>
+<li><strong>Minimises cross-shard queries:</strong> The most common queries should touch one shard</li>
+<li><strong>Immutable:</strong> Once assigned, the key should not change (moving a row between shards is expensive)</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Application</th>
+<th>Good sharding key</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Social network</td>
+<td><code>user_id</code></td>
+<td>Most queries are per-user</td>
+</tr>
+<tr>
+<td>E-commerce</td>
+<td><code>customer_id</code></td>
+<td>Orders, reviews, addresses are per-customer</td>
+</tr>
+<tr>
+<td>Multi-tenant SaaS</td>
+<td><code>tenant_id</code></td>
+<td>Each tenant is isolated</td>
+</tr>
+<tr>
+<td>IoT sensors</td>
+<td><code>device_id</code></td>
+<td>Readings are per-device</td>
+</tr>
+<tr>
+<td>URL shortener</td>
+<td>Hash of the short code</td>
+<td>Even distribution, single-key lookup</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Cross-Shard Queries</h2>
+<p>The biggest pain of sharding: queries that span multiple shards.</p>
+<pre><code class="language-sql">-- This query must go to all 4 shards:
+SELECT COUNT(*) FROM users WHERE country = &#39;US&#39;;
+
+-- Aggregate results in application:
+total = shard0.count + shard1.count + shard2.count + shard3.count
+</code></pre>
+<p><strong>Strategies for handling cross-shard queries:</strong></p>
+<ol>
+<li><p><strong>Accept scatter-gather:</strong> Query all shards in parallel, merge results. Adds latency proportional to the slowest shard.</p>
+</li>
+<li><p><strong>Secondary index table:</strong> Maintain a separate (unsharded) table mapping <code>country → [user_ids]</code>. Query it first to find which users, then fetch from specific shards.</p>
+</li>
+<li><p><strong>Denormalize:</strong> Store a copy of frequently-queried cross-shard data in a single aggregation table.</p>
+</li>
+<li><p><strong>CQRS:</strong> Separate read and write models. Write to sharded DB; async sync to a query-optimized store (Elasticsearch, BigQuery) for analytical queries.</p>
+</li>
+</ol>
+<hr>
+<h2>Resharding</h2>
+<p>Adding shards to an existing system is painful:</p>
+<pre><code>Before: 4 shards  (hash % 4)
+After:  8 shards  (hash % 8)
+
+hash(user_id=1234) % 4 = 2  → was on Shard 2
+hash(user_id=1234) % 8 = 6  → needs to be on Shard 6 (a NEW shard)
+</code></pre>
+<p>Almost half the rows must move. During the migration:</p>
+<ul>
+<li>Data is being read from old location</li>
+<li>Data is being written to new location</li>
+<li>System must handle reads from both locations</li>
+</ul>
+<p><strong>Strategies:</strong></p>
+<ol>
+<li><strong>Double writes:</strong> Write to both old and new shards; gradually migrate reads</li>
+<li><strong>Virtual shards:</strong> Start with many more virtual shards than physical. Map virtual → physical. Adding a physical shard just re-maps some virtual shards — much less data movement.</li>
+<li><strong>Consistent hashing:</strong> Minimizes data movement on resharding (Lesson 2.5)</li>
+<li><strong>Expand-and-contract:</strong> Add new shards in parallel, migrate data, cut over</li>
+</ol>
+<hr>
+<h2>Partitioning Within a Single Database</h2>
+<p>Before sharding to multiple databases, PostgreSQL and MySQL support <strong>table partitioning</strong> — splitting one logical table into multiple physical tables within the same DB instance.</p>
+<h3>PostgreSQL Range Partitioning</h3>
+<pre><code class="language-sql">CREATE TABLE events (
+    id BIGSERIAL,
+    user_id BIGINT,
+    created_at TIMESTAMP NOT NULL,
+    event_type TEXT
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE events_2023 PARTITION OF events
+    FOR VALUES FROM (&#39;2023-01-01&#39;) TO (&#39;2024-01-01&#39;);
+
+CREATE TABLE events_2024 PARTITION OF events
+    FOR VALUES FROM (&#39;2024-01-01&#39;) TO (&#39;2025-01-01&#39;);
+</code></pre>
+<p>Now <code>SELECT * FROM events WHERE created_at &gt; &#39;2024-01-01&#39;</code> only scans <code>events_2024</code> — not <code>events_2023</code>. Queries on recent data are faster. Old partitions can be archived.</p>
+<h3>PostgreSQL Hash Partitioning</h3>
+<pre><code class="language-sql">CREATE TABLE users (id BIGSERIAL, username TEXT, ...)
+PARTITION BY HASH (id);
+
+CREATE TABLE users_0 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE users_1 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+CREATE TABLE users_2 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 2);
+CREATE TABLE users_3 PARTITION OF users FOR VALUES WITH (MODULUS 4, REMAINDER 3);
+</code></pre>
+<p>The optimizer automatically routes queries to the correct partition.</p>
+<p><strong>Partitioning within one DB gives you:</strong></p>
+<ul>
+<li>Faster queries on partitioned data</li>
+<li>Easy archival (drop old partitions)</li>
+<li>Parallel query execution per partition</li>
+</ul>
+<p><strong>But still limited by one machine&#39;s capacity.</strong> Cross multiple machines = sharding.</p>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Best for</th>
+<th>Weakness</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Vertical partitioning</td>
+<td>Domain separation, microservices</td>
+<td>No cross-domain JOINs</td>
+</tr>
+<tr>
+<td>Range sharding</td>
+<td>Time-series, monotonically increasing keys</td>
+<td>Hotspots on recent data</td>
+</tr>
+<tr>
+<td>Hash sharding</td>
+<td>Even distribution, point lookups</td>
+<td>Expensive range queries, resharding</td>
+</tr>
+<tr>
+<td>Directory sharding</td>
+<td>Flexible placement</td>
+<td>Lookup table bottleneck</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./07-replication.md">Lesson 2.7 — Replication: Leader-Follower &amp; Multi-Master</a></p>
+</blockquote>

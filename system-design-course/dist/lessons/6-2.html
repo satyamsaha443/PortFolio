@@ -1,0 +1,572 @@
+<h1>GDPR, CCPA &amp; PDPA Compliance Built into Design</h1>
+<blockquote>
+<p><strong>Lesson 6.2</strong> · Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<h2>Why Compliance Is an Architecture Concern, Not Just Legal</h2>
+<p>There is a common misconception in engineering: compliance is something the legal team worries about, and engineers tick boxes at the end of the project. This is the misconception that cost Google €50 million, Meta €1.2 billion, and Amazon €746 million.</p>
+<p>These are not fines for failing to file paperwork. They are fines for building systems that technically could not comply — systems that stored personal data in places engineers did not track, that could not delete a user&#39;s data on demand, that propagated consent decisions inconsistently across microservices. The legal team signed off on a privacy policy. The engineering team built something that could not honour it.</p>
+<p><strong>The fines are escalating:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Company</th>
+<th>Year</th>
+<th>Fine</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Google</td>
+<td>2019</td>
+<td>€50M</td>
+<td>Lack of valid consent basis for ad targeting</td>
+</tr>
+<tr>
+<td>H&amp;M</td>
+<td>2020</td>
+<td>€35.3M</td>
+<td>Unlawful employee monitoring, data retention</td>
+</tr>
+<tr>
+<td>Amazon</td>
+<td>2021</td>
+<td>€746M</td>
+<td>Consent-based ad targeting violations</td>
+</tr>
+<tr>
+<td>WhatsApp (Meta)</td>
+<td>2021</td>
+<td>€225M</td>
+<td>Transparency and data sharing disclosures</td>
+</tr>
+<tr>
+<td>Meta (Facebook)</td>
+<td>2023</td>
+<td>€1.2B</td>
+<td>Cross-Atlantic data transfer to US servers</td>
+</tr>
+<tr>
+<td>TikTok</td>
+<td>2023</td>
+<td>€345M</td>
+<td>Children&#39;s data handling</td>
+</tr>
+</tbody></table>
+<p>The €1.2 billion Meta fine is instructive: it was not for a data breach. It was for transferring European users&#39; personal data to US servers under a legal mechanism (Standard Contractual Clauses) that regulators determined was insufficient. This is precisely an architecture problem — where the data lives, and how it moves, is a design decision.</p>
+<h3>Why System Design Interviews Now Cover This</h3>
+<p>Five years ago, a &quot;design Instagram&quot; interview question would not touch GDPR. Today, senior-level system design interviews at companies like Shopify, Stripe, Wise, and any European-headquartered tech company routinely include questions such as:</p>
+<ul>
+<li>&quot;How would you handle a user&#39;s right to erasure across your distributed system?&quot;</li>
+<li>&quot;How do you ensure EU user data doesn&#39;t replicate outside the EU?&quot;</li>
+<li>&quot;Walk me through how consent changes propagate across your microservices.&quot;</li>
+</ul>
+<p>If you cannot answer these questions, you are signalling to the interviewer that you design systems without considering where data lives — which is a serious gap at the senior level.</p>
+<hr>
+<h2>GDPR Core Requirements That Affect System Design</h2>
+<p>The <strong>General Data Protection Regulation</strong> (GDPR) came into force in May 2018. It applies to any organisation that processes personal data of individuals in the EU, regardless of where the organisation is based. A startup in San Francisco with ten EU users is subject to GDPR.</p>
+<p><strong>Personal data</strong> is defined broadly: any information relating to an identified or identifiable natural person. This includes names, email addresses, IP addresses, location data, cookie identifiers, and anything that can be linked to an individual.</p>
+<h3>Right to Erasure (&quot;Right to Be Forgotten&quot;)</h3>
+<p>Article 17 of GDPR gives individuals the right to request that their personal data be deleted. The controller (your company) must erase that data &quot;without undue delay&quot; — in practice, regulators expect this within 30 days.</p>
+<p>This is straightforward for a monolithic application with one database. It is an engineering challenge for a modern distributed system.</p>
+<p><strong>The distribution problem:</strong></p>
+<pre><code>A user&#39;s email address may exist in:
+
+  ┌──────────────────────────────────────────────────────┐
+  │  Primary PostgreSQL DB        (users table)          │
+  │  Kafka topics                 (user_events stream)   │
+  │  S3 data lake                 (clickstream exports)  │
+  │  Elasticsearch                (search indexes)       │
+  │  Redis                        (session cache)        │
+  │  CDN edge nodes               (personalised content) │
+  │  Email service provider       (Mailchimp, SendGrid)  │
+  │  Analytics warehouse          (BigQuery, Snowflake)  │
+  │  Audit logs                   (CloudWatch, Splunk)   │
+  │  Backup snapshots             (S3, Glacier)          │
+  └──────────────────────────────────────────────────────┘
+</code></pre>
+<p>Deleting from the primary database is the easy part. The system design challenge — which we will cover in depth below — is deleting from every other location, confirming deletion, and handling the edge cases.</p>
+<h3>Data Portability</h3>
+<p>Article 20 grants individuals the right to receive their personal data in a <strong>structured, commonly used, machine-readable format</strong> and to transmit it to another controller. In engineering terms: you need an export endpoint.</p>
+<p>The export must cover all personal data you hold about the user. For a social platform, this means posts, messages, likes, profile data, settings, connections, activity history. For an e-commerce platform: orders, addresses, payment methods (excluding full card numbers), browsing history.</p>
+<p><strong>Design implications:</strong></p>
+<ul>
+<li>The export endpoint must be able to query across multiple data stores</li>
+<li>It must run asynchronously (a user with five years of activity cannot wait 30 seconds for a synchronous response)</li>
+<li>The output format should be JSON or CSV; do not require a user to have your app installed to read their own data</li>
+<li>Rate-limit the endpoint (one export request per user per 24 hours is reasonable)</li>
+<li>Notify the user by email when the export is ready, with a short-lived download link</li>
+</ul>
+<pre><code>POST /api/account/export
+  → 202 Accepted
+  → Background job kicks off across all data stores
+  → Generates archive.zip: { profile.json, posts.json, messages.json, ... }
+  → Uploads to S3 with presigned URL (expires in 24h)
+  → Sends email: &quot;Your data export is ready&quot;
+
+GET /api/account/export/{job_id}
+  → 200 { &quot;status&quot;: &quot;complete&quot;, &quot;download_url&quot;: &quot;...&quot;, &quot;expires_at&quot;: &quot;...&quot; }
+  → 200 { &quot;status&quot;: &quot;pending&quot;, &quot;estimated_completion&quot;: &quot;5 minutes&quot; }
+</code></pre>
+<h3>Consent Management</h3>
+<p>GDPR&#39;s lawfulness requirements (Article 6) mean you must have a valid legal basis for processing personal data. For most non-contractual processing — tracking, analytics, marketing, third-party sharing — the legal basis is <strong>consent</strong>. Consent must be freely given, specific, informed, and unambiguous.</p>
+<p><strong>Architectural consequences:</strong></p>
+<ol>
+<li>You must store a record of every consent decision: what the user agreed to, when, what version of the privacy notice they saw, and via which channel.</li>
+<li>When a user withdraws consent for a processing purpose (e.g., analytics), you must stop all processing for that purpose — including in services that do not have a direct relationship with the user record.</li>
+<li>If your system is event-driven and microservices-based, consent withdrawal must propagate to all services that process data for that purpose.</li>
+</ol>
+<p><strong>Consent record schema:</strong></p>
+<pre><code class="language-json">{
+  &quot;user_id&quot;: &quot;u_7f3a91b2&quot;,
+  &quot;consent_event&quot;: &quot;granted&quot;,
+  &quot;purpose&quot;: &quot;analytics_tracking&quot;,
+  &quot;version&quot;: &quot;privacy_notice_v4.2&quot;,
+  &quot;timestamp&quot;: &quot;2024-03-15T09:34:21Z&quot;,
+  &quot;channel&quot;: &quot;web_cookie_banner&quot;,
+  &quot;ip_address_hash&quot;: &quot;sha256:4c2a...&quot;,
+  &quot;user_agent&quot;: &quot;Mozilla/5.0 ...&quot;
+}
+</code></pre>
+<p>Store this in an <strong>immutable audit log</strong> — append-only, no deletes (the consent record itself is not personal data in the same sense; you have a legitimate interest in proving you had consent). Use a separate storage tier from your primary application database.</p>
+<h3>Data Minimisation</h3>
+<p>Article 5(1)(c): personal data shall be &quot;adequate, relevant and limited to what is necessary in relation to the purposes for which they are processed.&quot;</p>
+<p>In engineering terms: <strong>do not collect fields you do not use.</strong> If your product does not need a user&#39;s date of birth to function, do not ask for it. If your mobile app does not need fine-grained location (GPS coordinates), do not request the location permission — use coarse location or postal code instead.</p>
+<p>This principle compounds over time. A field you collect in 2024 &quot;just in case&quot; becomes a liability in 2026 when a GDPR audit asks you to justify collecting it. Build data minimisation into your product requirements process: every new data field requires a documented purpose.</p>
+<hr>
+<h2>CCPA: The California Consumer Privacy Act</h2>
+<p>The <strong>California Consumer Privacy Act</strong> (CCPA, 2018, amended by CPRA in 2020) applies to for-profit businesses that:</p>
+<ul>
+<li>Have annual revenue &gt; $25 million, OR</li>
+<li>Buy, sell, or receive the personal information of ≥100,000 consumers/households per year, OR</li>
+<li>Derive ≥50% of annual revenue from selling personal information</li>
+</ul>
+<h3>Key Differences from GDPR</h3>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>GDPR</th>
+<th>CCPA</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Consent model</td>
+<td><strong>Opt-in</strong> — processing requires consent (or another legal basis)</td>
+<td><strong>Opt-out</strong> — you can process by default; consumers can opt out of sale/sharing</td>
+</tr>
+<tr>
+<td>Right to delete</td>
+<td>Universal, broad</td>
+<td>Yes, but with more exceptions (business operations, legal compliance)</td>
+</tr>
+<tr>
+<td>Geographic scope</td>
+<td>Any organisation with EU data subjects</td>
+<td>California consumers; applies to businesses meeting revenue/volume thresholds</td>
+</tr>
+<tr>
+<td>Fines</td>
+<td>Up to €20M or 4% of global annual revenue</td>
+<td>Up to $7,500 per intentional violation</td>
+</tr>
+<tr>
+<td>Data portability</td>
+<td>Required (Article 20)</td>
+<td>Required (right to know)</td>
+</tr>
+<tr>
+<td>Sensitive data</td>
+<td>Special categories (health, religion, etc.) have heightened rules</td>
+<td>Sensitive personal information defined with opt-out rights</td>
+</tr>
+</tbody></table>
+<p><strong>The opt-out vs. opt-in difference matters architecturally.</strong> Under GDPR, your system must have a mechanism to verify consent before processing. Under CCPA, your system must have a mechanism to honour opt-out requests — specifically, the <strong>&quot;Do Not Sell or Share My Personal Information&quot;</strong> right. You must add a visible link with this text on your website, and your backend must honour it.</p>
+<p><strong>California-specific &quot;sensitive personal information&quot;</strong> under CPRA includes: precise geolocation, racial/ethnic origin, religious beliefs, health data, biometric data, sexual orientation. Collecting these requires conspicuous disclosure and gives users the right to limit use.</p>
+<h3>CCPA Architecture Pattern: Global Privacy Control</h3>
+<p>The Global Privacy Control (GPC) is a browser signal that consumers can set to automatically communicate an opt-out of data sale to all websites they visit. Like a <code>robots.txt</code> for personal data sale, but with legal teeth in California.</p>
+<p>Your server-side code must check for the <code>Sec-GPC: 1</code> HTTP header and, if present, treat it as an opt-out:</p>
+<pre><code class="language-python">def get_tracking_allowed(request, user_id):
+    # Check browser-level GPC signal
+    if request.headers.get(&quot;Sec-GPC&quot;) == &quot;1&quot;:
+        return False
+    
+    # Check user-level CCPA opt-out stored in preference service
+    prefs = preference_service.get(user_id)
+    if prefs.ccpa_opt_out:
+        return False
+    
+    return True
+</code></pre>
+<hr>
+<h2>PDPA: Thailand and Singapore</h2>
+<p>Two Asian markets are increasingly important for global products: Thailand and Singapore both have <strong>Personal Data Protection Acts</strong> (PDPA), enacted in 2019 and 2012 (amended 2020) respectively. Many global teams encounter these when expanding in Southeast Asia.</p>
+<h3>Key Similarities to GDPR</h3>
+<p>Both PDPA regimes share the conceptual framework of GDPR:</p>
+<ul>
+<li>Consent as a lawfulness basis</li>
+<li>Data subject rights (access, correction, deletion, portability)</li>
+<li>Data minimisation and purpose limitation</li>
+<li>Cross-border transfer restrictions (data leaving the country must go to countries with adequate protection, or under consent/contractual safeguards)</li>
+<li>Data Protection Officers required for certain organisations</li>
+</ul>
+<h3>Key Differences</h3>
+<p><strong>Thailand PDPA:</strong> Came into full effect in June 2022. Penalties up to ฿5 million (~$140K USD) per violation. Notably includes <strong>criminal liability</strong> for data controllers and processors in the most serious breaches — a personal consequence not present in GDPR.</p>
+<p><strong>Singapore PDPA:</strong> One of the more mature PDPA regimes in Asia, having been in force since 2014. Singapore&#39;s Personal Data Protection Commission (PDPC) has been active in enforcement. Maximum financial penalty is S$1 million or 10% of annual Singapore turnover (whichever is higher). Singapore has published detailed advisory guidelines that make it one of the more actionable frameworks to implement.</p>
+<p><strong>For most global engineering teams:</strong> If you have implemented GDPR correctly, satisfying PDPA is largely a matter of:</p>
+<ol>
+<li>Extending your data map to cover Singapore/Thailand data subjects</li>
+<li>Ensuring cross-border transfer safeguards are in place (transfers from Singapore to the US require PDPC-approved standard clauses)</li>
+<li>Adding a PDPC-style Data Protection Policy alongside your GDPR Privacy Notice</li>
+</ol>
+<hr>
+<h2>The Data Map: Knowing Where Every Piece of PII Lives</h2>
+<p>Before you can comply with any of the above frameworks, you need to answer one foundational question: <strong>where does your personal data actually live?</strong></p>
+<p>This answer is not obvious in a microservices architecture where ten teams have independently built services, each with their own database. The canonical tool is the <strong>Data Map</strong> (also called a <strong>Record of Processing Activities</strong> or ROPA under GDPR Article 30).</p>
+<h3>What a Data Map Contains</h3>
+<p>A data map is a catalogue of every data processing activity in your system. For each activity, record:</p>
+<pre><code>Processing Activity:   User Registration
+Data Categories:       Name, email, password hash, date joined
+Data Subjects:         End users (B2C customers)
+Processing Purpose:    Account creation and authentication
+Legal Basis:           Contract performance (Art 6(1)(b) GDPR)
+Storage Locations:     PostgreSQL users table (us-east-1), Redis session (us-east-1),
+                       Elasticsearch user search index (us-east-1)
+Retention Period:      Account lifetime + 2 years post-deletion
+Cross-Border Transfer: None (all in us-east-1; EU users: eu-central-1)
+Third Parties:         SendGrid (transactional email), PagerDuty (alerts)
+Owner:                 Platform team
+Last Reviewed:         2024-09-01
+</code></pre>
+<h3>How to Build One</h3>
+<p>A data map is never complete on the first attempt. The practical approach:</p>
+<ol>
+<li><strong>Start with your API layer.</strong> Every field in a request or response that could identify a person is personal data. Audit your API schemas.</li>
+<li><strong>Trace each field through the system.</strong> Where does the email address go after it is received? It hits the users table, the email service queue, the audit log, the analytics event stream. Follow each hop.</li>
+<li><strong>Interview each service team.</strong> Ask: &quot;What personal data does your service store? Where? For how long?&quot; You will find data in places no one expected.</li>
+<li><strong>Make it a living document.</strong> Data maps go stale. Require a data map update as part of the definition of done for any feature that introduces new personal data collection.</li>
+</ol>
+<p><strong>Tools:</strong> Some organisations use spreadsheets. Mature teams use dedicated data governance platforms (Collibra, OneTrust, Transcend) that can auto-discover data across cloud accounts. At a minimum, keep the data map in version control alongside your architecture documentation.</p>
+<hr>
+<h2>Technical Implementation Patterns</h2>
+<h3>Pseudonymisation and Tokenisation</h3>
+<p><strong>Pseudonymisation</strong> replaces direct identifiers (name, email) with a pseudonym (a random token) such that the data can only be re-linked to the individual with access to a separate mapping table. Under GDPR, pseudonymised data is still personal data — but it carries reduced risk and satisfies &quot;appropriate safeguards&quot; language in several provisions.</p>
+<p><strong>Tokenisation</strong> is similar: replace a sensitive value with a non-sensitive token. The canonical example is payment cards — your system stores a token (<code>tok_4xBc7f</code>) rather than the full card number. Stripe, Braintree, and Adyen all provide tokenisation services for payment data.</p>
+<pre><code>User registration flow (with pseudonymisation):
+
+1. User provides email: alice@example.com
+2. System generates pseudonym: usr_7f3a91b2
+3. email → stored in Identity Service (isolated, encrypted)
+4. All other services receive and store only: usr_7f3a91b2
+5. When email is needed (e.g., send notification):
+   → Call Identity Service with usr_7f3a91b2 → returns email
+6. To erase user: delete from Identity Service → pseudonym becomes orphaned
+   → All other services retain usr_7f3a91b2 (anonymous, no longer personal data)
+</code></pre>
+<p>This is the <strong>data vault pattern</strong>: personal data is centralised in a single, highly controlled service; everything else operates on pseudonyms. Deletion becomes simple — delete the pseudonym-to-identity mapping, and the rest of the system has no personal data.</p>
+<h3>Data Classification Tiers</h3>
+<p>Establish a four-tier classification system and apply it consistently:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Label</th>
+<th>Examples</th>
+<th>Controls</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><strong>Public</strong></td>
+<td>Published blog posts, product names</td>
+<td>No special controls</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Internal</strong></td>
+<td>Internal metrics, anonymised analytics</td>
+<td>Standard ACL, no external sharing</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Confidential</strong></td>
+<td>Email addresses, IP logs, transaction amounts</td>
+<td>Encryption at rest, access logging, limited retention</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Restricted</strong></td>
+<td>Health data, biometrics, financial account details, credentials</td>
+<td>Encryption at rest + in transit, MFA to access, strict audit, short retention</td>
+</tr>
+</tbody></table>
+<p>Tag every database column, S3 bucket, and Kafka topic with its classification tier. This metadata drives automated controls: your data platform can enforce that a Restricted-tier S3 bucket must have server-side encryption enabled, that CloudTrail logging is mandatory, and that it cannot be made public.</p>
+<h3>Encryption at Rest and in Transit</h3>
+<p><strong>In transit:</strong> TLS 1.2+ everywhere — not just external APIs but internal service-to-service calls too. mTLS (mutual TLS) for internal services in a zero-trust network model. Do not allow HTTP between services even on private VPCs.</p>
+<p><strong>At rest:</strong></p>
+<ul>
+<li>Database columns containing Restricted-tier data: <strong>column-level encryption</strong> using application-managed keys (not just disk encryption). Even a DBA cannot read the raw value.</li>
+<li>S3 buckets: SSE-KMS (AWS Key Management Service) with customer-managed keys. Key rotation policy: at least annual.</li>
+<li>Backups: encrypted before leaving the region; encryption key stored separately from the backup.</li>
+</ul>
+<p><strong>Key management:</strong> Never store encryption keys in application code, environment variables, or alongside the data they encrypt. Use a dedicated key management service: AWS KMS, Google Cloud KMS, Azure Key Vault, or HashiCorp Vault.</p>
+<h3>Audit Logging for Data Access</h3>
+<p>GDPR and most other frameworks require you to be able to demonstrate <strong>who accessed what personal data, when, and for what purpose</strong>. This is not optional at the senior level.</p>
+<p><strong>What to log:</strong></p>
+<ul>
+<li>Every read of personal data at the service layer (not just writes)</li>
+<li>The user or service identity making the request</li>
+<li>The purpose (if available from context)</li>
+<li>The data categories accessed</li>
+<li>Timestamp and source IP</li>
+</ul>
+<pre><code>{
+  &quot;event_type&quot;:     &quot;personal_data_access&quot;,
+  &quot;timestamp&quot;:      &quot;2024-06-15T14:22:03.412Z&quot;,
+  &quot;accessor_type&quot;:  &quot;service&quot;,
+  &quot;accessor_id&quot;:    &quot;notification-service&quot;,
+  &quot;data_subject&quot;:   &quot;usr_7f3a91b2&quot;,
+  &quot;data_category&quot;:  &quot;contact_email&quot;,
+  &quot;purpose&quot;:        &quot;transactional_notification&quot;,
+  &quot;request_id&quot;:     &quot;req_8a4f2e19&quot;,
+  &quot;outcome&quot;:        &quot;success&quot;
+}
+</code></pre>
+<p>Store audit logs in an <strong>append-only, tamper-evident</strong> store. Audit logs should not be deletable by application services — not even during an erasure request (regulators accept that audit logs are retained for compliance purposes, separate from the personal data itself). AWS CloudTrail, Google Cloud Audit Logs, and Datadog&#39;s immutable audit trail are common choices.</p>
+<hr>
+<h2>The Right to Erasure Problem: A Deep Dive</h2>
+<p>This is the hardest compliance problem in distributed systems. A user submits an erasure request. You have 30 days. Where does their data live?</p>
+<h3>The Data Residency Survey</h3>
+<p>Before writing a single line of deletion code, you need the answer from your data map. For a typical mid-size product:</p>
+<pre><code>User data locations (example):
+  1. PostgreSQL:         users, orders, addresses, payment_methods tables
+  2. Redis:             session tokens, user preferences cache
+  3. Kafka:             user_events topic (historical event stream)
+  4. Amazon S3:         user-uploaded files, data lake exports
+  5. Elasticsearch:     user profile search index, activity index
+  6. CDN (CloudFront):  cached responses containing user data
+  7. Backups:           RDS snapshots, S3 object versions
+  8. Third parties:     SendGrid contact list, Segment analytics, Amplitude
+</code></pre>
+<p>Each location requires a different deletion mechanism, a different latency, and carries different risks.</p>
+<h3>The Erasure Request Architecture</h3>
+<p>The canonical pattern is a <strong>fan-out deletion orchestrator</strong> — a service that receives the erasure request and fans it out to every system that holds the user&#39;s data, tracking completion.</p>
+<pre><code>                        ERASURE REQUEST FLOW
+                        ════════════════════
+
+User submits erasure request
+        │
+        ▼
+┌───────────────────┐
+│  Erasure Service  │  Validates request, deduplicates,
+│  (Orchestrator)   │  logs to immutable audit trail
+└────────┬──────────┘
+         │
+         │ publishes: EraseUserRequested { user_id, deadline }
+         ▼
+  ┌──────┴──────────────────────────────────────────┐
+  │           Deletion Fan-Out (parallel)            │
+  │                                                  │
+  ├──► PostgreSQL Worker                             │
+  │      DELETE FROM users WHERE id = ?             │
+  │      DELETE FROM orders ... (or anonymise)       │
+  │      Confirm → publishes: PostgresErased         │
+  │                                                  │
+  ├──► Redis Worker                                  │
+  │      DEL session:{user_id}:*                    │
+  │      DEL prefs:{user_id}                        │
+  │      Confirm → publishes: RedisErased            │
+  │                                                  │
+  ├──► Kafka Tombstone Worker                        │
+  │      Writes tombstone records to user_events    │
+  │      topic (Kafka log compaction removes them)  │
+  │      Confirm → publishes: KafkaTombstoned        │
+  │                                                  │
+  ├──► S3 Worker                                     │
+  │      Lists objects with prefix users/{user_id}/ │
+  │      Issues batch DELETE requests               │
+  │      Confirms object versions and delete marks  │
+  │      Confirm → publishes: S3Erased              │
+  │                                                  │
+  ├──► Elasticsearch Worker                          │
+  │      DELETE /users/_doc/{user_id}               │
+  │      Reindex to remove from activity index      │
+  │      Confirm → publishes: ElasticsearchErased    │
+  │                                                  │
+  ├──► CDN Invalidation Worker                       │
+  │      CloudFront invalidation: /users/{id}/*     │
+  │      Confirm → publishes: CDNInvalidated         │
+  │                                                  │
+  └──► Third-Party Worker                            │
+         Calls SendGrid DELETE /contacts/{email}     │
+         Calls Segment DELETE /users/{user_id}       │
+         Confirm → publishes: ThirdPartiesNotified   │
+                                                     │
+  Orchestrator listens for all confirmations         │
+  When all complete → marks erasure as complete      │
+  Sends confirmation email to user                   │
+  └─────────────────────────────────────────────────┘
+
+Timeout: if any worker fails to confirm within 24h →
+  alert on-call, trigger retry, escalate to compliance team
+</code></pre>
+<h3>The Hard Cases</h3>
+<p><strong>Kafka / Event Streams:</strong> Kafka topics are immutable logs. You cannot delete an individual event from the middle of a topic. Two strategies:</p>
+<ul>
+<li><strong>Tombstone records:</strong> Produce a null-value message with the user&#39;s key. Kafka log compaction will eventually remove all earlier records for that key. This is eventual — compaction may take hours or days. Suitable for non-sensitive data or when the 30-day window gives you slack.</li>
+<li><strong>Envelope encryption:</strong> At write time, encrypt each event&#39;s personal data fields with a user-specific key stored in KMS. To &quot;erase&quot; the user, delete their key. All events remain in the topic, but the personal fields are permanently unreadable. This is instantaneous and preferred for high-throughput streams.</li>
+</ul>
+<p><strong>S3 / Data Lake:</strong> Data lake pipelines typically batch-export raw events into Parquet files on S3. A single Parquet file may contain rows for millions of users. You cannot delete one row from a Parquet file without rewriting the entire file.</p>
+<p>Options:</p>
+<ul>
+<li><strong>Metadata-level suppression:</strong> Maintain a &quot;deleted users&quot; table in your data warehouse. All queries that touch raw event data must join against this table and exclude deleted users. Fast to implement, but you are not truly deleting — the raw data still exists.</li>
+<li><strong>Partition by user ID:</strong> If your lake is partitioned by user ID, each user&#39;s data lives in its own S3 prefix and can be deleted cleanly. Impractical for most pipelines where time-based partitioning is standard.</li>
+<li><strong>Periodic re-export:</strong> On a schedule (weekly, monthly), re-export the data lake tables excluding deleted users, then delete the old raw files. Most organisations accept this for backups and analytics stores, since GDPR&#39;s &quot;without undue delay&quot; applies to live systems, and the 30-day window typically covers scheduled batch processes.</li>
+</ul>
+<p><strong>Backups:</strong> Database snapshots taken before an erasure request still contain the user&#39;s data. Under GDPR, you generally do not need to restore every backup and re-take it after deletion — this would be disproportionately burdensome. The accepted approach is to document that backups are retained for at most N days (your backup retention policy), after which the data will naturally expire. You must not restore a backup containing erased data without redacting the erased user before restoring.</p>
+<p><strong>Search Indexes:</strong> Elasticsearch, OpenSearch, and Solr can delete individual documents by ID. The challenge is that a user&#39;s data may be distributed across multiple index types (user profile index, activity index, full-text search index). Your data map must capture every index that holds personal data, and your Elasticsearch worker must issue deletes against all of them.</p>
+<hr>
+<h2>Consent Propagation: Event-Driven Pattern</h2>
+<p>When a user updates their consent preferences — say, withdrawing consent for analytics tracking — that change must propagate to every service that processes data under that consent purpose. In a monolith, this is a function call. In a microservices architecture, it requires an event-driven design.</p>
+<h3>The Pattern</h3>
+<p>A <strong>Consent Service</strong> is the single source of truth for all consent decisions. When a user changes a consent setting, the Consent Service:</p>
+<ol>
+<li>Persists the new consent record (append-only log)</li>
+<li>Publishes a <code>ConsentUpdated</code> event to a topic</li>
+</ol>
+<p>Every service that processes data under any consent purpose subscribes to this topic and maintains a local copy of the consent state for users it processes.</p>
+<pre><code>                    CONSENT PROPAGATION ARCHITECTURE
+                    ══════════════════════════════════
+
+User withdraws analytics consent
+        │
+        ▼
+┌─────────────────────┐
+│   Consent Service   │  Single source of truth
+│   ─────────────── │
+│   - PostgreSQL:     │
+│     consent_log     │  (append-only, immutable)
+│   - Redis:          │
+│     consent_cache   │  (fast read path)
+└──────────┬──────────┘
+           │
+           │ publishes to: consent-events Kafka topic
+           │
+           │  {
+           │    &quot;user_id&quot;: &quot;usr_7f3a91b2&quot;,
+           │    &quot;purpose&quot;: &quot;analytics_tracking&quot;,
+           │    &quot;decision&quot;: &quot;withdrawn&quot;,
+           │    &quot;timestamp&quot;: &quot;2024-06-15T14:22:03Z&quot;,
+           │    &quot;version&quot;: &quot;v4.2&quot;
+           │  }
+           │
+  ┌────────┴─────────────────────────────────────────┐
+  │              Subscribers (all process in parallel) │
+  │                                                    │
+  ├──► Analytics Service                               │
+  │      Receives event → updates local consent cache │
+  │      Stops emitting analytics events for user     │
+  │      Deletes buffered analytics events in queue   │
+  │                                                    │
+  ├──► Personalisation Service                         │
+  │      Stops recording user behaviour               │
+  │      Flags user&#39;s behavioural profile for         │
+  │      eventual deletion                            │
+  │                                                    │
+  ├──► Email Marketing Service                         │
+  │      If analytics consent linked to marketing:    │
+  │      unsubscribes from behavioural campaigns      │
+  │                                                    │
+  ├──► Ad Targeting Service                            │
+  │      Removes user from targetable audiences       │
+  │      Stops real-time bidding enrichment           │
+  │                                                    │
+  └──► Data Pipeline Service                           │
+         Applies filter: exclude usr_7f3a91b2 from    │
+         analytics exports until consent re-granted   │
+                                                      │
+  All services:                                        │
+    - Acknowledge event (commit Kafka offset)          │
+    - Log receipt to audit trail                       │
+    - Apply change idempotently (safe to replay)       │
+    └────────────────────────────────────────────────┘
+</code></pre>
+<h3>Key Design Principles for Consent Propagation</h3>
+<p><strong>Idempotency:</strong> The same <code>ConsentUpdated</code> event may be delivered more than once (Kafka at-least-once delivery). Each subscriber must apply the change idempotently — applying &quot;analytics consent withdrawn&quot; twice must have the same result as applying it once.</p>
+<p><strong>Check at processing time, not just at collection time:</strong> Services must check consent before processing, not just before collecting. A service that buffered events before the withdrawal event arrived must drain and discard those buffered events retroactively.</p>
+<p><strong>Audit trail:</strong> Every service that receives and acts on a consent event must log the action. If a regulator asks &quot;did you stop processing user X&#39;s analytics data after their withdrawal request on date Y?&quot;, you need evidence from each service.</p>
+<p><strong>Freshness SLA:</strong> Define a maximum propagation delay — the time between a user withdrawing consent and all services honouring the withdrawal. A common target is 15 minutes for a real-time system. Measure it. Alert if it exceeds the target.</p>
+<p><strong>Fallback: check the source of truth.</strong> For services where data sensitivity is high (ad targeting, health data processing), do not rely solely on the local cached consent state. Check the Consent Service directly before each high-value processing operation. Accept the small added latency to guarantee correctness.</p>
+<hr>
+<h2>Building Compliance into the Development Process</h2>
+<p>Compliance cannot be retrofitted at the end. By the time you discover that your Kafka topics contain personally identifiable information, you may have hundreds of millions of events that cannot be individually deleted.</p>
+<p><strong>At the design stage:</strong></p>
+<ul>
+<li>Every new feature that collects personal data requires a <strong>Privacy Impact Assessment</strong> (PIA). A one-page document asking: what data are we collecting, why, where does it go, how long do we keep it, who can access it?</li>
+<li>Every new database column, API request field, or event schema field containing personal data must be classified and tagged before the PR is merged.</li>
+</ul>
+<p><strong>In code review:</strong></p>
+<ul>
+<li>Reviewers should check: does this new field appear in logs? (log scrubbing required)</li>
+<li>Does this new field flow into the analytics pipeline? (consent check required)</li>
+<li>Is this personal data encrypted at the storage layer?</li>
+</ul>
+<p><strong>In testing:</strong></p>
+<ul>
+<li>Production personal data must never be used in test environments. Use synthetic data generation (Faker libraries) or properly anonymised snapshots.</li>
+<li>Add a test case for erasure: assert that after calling the erasure endpoint, the user&#39;s personal data cannot be retrieved from any data store the test has access to.</li>
+</ul>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>What triggers GDPR applicability?</td>
+<td>Processing personal data of EU residents, regardless of company location</td>
+</tr>
+<tr>
+<td>GDPR vs CCPA consent model</td>
+<td>GDPR: opt-in required; CCPA: opt-out (you can process by default, user can opt out of sale)</td>
+</tr>
+<tr>
+<td>Right to erasure in a distributed system</td>
+<td>Fan-out deletion orchestrator; enumerate all data stores; handle Kafka with envelope encryption or tombstones; backups expire on schedule</td>
+</tr>
+<tr>
+<td>Data portability implementation</td>
+<td>Async export job across all data stores; presigned download URL; JSON/CSV format</td>
+</tr>
+<tr>
+<td>How to propagate consent changes</td>
+<td>Consent service publishes events; all consuming services subscribe and maintain local cache; idempotent processing</td>
+</tr>
+<tr>
+<td>What is pseudonymisation?</td>
+<td>Replace PII with tokens; store mapping only in an isolated Identity Service; deletion = delete the mapping</td>
+</tr>
+<tr>
+<td>Hardest erasure location?</td>
+<td>Kafka topics and data lake Parquet files — neither supports row-level deletion</td>
+</tr>
+<tr>
+<td>How to handle backups?</td>
+<td>Document retention policy; do not restore deleted user data; accept that old backups age out</td>
+</tr>
+<tr>
+<td>What is a Data Map (ROPA)?</td>
+<td>Catalogue of all processing activities: what data, where stored, legal basis, retention, cross-border transfers</td>
+</tr>
+<tr>
+<td>Encryption key management for GDPR</td>
+<td>User-specific keys in KMS; &quot;crypto-erasure&quot; by deleting the key renders data permanently unreadable</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Up next:</strong> <a href="./03-i18n-l10n.md">Lesson 6.3 — Internationalisation and Localisation at Scale</a> — time zones, character sets, right-to-left languages, and currency handling in global systems.</p>
+</blockquote>

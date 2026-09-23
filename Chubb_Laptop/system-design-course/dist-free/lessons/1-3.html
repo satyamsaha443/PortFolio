@@ -1,0 +1,265 @@
+<h1>HTTP, DNS &amp; TCP/IP — What You Actually Need</h1>
+<blockquote>
+<p><strong>Lesson 1.3</strong> · Beginner · 30 min</p>
+</blockquote>
+<hr>
+<h2>Why You Need to Know This</h2>
+<p>System design interviews rarely ask you to implement a TCP stack. But you will be asked why a WebSocket is better than polling for a chat app, or why a CDN improves latency, or why DNS matters for global routing. Those answers require understanding the layers below your application.</p>
+<p>This lesson teaches exactly what you need — no more.</p>
+<hr>
+<h2>The Layered Model</h2>
+<p>Networks are organized in layers. Each layer solves one problem and relies on the layer below it:</p>
+<pre><code>Layer 4: Application   — HTTP, WebSocket, DNS, SMTP
+Layer 3: Transport     — TCP, UDP
+Layer 2: Internet      — IP (routing packets across the globe)
+Layer 1: Link          — Ethernet, Wi-Fi (moving bits between devices)
+</code></pre>
+<p>You will mostly work with Layers 3 and 4. Think of it like mailing a package:</p>
+<ul>
+<li><strong>IP</strong> is the postal address system — it knows how to get a packet from A to B globally</li>
+<li><strong>TCP</strong> is the delivery confirmation — it ensures all packets arrive and in order</li>
+<li><strong>HTTP</strong> is the letter inside the package — it defines the format of what you are sending</li>
+</ul>
+<hr>
+<h2>IP: How Packets Cross the Internet</h2>
+<p>Every device on the internet has an <strong>IP address</strong> — a unique identifier.</p>
+<ul>
+<li>IPv4: <code>142.250.80.46</code> (four numbers 0–255, ~4 billion addresses)</li>
+<li>IPv6: <code>2607:f8b0:4004:c08::71</code> (128-bit, effectively unlimited)</li>
+</ul>
+<p>When your laptop sends data to Google, it does not go in one hop. It travels through a series of <strong>routers</strong> that each forward it one step closer to the destination. This is called <strong>packet routing</strong>.</p>
+<p>IP is a best-effort protocol. It does not guarantee packets arrive, arrive in order, or arrive at all.</p>
+<hr>
+<h2>TCP: Reliability on Top of IP</h2>
+<p><strong>TCP (Transmission Control Protocol)</strong> adds three things on top of IP:</p>
+<h3>1. The Three-Way Handshake</h3>
+<p>Before sending data, TCP establishes a connection:</p>
+<pre><code>Client → Server:  SYN   (I want to connect)
+Server → Client:  SYN-ACK  (I received your request, I accept)
+Client → Server:  ACK   (Confirmed, connection established)
+</code></pre>
+<p>This adds one round-trip of latency before any data flows. For services where latency matters (high-frequency trading, gaming), this overhead is significant.</p>
+<h3>2. Guaranteed Delivery</h3>
+<p>TCP numbers every packet (sequence numbers). The receiver sends acknowledgements. If a packet is lost, the sender retransmits it.</p>
+<h3>3. Ordered Delivery</h3>
+<p>TCP reassembles packets in the correct order even if they arrive out of sequence.</p>
+<p><strong>The trade-off:</strong> TCP&#39;s reliability comes at the cost of latency and overhead. If you need speed over accuracy (video calls, live gaming), use <strong>UDP</strong> instead — it sends packets with no handshake, no acknowledgement, no ordering. Dropped packets just disappear.</p>
+<hr>
+<h2>DNS: The Internet&#39;s Phone Book</h2>
+<p><strong>DNS (Domain Name System)</strong> translates human-readable names into IP addresses.</p>
+<pre><code>You type:     google.com
+DNS returns:  142.250.80.46
+Your browser connects to 142.250.80.46
+</code></pre>
+<h3>How DNS Resolution Works</h3>
+<pre><code>1. Browser checks its local DNS cache
+   → &quot;Do I already know google.com?&quot;
+
+2. Browser asks the OS resolver
+   → &quot;Does the OS know google.com?&quot;
+
+3. OS asks the Recursive Resolver (usually your ISP or 8.8.8.8)
+   → &quot;Google, who?&quot;
+
+4. Recursive Resolver asks the Root Name Server
+   → &quot;Who handles .com domains?&quot;
+   Root: &quot;The .com TLD server at 192.5.6.30&quot;
+
+5. Recursive Resolver asks the .com TLD Server
+   → &quot;Who handles google.com?&quot;
+   TLD: &quot;Google&#39;s authoritative nameserver at 216.239.32.10&quot;
+
+6. Recursive Resolver asks Google&#39;s Authoritative Nameserver
+   → &quot;What is google.com?&quot;
+   Authoritative: &quot;142.250.80.46&quot;
+
+7. Recursive Resolver returns the answer and caches it for the TTL
+</code></pre>
+<h3>DNS and System Design</h3>
+<p>DNS is not just lookup — it is a <strong>routing tool</strong>.</p>
+<ul>
+<li><strong>GeoDNS:</strong> Return different IP addresses based on the user&#39;s location. Users in Europe get routed to European servers.</li>
+<li><strong>DNS load balancing:</strong> Return multiple IP addresses for the same domain; clients pick one.</li>
+<li><strong>Health checks:</strong> Some DNS providers can detect unhealthy servers and remove their IPs automatically.</li>
+<li><strong>TTL (Time to Live):</strong> How long clients cache the DNS result. Low TTL = faster failover. High TTL = less DNS load.</li>
+</ul>
+<hr>
+<h2>HTTP: The Language of the Web</h2>
+<p><strong>HTTP (HyperText Transfer Protocol)</strong> is the protocol your browser uses to communicate with web servers.</p>
+<h3>HTTP Methods</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+<th>Idempotent?</th>
+<th>Safe?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GET</code></td>
+<td>Read a resource</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td>Create a resource</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>PUT</code></td>
+<td>Replace a resource</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td>Partial update</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td>Delete a resource</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+</tbody></table>
+<p><strong>Idempotent</strong> means calling it multiple times has the same effect as calling it once. Safe means it does not change server state.</p>
+<h3>HTTP Status Codes</h3>
+<table>
+<thead>
+<tr>
+<th>Range</th>
+<th>Meaning</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2xx</td>
+<td>Success</td>
+<td>200 OK, 201 Created, 204 No Content</td>
+</tr>
+<tr>
+<td>3xx</td>
+<td>Redirect</td>
+<td>301 Moved Permanently, 302 Found</td>
+</tr>
+<tr>
+<td>4xx</td>
+<td>Client error</td>
+<td>400 Bad Request, 401 Unauthorized, 404 Not Found, 429 Too Many Requests</td>
+</tr>
+<tr>
+<td>5xx</td>
+<td>Server error</td>
+<td>500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable</td>
+</tr>
+</tbody></table>
+<h3>HTTP Headers</h3>
+<p>Headers carry metadata about the request or response:</p>
+<pre><code>Request Headers:
+  Authorization: Bearer eyJhbGciOiJSUzI1NiJ9...
+  Content-Type: application/json
+  Accept: application/json
+  Cache-Control: no-cache
+
+Response Headers:
+  Content-Type: application/json
+  Cache-Control: public, max-age=3600
+  X-RateLimit-Remaining: 4999
+  ETag: &quot;abc123&quot;
+</code></pre>
+<h3>HTTP Versions</h3>
+<table>
+<thead>
+<tr>
+<th>Version</th>
+<th>Key feature</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>HTTP/1.1</td>
+<td>Persistent connections; one request at a time per connection</td>
+</tr>
+<tr>
+<td>HTTP/2</td>
+<td>Multiplexing — multiple requests over one connection simultaneously</td>
+</tr>
+<tr>
+<td>HTTP/3</td>
+<td>Runs over UDP instead of TCP; faster connection setup</td>
+</tr>
+</tbody></table>
+<p>For system design purposes: HTTP/2 reduces latency for APIs with many small requests. HTTP/3 helps on unreliable networks (mobile).</p>
+<hr>
+<h2>HTTPS: HTTP + TLS</h2>
+<p><strong>HTTPS</strong> wraps HTTP in <strong>TLS (Transport Layer Security)</strong>. TLS provides:</p>
+<ol>
+<li><strong>Encryption:</strong> Data is encrypted in transit. No one between client and server can read it.</li>
+<li><strong>Authentication:</strong> Certificates prove the server is who it claims to be.</li>
+<li><strong>Integrity:</strong> Data cannot be tampered with in transit.</li>
+</ol>
+<p>TLS adds a handshake before the HTTP request begins (similar to the TCP handshake). TLS 1.3 (the current version) reduces this overhead to a single round trip.</p>
+<p><strong>Every production system uses HTTPS.</strong> Non-negotiable.</p>
+<hr>
+<h2>WebSockets: Persistent Bidirectional Connections</h2>
+<p>HTTP is a request-response protocol. The server can only respond when the client asks. For real-time apps (chat, notifications, live dashboards), polling is wasteful:</p>
+<pre><code>Polling (bad for real-time):
+Client: &quot;Any new messages?&quot; → Server: &quot;No&quot;   (every 1 second)
+Client: &quot;Any new messages?&quot; → Server: &quot;No&quot;
+Client: &quot;Any new messages?&quot; → Server: &quot;Yes, here they are&quot;
+</code></pre>
+<p><strong>WebSockets</strong> solve this with a persistent connection where either side can send data at any time:</p>
+<pre><code>WebSocket:
+Client → Server: Upgrade request (over HTTP)
+Server → Client: 101 Switching Protocols
+--- Connection stays open ---
+Server → Client: &quot;New message from Alice&quot;  (whenever it arrives)
+Client → Server: &quot;New message to Bob&quot;
+</code></pre>
+<p>Use WebSockets for: chat, live notifications, collaborative editing, live sports scores, stock tickers.</p>
+<hr>
+<h2>What You Actually Need to Remember</h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>What to remember</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>TCP</td>
+<td>Reliable, ordered, adds latency. Used by HTTP, databases, most services</td>
+</tr>
+<tr>
+<td>UDP</td>
+<td>Unreliable, fast. Used by DNS, video calls, gaming</td>
+</tr>
+<tr>
+<td>DNS</td>
+<td>Translates names to IPs. TTL controls caching. GeoDNS enables routing</td>
+</tr>
+<tr>
+<td>HTTP methods</td>
+<td>GET reads, POST creates, PUT replaces, DELETE removes</td>
+</tr>
+<tr>
+<td>HTTP status</td>
+<td>2xx success, 4xx client error, 5xx server error</td>
+</tr>
+<tr>
+<td>HTTPS</td>
+<td>Mandatory. TLS adds encryption and authentication</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>Persistent connection for real-time bidirectional communication</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./04-sql-vs-nosql.md">Lesson 1.4 — Databases 101: SQL vs NoSQL</a></p>
+</blockquote>

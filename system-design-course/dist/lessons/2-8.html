@@ -1,0 +1,240 @@
+<h1>Indexes: B-Tree &amp; LSM Tree with Query Performance</h1>
+<blockquote>
+<p><strong>Lesson 2.8</strong> · Pro + Senior · 40 min</p>
+</blockquote>
+<hr>
+<h2>The Problem: Full Table Scans</h2>
+<p>A table with 100 million rows. You query:</p>
+<pre><code class="language-sql">SELECT * FROM users WHERE email = &#39;alice@example.com&#39;;
+</code></pre>
+<p>Without an index, the database reads every row — 100 million comparisons. At 100,000 rows/second, that is 1,000 seconds. Unusable.</p>
+<p>An index is a separate data structure that maps column values to their row locations, allowing the database to find rows without reading the entire table.</p>
+<p>With an index on <code>email</code>, the database jumps directly to <code>alice@example.com</code> in O(log N) time — milliseconds.</p>
+<hr>
+<h2>How Indexes Work: The Concept</h2>
+<p>An index is like a book&#39;s index: instead of reading every page to find &quot;load balancer,&quot; you look up the term in the index and jump to page 47.</p>
+<pre><code>Table: users
+┌──────────┬──────────────────────┬──────────┐
+│ row_ptr  │ email                │ username │
+├──────────┼──────────────────────┼──────────┤
+│ ptr→row3 │ alice@example.com    │ alice    │
+│ ptr→row1 │ bob@example.com      │ bob      │
+│ ptr→row7 │ carol@example.com    │ carol    │
+└──────────┴──────────────────────┴──────────┘
+Index on email (sorted):
+  alice@example.com → ptr→row3
+  bob@example.com   → ptr→row1
+  carol@example.com → ptr→row7
+</code></pre>
+<p>The index is sorted, enabling binary search. Find the email in O(log N), follow the pointer, read the row.</p>
+<hr>
+<h2>B-Tree Indexes</h2>
+<p>The <strong>B-Tree</strong> (Balanced Tree) is the most common database index structure. PostgreSQL, MySQL, Oracle — all use B-trees as the default.</p>
+<h3>Structure</h3>
+<p>A B-tree is a self-balancing tree where each node contains multiple sorted keys and pointers to child nodes or data rows.</p>
+<pre><code>                        [50 | 75]
+                       /    |    \
+             [10|20|30] [60|65]  [80|90|95]
+            /   |   |  \  ...    ...
+          data data data data
+</code></pre>
+<p>Each internal node has multiple keys (typically hundreds). Leaf nodes contain the actual index entries with pointers to rows.</p>
+<h3>Properties</h3>
+<ul>
+<li><strong>Height:</strong> Very shallow — a B-tree with 1 billion entries has height ~3–4. Only 3–4 disk reads to find any row.</li>
+<li><strong>Balanced:</strong> All leaf nodes are at the same depth. Lookups take the same time regardless of which value you search.</li>
+<li><strong>Sorted:</strong> Keys are sorted, enabling range queries.</li>
+<li><strong>Branching factor:</strong> Typically 100–1,000 keys per node. This keeps the tree shallow.</li>
+</ul>
+<h3>What B-Trees Are Great At</h3>
+<pre><code class="language-sql">-- Point lookup (equality)
+WHERE email = &#39;alice@example.com&#39;   → O(log N)
+
+-- Range query
+WHERE created_at BETWEEN &#39;2024-01-01&#39; AND &#39;2024-12-31&#39;   → O(log N + result size)
+
+-- Prefix search
+WHERE username LIKE &#39;ali%&#39;   → O(log N)
+
+-- Ordered results (no sort needed if ORDER BY matches index)
+ORDER BY created_at   → O(log N + result size) without extra sort
+</code></pre>
+<h3>What B-Trees Are Not Great At</h3>
+<pre><code class="language-sql">-- Suffix search (cannot use index)
+WHERE username LIKE &#39;%ali&#39;   → full table scan
+
+-- Inequality on non-index column
+WHERE bio CONTAINS &#39;engineer&#39;   → full table scan (use full-text index instead)
+
+-- High write throughput
+-- Every insert/update must maintain the B-tree structure
+-- Random writes to disk (B-tree pages scattered across disk)
+</code></pre>
+<hr>
+<h2>LSM Tree Indexes</h2>
+<p><strong>LSM Trees</strong> (Log-Structured Merge Trees) are optimized for <strong>write-heavy workloads</strong>. Used by Cassandra, RocksDB (and thus DynamoDB, CockroachDB), LevelDB.</p>
+<h3>The Core Insight</h3>
+<p>B-trees do random disk writes (updating tree nodes in-place). Random I/O is 100x slower than sequential I/O on HDDs, and 10x slower on SSDs.</p>
+<p>LSM trees eliminate random writes by <strong>only doing sequential writes</strong>.</p>
+<h3>How LSM Trees Work</h3>
+<p><strong>Step 1: Write to memtable (in memory)</strong></p>
+<p>Writes go to an in-memory sorted structure called the <strong>memtable</strong>. This is a fast, in-memory data structure (usually a skip list or red-black tree).</p>
+<pre><code>New writes → memtable (sorted, in memory)
+user:123 → {name: &quot;Alice&quot;, ts: 1000}
+user:456 → {name: &quot;Bob&quot;, ts: 1001}
+user:789 → {name: &quot;Carol&quot;, ts: 1002}
+</code></pre>
+<p><strong>Step 2: Flush to SSTable (on disk)</strong></p>
+<p>When the memtable reaches a threshold (~32MB), it is <strong>flushed</strong> to disk as an immutable <strong>SSTable</strong> (Sorted String Table) — a sorted file of key-value pairs.</p>
+<pre><code>Disk:
+SSTable 1 (oldest): user:123→Alice_v1, user:789→Carol_v1
+SSTable 2:          user:456→Bob_v2, user:123→Alice_v2
+SSTable 3 (newest): user:456→Bob_v3
+</code></pre>
+<p>Note: multiple SSTables may contain entries for the same key (updates/deletes create new entries rather than modifying old ones).</p>
+<p><strong>Step 3: Compaction</strong></p>
+<p>Background process merges SSTables, keeping only the latest version of each key, producing new sorted SSTables. Old SSTables are deleted.</p>
+<pre><code>After compaction:
+Single SSTable: user:123→Alice_v2, user:456→Bob_v3, user:789→Carol_v1
+</code></pre>
+<h3>LSM Tree Reads</h3>
+<p>To read a key:</p>
+<ol>
+<li>Check memtable (fastest)</li>
+<li>Check newest SSTable</li>
+<li>Check older SSTables until found</li>
+</ol>
+<p>Reads can be slow (many SSTables to check). <strong>Bloom filters</strong> — probabilistic data structures — tell you which SSTables definitely do NOT contain a key, skipping them:</p>
+<pre><code>Bloom filter says SSTable 1 might contain &quot;user:999&quot; → check SSTable 1
+Bloom filter says SSTable 2 definitely does NOT contain &quot;user:999&quot; → skip
+</code></pre>
+<h3>LSM vs B-Tree Comparison</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>B-Tree</th>
+<th>LSM Tree</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Write performance</strong></td>
+<td>Good (but random I/O)</td>
+<td>Excellent (sequential writes only)</td>
+</tr>
+<tr>
+<td><strong>Read performance</strong></td>
+<td>Excellent</td>
+<td>Good (may check multiple SSTables)</td>
+</tr>
+<tr>
+<td><strong>Write amplification</strong></td>
+<td>~2x (in-place update)</td>
+<td>High (compaction rewrites data multiple times)</td>
+</tr>
+<tr>
+<td><strong>Read amplification</strong></td>
+<td>Low (one lookup per index)</td>
+<td>Medium (bloom filters help)</td>
+</tr>
+<tr>
+<td><strong>Space amplification</strong></td>
+<td>Low</td>
+<td>Medium (stale entries until compaction)</td>
+</tr>
+<tr>
+<td><strong>Compaction overhead</strong></td>
+<td>None</td>
+<td>Background I/O during compaction</td>
+</tr>
+<tr>
+<td><strong>Used by</strong></td>
+<td>PostgreSQL, MySQL, SQLite</td>
+<td>Cassandra, RocksDB, LevelDB, BigTable</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Index Types in PostgreSQL</h2>
+<p>PostgreSQL supports multiple index types beyond B-tree:</p>
+<h3>Hash Index</h3>
+<pre><code class="language-sql">CREATE INDEX idx_users_email_hash ON users USING HASH (email);
+</code></pre>
+<ul>
+<li>Only supports equality queries (<code>=</code>)</li>
+<li>Slightly faster than B-tree for pure equality lookups</li>
+<li>Does not support range queries or sorting</li>
+</ul>
+<h3>GIN Index (Generalized Inverted Index)</h3>
+<pre><code class="language-sql">CREATE INDEX idx_posts_tags ON posts USING GIN (tags);
+CREATE INDEX idx_docs_content ON documents USING GIN (to_tsvector(&#39;english&#39;, content));
+</code></pre>
+<p>Designed for columns containing multiple values — arrays, JSONB, full-text search. Maps each element to the rows containing it.</p>
+<pre><code>tags column: {postgresql, database, performance}
+
+GIN Index:
+&quot;database&quot;    → [row2, row7, row15]
+&quot;performance&quot; → [row2, row9, row22]
+&quot;postgresql&quot;  → [row2, row7, row30]
+</code></pre>
+<h3>GiST Index (Generalized Search Tree)</h3>
+<pre><code class="language-sql">CREATE INDEX idx_locations ON places USING GIST (location);
+</code></pre>
+<p>For geometric data, geographic coordinates, ranges. Supports queries like &quot;find all restaurants within 5km of this point.&quot;</p>
+<h3>BRIN Index (Block Range Index)</h3>
+<pre><code class="language-sql">CREATE INDEX idx_events_created ON events USING BRIN (created_at);
+</code></pre>
+<p>Very small index for columns that correlate with physical storage order (timestamps on append-only tables). Checks if a value could exist in a range of disk pages. Tiny but can only skip ranges, not locate individual rows.</p>
+<hr>
+<h2>Composite Indexes</h2>
+<p>An index on multiple columns:</p>
+<pre><code class="language-sql">CREATE INDEX idx_posts_user_date ON posts (user_id, created_at DESC);
+</code></pre>
+<p>This single index supports:</p>
+<pre><code class="language-sql">-- Uses index (leading column matches)
+WHERE user_id = 123
+
+-- Uses index (both columns match)
+WHERE user_id = 123 AND created_at &gt; &#39;2024-01-01&#39;
+
+-- Uses index (for sorting after filtering by user_id)
+WHERE user_id = 123 ORDER BY created_at DESC
+
+-- Does NOT efficiently use index (leading column not specified)
+WHERE created_at &gt; &#39;2024-01-01&#39;  -- would need separate index on created_at
+</code></pre>
+<p><strong>Index column order matters:</strong> Leading columns must appear in the query for the index to be used efficiently.</p>
+<hr>
+<h2>The Cost of Indexes</h2>
+<p>Indexes speed up reads but slow down writes:</p>
+<ul>
+<li>Every <code>INSERT</code> must update all indexes on the table</li>
+<li>Every <code>UPDATE</code> of an indexed column must update those indexes</li>
+<li>Every <code>DELETE</code> must remove the entry from all indexes</li>
+<li>Indexes consume disk space (sometimes more than the data itself)</li>
+</ul>
+<p><strong>Rule of thumb:</strong></p>
+<ul>
+<li>Tables that are read-heavy: add indexes aggressively</li>
+<li>Tables that are write-heavy (logs, events, metrics): keep indexes minimal; use LSM-based databases</li>
+</ul>
+<hr>
+<h2>EXPLAIN: Understanding Query Plans</h2>
+<p>Always use <code>EXPLAIN ANALYZE</code> to verify your indexes are being used:</p>
+<pre><code class="language-sql">EXPLAIN ANALYZE
+SELECT * FROM users WHERE email = &#39;alice@example.com&#39;;
+
+-- With index:
+Index Scan using idx_users_email on users
+  Index Cond: (email = &#39;alice@example.com&#39;)
+  Actual rows: 1, Execution time: 0.08 ms
+
+-- Without index:
+Seq Scan on users
+  Filter: (email = &#39;alice@example.com&#39;)
+  Rows removed by filter: 99999999
+  Actual rows: 1, Execution time: 8432 ms
+</code></pre>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./09-object-storage.md">Lesson 2.9 — Blob / Object Storage</a></p>
+</blockquote>

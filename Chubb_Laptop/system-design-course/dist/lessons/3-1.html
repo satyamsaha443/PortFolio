@@ -1,0 +1,216 @@
+<h1>Design 01: URL Shortener (like bit.ly)</h1>
+<blockquote>
+<p><strong>Lesson 3.1</strong> · Beginner · 60 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a URL shortening service that:</p>
+<ul>
+<li>Accepts a long URL and returns a short one (e.g. <code>bit.ly/abc123</code>)</li>
+<li>Redirects users from the short URL to the original long URL</li>
+<li>Optionally tracks click analytics</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional requirements:</strong></p>
+<ol>
+<li>Given a long URL, generate a short URL</li>
+<li>Given a short URL, redirect to the long URL</li>
+<li>Custom aliases (optional): user picks the short code</li>
+<li>Expiration: URLs can expire after N days</li>
+</ol>
+<p><strong>Non-functional requirements:</strong></p>
+<ul>
+<li>100M URLs created per day</li>
+<li>10:1 read/write ratio → 1B redirects per day</li>
+<li>Low latency on redirects (&lt; 100ms)</li>
+<li>High availability (99.99%)</li>
+<li>Short URLs never reassigned after expiration</li>
+</ul>
+<hr>
+<h2>Step 2: Capacity Estimates</h2>
+<pre><code>Writes: 100M URLs / day = 1,160 writes/second
+Reads:  1B redirects / day = 11,600 reads/second
+
+Storage:
+  Each URL record: ~500 bytes (short code + long URL + metadata)
+  100M records/day × 365 days × 5 years = 182.5B records
+  182.5B × 500 bytes = ~91 TB total
+  (In practice: keep hot data in DB, archive cold data to S3)
+
+Bandwidth:
+  Read: 11,600 req/s × ~500 bytes = ~5.8 MB/s
+  Write: 1,160 req/s × ~500 bytes = ~580 KB/s
+</code></pre>
+<hr>
+<h2>Step 3: The Core Problem — Generating Short Codes</h2>
+<p>A short code must be:</p>
+<ul>
+<li>6–8 characters (gives 56B–218T combinations with base62)</li>
+<li>Unique — no two URLs map to the same code</li>
+<li>Not guessable — so people cannot enumerate all URLs</li>
+</ul>
+<h3>Option A: Random base62 string</h3>
+<pre><code>Characters: a-z, A-Z, 0-9 = 62 characters
+6 chars = 62^6 = 56 billion combinations
+8 chars = 62^8 = 218 trillion combinations
+</code></pre>
+<p>Generate a random 6-character base62 string, check if it already exists in the DB, retry if collision. At low fill factor, collision probability is negligible. At 1% fill (560M records), probability of collision per attempt is 1%. Use 7 chars for safety.</p>
+<h3>Option B: Hash-based</h3>
+<pre><code>MD5(long_url) → 128-bit hash → take first 43 bits → base62 encode → 7 chars
+</code></pre>
+<p>Problem: same long URL always gets same short code (good for deduplication, bad if user wants two codes for the same URL).</p>
+<h3>Option C: Counter-based (recommended at scale)</h3>
+<p>Use a distributed counter (e.g. Redis INCR) to generate monotonically increasing IDs, then base62-encode them.</p>
+<pre><code class="language-python">id = redis.incr(&quot;url_counter&quot;)  # e.g. 12345678
+short_code = base62_encode(id)  # e.g. &quot;W7e&quot;
+</code></pre>
+<p><strong>Pros:</strong> No collision, no DB lookup, predictable length growth
+<strong>Cons:</strong> Sequential — codes are guessable (but acceptable for public short links)</p>
+<p>For truly unguessable codes, use Option A with collision retry.</p>
+<hr>
+<h2>Step 4: Database Schema</h2>
+<pre><code class="language-sql">CREATE TABLE urls (
+    id           BIGSERIAL PRIMARY KEY,
+    short_code   CHAR(8)      NOT NULL UNIQUE,
+    long_url     TEXT         NOT NULL,
+    user_id      BIGINT,                        -- nullable for anonymous
+    created_at   TIMESTAMP    NOT NULL DEFAULT NOW(),
+    expires_at   TIMESTAMP,                     -- null = never expires
+    click_count  BIGINT       NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_urls_short_code ON urls (short_code);  -- primary lookup
+CREATE INDEX idx_urls_user_id ON urls (user_id);        -- &quot;my URLs&quot; page
+</code></pre>
+<p>For analytics (optional separate table to avoid write contention):</p>
+<pre><code class="language-sql">CREATE TABLE clicks (
+    id          BIGSERIAL PRIMARY KEY,
+    short_code  CHAR(8)     NOT NULL,
+    clicked_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
+    ip_address  INET,
+    referrer    TEXT,
+    user_agent  TEXT
+);
+-- Partition by clicked_at month for performance
+</code></pre>
+<hr>
+<h2>Step 5: API Design</h2>
+<pre><code>POST /api/shorten
+Body: { &quot;long_url&quot;: &quot;https://...&quot;, &quot;custom_alias&quot;: &quot;mylink&quot;, &quot;expires_days&quot;: 30 }
+Response 201: { &quot;short_url&quot;: &quot;https://bit.ly/abc123&quot;, &quot;short_code&quot;: &quot;abc123&quot; }
+
+GET /{short_code}
+Response 301: Location: &lt;long_url&gt;   (browser caches permanently)
+Response 302: Location: &lt;long_url&gt;   (browser does NOT cache — use for analytics)
+Response 404: { &quot;error&quot;: &quot;not found&quot; }
+Response 410: { &quot;error&quot;: &quot;expired&quot; }
+</code></pre>
+<p><strong>301 vs 302:</strong></p>
+<ul>
+<li><strong>301 Moved Permanently:</strong> Browser caches the redirect. Subsequent visits go directly to long URL — no server hit. Better performance, but you lose analytics for cached requests.</li>
+<li><strong>302 Found (Temporary):</strong> Browser always hits the server. You get analytics on every click, but add latency and server load.</li>
+</ul>
+<p>Use 302 if you need accurate click counts. Use 301 for maximum performance.</p>
+<hr>
+<h2>Step 6: System Architecture</h2>
+<pre><code>Client
+  │
+  ▼
+Load Balancer (AWS ALB)
+  │
+  ▼
+API Servers (stateless, horizontally scalable)
+  │             │
+  ▼             ▼
+Redis Cache   PostgreSQL
+(hot URLs)    (all URLs)
+  │
+  ▼ (cache miss)
+PostgreSQL
+</code></pre>
+<h3>Redirect flow (read path):</h3>
+<pre><code>1. Client hits GET /abc123
+2. API server checks Redis: &quot;url:abc123&quot; → HIT → return 302 Location
+3. Cache MISS → query PostgreSQL WHERE short_code = &#39;abc123&#39;
+4. If found: store in Redis (TTL = 24 hours), return 302
+5. If not found: return 404
+</code></pre>
+<p>Redis key: <code>url:{short_code}</code> → value: long URL (string)
+TTL: 24 hours (refreshed on access for hot links)</p>
+<h3>Write flow:</h3>
+<pre><code>1. Client POST /api/shorten
+2. Validate long_url (is it a real URL? is it already malware-blacklisted?)
+3. Generate short_code (counter-based via Redis INCR)
+4. INSERT into PostgreSQL
+5. Store in Redis (pre-warm the cache)
+6. Return short_url
+</code></pre>
+<hr>
+<h2>Step 7: Scaling Challenges</h2>
+<h3>Cache the hot 20% of URLs</h3>
+<p>20% of URLs get 80% of traffic (power law). A Redis cache of 100GB can hold ~200M URLs. This handles the vast majority of redirects without touching the database.</p>
+<h3>Database read replicas</h3>
+<p>Redirects are reads. Add PostgreSQL read replicas. Route all GET requests to replicas; route POST requests to the primary.</p>
+<h3>Database sharding (if needed)</h3>
+<p>Shard on <code>short_code</code> (hash-based). Each shard holds a subset of URLs. At 91TB, you&#39;d need sharding — but start with a single large instance and add replicas first.</p>
+<h3>Custom domain support</h3>
+<p>Companies want <code>go.company.com/report</code> instead of <code>bit.ly/xyz</code>.
+Add a <code>domain</code> column to the URLs table. The load balancer routes based on Host header.</p>
+<hr>
+<h2>Step 8: Analytics</h2>
+<p>For 1B clicks/day, writing each click to PostgreSQL would overwhelm it.</p>
+<p><strong>Better approach:</strong></p>
+<ol>
+<li>On redirect, publish an event to Kafka: <code>{short_code, timestamp, ip, referrer}</code></li>
+<li>Stream processor (Flink, Spark Streaming) aggregates by short_code per minute</li>
+<li>Write aggregated counts to analytics DB (ClickHouse, BigQuery)</li>
+<li>API reads analytics from ClickHouse</li>
+</ol>
+<p>The URL table&#39;s <code>click_count</code> can be an approximate counter updated hourly via the stream processor.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Short code length</td>
+<td>7 chars base62 = 3.5 trillion combos</td>
+</tr>
+<tr>
+<td>Code generation</td>
+<td>Counter-based (no collision), hash-based (dedup), random (unguessable)</td>
+</tr>
+<tr>
+<td>Redirect type</td>
+<td>302 for analytics, 301 for performance</td>
+</tr>
+<tr>
+<td>Cache layer</td>
+<td>Redis, key = short_code, TTL = 24h</td>
+</tr>
+<tr>
+<td>DB choice</td>
+<td>PostgreSQL for ACID; add replicas for read scale</td>
+</tr>
+<tr>
+<td>Write scale</td>
+<td>1,160 writes/sec — single Postgres handles this easily</td>
+</tr>
+<tr>
+<td>Read scale</td>
+<td>11,600 reads/sec — Redis cache handles hot 20%</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>~91TB over 5 years — consider archiving cold data to S3</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./02-chat-messaging.md">Design 02 — Chat Messaging App</a></p>
+</blockquote>

@@ -1,0 +1,66 @@
+- generic [active] [ref=f8e1]:
+  - generic [ref=f8e2]:
+    - generic [ref=f8e3]:
+      - generic [ref=f8e4]:
+        - navigation [ref=f8e5]:
+          - generic [ref=f8e6]:
+            - link "System Design School Logo System Design School" [ref=f8e7] [cursor=pointer]:
+              - /url: /
+              - img "System Design School Logo" [ref=f8e8]
+              - generic [ref=f8e9]: System Design School
+            - button "Toggle navigation" [ref=f8e10] [cursor=pointer]
+        - generic [ref=f8e12]:
+          - link "🎉 Unlock 50% off right now — limited time offer!" [ref=f8e15] [cursor=pointer]:
+            - /url: /pricing
+          - button "Close" [ref=f8e18] [cursor=pointer]
+      - heading "Learn System Design the Structured Way" [level=1] [ref=f8e22]
+      - heading "The Ultimate Platform to Learn and Practice System Design Interviews" [level=2] [ref=f8e26]
+      - button "Start Learning" [ref=f8e30] [cursor=pointer]
+      - heading "Practice System Design Questions and Get Feedback" [level=2] [ref=f8e38]
+      - paragraph [ref=f8e42]: "\"An ounce of practice is worth more than tons of preaching.\" — Mahatma Gandhi"
+      - paragraph [ref=f8e46]: Put this wisdom into action with our revolutionary platform. Don't just read about system design—practice it, refine it, and master it through actionable feedback.
+      - contentinfo [ref=f8e52]:
+        - generic [ref=f8e54]:
+          - generic [ref=f8e56]:
+            - img "System Design School Logo" [ref=f8e57]
+            - generic [ref=f8e58]:
+              - text: System Design School
+              - generic [ref=f8e59]:
+                - paragraph [ref=f8e60]: System Design School 2026.All rights reserved
+                - generic [ref=f8e61]:
+                  - link [ref=f8e62] [cursor=pointer]:
+                    - /url: https://discord.gg/7kpb9rMpB9
+                  - link [ref=f8e65] [cursor=pointer]:
+                    - /url: https://www.youtube.com/channel/UCekXOQXPXh2JXv5EkQB9MRQ
+          - generic [ref=f8e68]:
+            - heading "About" [level=3] [ref=f8e69]
+            - list [ref=f8e70]:
+              - listitem [ref=f8e71]:
+                - link "Contact Us" [ref=f8e72] [cursor=pointer]:
+                  - /url: mailto:support@systemdesignschool.io
+              - listitem [ref=f8e73]:
+                - link "Terms & Conditions" [ref=f8e74] [cursor=pointer]:
+                  - /url: /terms_and_conditions.html
+              - listitem [ref=f8e75]:
+                - link "Affiliate Program" [ref=f8e76] [cursor=pointer]:
+                  - /url: https://system-design-school.trackdesk.com/sign-up
+          - generic [ref=f8e77]:
+            - heading "Products" [level=3] [ref=f8e78]
+            - list [ref=f8e79]:
+              - listitem [ref=f8e80]:
+                - link "Course" [ref=f8e81] [cursor=pointer]:
+                  - /url: /fundamentals/what-is-system-design-interview
+              - listitem [ref=f8e82]:
+                - link "Problems" [ref=f8e83] [cursor=pointer]:
+                  - /url: /problems
+          - generic [ref=f8e84]:
+            - heading "Resources" [level=3] [ref=f8e85]
+            - list [ref=f8e86]:
+              - listitem [ref=f8e87]:
+                - link "Blog" [ref=f8e88] [cursor=pointer]:
+                  - /url: /blog
+              - listitem [ref=f8e89]:
+                - link "Sitemap" [ref=f8e90] [cursor=pointer]:
+                  - /url: /sitemap
+    - button "Send feedback" [ref=f8e92] [cursor=pointer]
+  - alert [ref=f8e96]

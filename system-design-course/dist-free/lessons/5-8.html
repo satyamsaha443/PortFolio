@@ -1,0 +1,319 @@
+<h1>Problem Decomposition Framework: Verbs, Nouns, Adjectives</h1>
+<blockquote>
+<p><strong>Lesson 5.8</strong> · All Levels · 35 min</p>
+</blockquote>
+<hr>
+<h2>The Problem with Blank-Slate Thinking</h2>
+<p>You are given &quot;Design Twitter.&quot; Where do you start?</p>
+<p>Most candidates stare at a blank whiteboard and try to recall a solution they once read. This is the memorization strategy — and it breaks the moment the problem diverges from the memorized version.</p>
+<p>The alternative is a <strong>decomposition framework</strong> that extracts structure directly from the problem statement itself. Any problem statement, even a three-word one like &quot;Design Twitter,&quot; contains enough signal to start correctly — if you know where to look.</p>
+<hr>
+<h2>The Three-Step Framework</h2>
+<p>Every problem statement contains three grammatical elements that map directly to design decisions:</p>
+<table>
+<thead>
+<tr>
+<th>Grammatical element</th>
+<th>What it reveals</th>
+<th>Design output</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Verbs</strong></td>
+<td>What users can do</td>
+<td>Functional requirements / Use cases</td>
+</tr>
+<tr>
+<td><strong>Nouns</strong></td>
+<td>What data exists</td>
+<td>Entities, data models, service ownership</td>
+</tr>
+<tr>
+<td><strong>Adjectives</strong></td>
+<td>How the system must behave</td>
+<td>Non-functional requirements → architectural components</td>
+</tr>
+</tbody></table>
+<p>You do not need to ask the interviewer for requirements — you extract them from the language they already gave you, then confirm your interpretation.</p>
+<hr>
+<h2>Step 0: Verbs → Use Cases</h2>
+<p>Verbs reveal operations. &quot;Users can post tweets&quot; contains the verb <strong>post</strong>. &quot;Users view their feed&quot; contains <strong>view</strong>.</p>
+<p>Extract all verbs to identify use cases. Each verb maps to a CRUD operation:</p>
+<ul>
+<li>create, post, publish, upload → <strong>write operations</strong></li>
+<li>read, view, fetch, search, browse → <strong>read operations</strong></li>
+<li>update, edit, modify → <strong>update operations</strong></li>
+<li>delete, remove, cancel → <strong>delete operations</strong></li>
+<li>notify, alert → <strong>async/push operations</strong></li>
+</ul>
+<p><strong>Beyond identifying operations, define what &quot;correct&quot; means for each:</strong></p>
+<ul>
+<li>Does &quot;post tweet&quot; require deduplication if the same content is submitted twice?</li>
+<li>Should followers see new tweets immediately, or is eventual consistency acceptable?</li>
+<li>Must deleted tweets be recoverable?</li>
+</ul>
+<p>These questions transform vague verbs into precise contracts — and they are exactly the clarifying questions you should ask the interviewer in the first five minutes.</p>
+<p><strong>Scope management:</strong> Interviews last 45–60 minutes. Five use cases is typically enough. Resist the urge to enumerate every edge case up front.</p>
+<hr>
+<h2>Step 1: Nouns → Entities and Ownership</h2>
+<p>Nouns reveal data models. &quot;Users post tweets&quot; contains two nouns: <strong>users</strong> and <strong>tweets</strong>. &quot;Users follow other users&quot; reveals a relationship entity (<strong>follows</strong>).</p>
+<p>For each noun:</p>
+<ol>
+<li>Name the entity</li>
+<li>Identify the service that owns it (single source of truth)</li>
+<li>Identify the database that stores it</li>
+</ol>
+<p><strong>Ownership matters</strong> because it determines write authority. If two services can both update a tweet, which write wins during a conflict? Establishing the Tweet Service as the only writer eliminates an entire class of consistency bugs before you start drawing boxes.</p>
+<p><strong>Common entity types:</strong></p>
+<ul>
+<li><strong>User/Account</strong> → User Service + Users DB</li>
+<li><strong>Content</strong> (tweet, post, video, document) → Content Service + Content DB</li>
+<li><strong>Relationship</strong> (follow, friend, membership) → Graph/Relationship Service + Graph DB</li>
+<li><strong>Engagement</strong> (like, comment, reaction) → Engagement Service + Engagement DB</li>
+<li><strong>Event/Transaction</strong> (payment, order, booking) → Transaction Service + Transaction DB</li>
+</ul>
+<hr>
+<h2>Step 2: Adjectives → Constraints and Architectural Components</h2>
+<p>Adjectives reveal non-functional requirements that force architectural choices.</p>
+<p>&quot;<strong>Instant</strong> notifications&quot; forces real-time push (WebSockets, SSE) or precomputation.
+&quot;<strong>Highly available</strong> feed&quot; forces replication and stateless services.
+&quot;<strong>Scalable</strong> at 400M users&quot; forces horizontal scaling, sharding, and caching.</p>
+<p><strong>The critical rule:</strong> Every component you add to your architecture must be justified by an adjective (or an implicit constraint derived from scale estimation). Adding Redis without pointing back to a latency requirement is a red flag.</p>
+<table>
+<thead>
+<tr>
+<th>Adjective</th>
+<th>Architectural implication</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>instant / real-time</td>
+<td>WebSockets, push notifications, cache precomputation</td>
+</tr>
+<tr>
+<td>reliable / durable</td>
+<td>Retries, idempotency keys, dead letter queues, write-ahead logs</td>
+</tr>
+<tr>
+<td>highly available</td>
+<td>Replication, stateless services, health checks, load balancers</td>
+</tr>
+<tr>
+<td>auditable / secure</td>
+<td>Encryption at rest/in transit, access control, audit logs</td>
+</tr>
+<tr>
+<td>scalable</td>
+<td>Partitioning (sharding), read replicas, message queues, horizontal scaling</td>
+</tr>
+<tr>
+<td>low latency</td>
+<td>Cache layer, CDN, precomputed results, read replicas</td>
+</tr>
+<tr>
+<td>consistent</td>
+<td>Strong consistency mode, synchronous replication, avoid caching on write path</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Full Worked Example: Design Twitter</h2>
+<p>The following applies all three steps to a complete Twitter design.</p>
+<h3>Step 0 — Verbs → Use Cases</h3>
+<p>Problem: &quot;Design Twitter.&quot;</p>
+<p>Extract verbs from what users can do:</p>
+<table>
+<thead>
+<tr>
+<th>Verb</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>post</td>
+<td>Create a new tweet</td>
+</tr>
+<tr>
+<td>view</td>
+<td>Read a tweet or a feed</td>
+</tr>
+<tr>
+<td>follow</td>
+<td>Create a relationship between users</td>
+</tr>
+<tr>
+<td>like</td>
+<td>Increment engagement counter on a tweet</td>
+</tr>
+<tr>
+<td>comment</td>
+<td>Create a response attached to a tweet</td>
+</tr>
+</tbody></table>
+<p>Scope decision: All five are in scope. DMs, analytics, ads — out of scope unless specified.</p>
+<p>Precision questions to ask:</p>
+<ul>
+<li>Should posting the same tweet content twice create two tweets or deduplicate? → No deduplication (standard assumption).</li>
+<li>Should followers see tweets immediately or eventually? → Derived from adjectives (Step 2).</li>
+<li>Are deleted tweets recoverable? → No, for this problem.</li>
+</ul>
+<hr>
+<h3>Step 1 — Nouns → Entities and Ownership</h3>
+<p>From the use cases, extract nouns:</p>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Service owner</th>
+<th>Database</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>User</td>
+<td>User Service</td>
+<td>User DB</td>
+</tr>
+<tr>
+<td>Tweet</td>
+<td>Tweet Service</td>
+<td>Tweet DB</td>
+</tr>
+<tr>
+<td>Follow (relationship)</td>
+<td>Follow Service</td>
+<td>Follow DB</td>
+</tr>
+<tr>
+<td>Engagement (like + comment)</td>
+<td>Engagement Service</td>
+<td>Engagement DB</td>
+</tr>
+</tbody></table>
+<p>Note: Likes and comments are logically similar — both are engagement counters on tweets. Merge them into a single Engagement Service rather than creating two separate services. Combine microservices when they share data model, ownership, and scaling profile.</p>
+<hr>
+<h3>Step 2 — Adjectives → Constraints</h3>
+<p>Twitter at scale requires: <strong>low latency</strong>, <strong>high availability</strong>, <strong>scalability</strong>, <strong>durability</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Constraint</th>
+<th>Implication</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Low latency (&lt; 500ms feed load)</td>
+<td>Precompute feeds, cache in Redis, read from cache — not from DB</td>
+</tr>
+<tr>
+<td>High availability</td>
+<td>Message queues buffer tweets so they survive service outages</td>
+</tr>
+<tr>
+<td>Scalable (400M MAU)</td>
+<td>Horizontal scaling + load balancers; database sharding</td>
+</tr>
+<tr>
+<td>Durable (no lost tweets)</td>
+<td>Distributed databases with replication across multiple nodes</td>
+</tr>
+</tbody></table>
+<hr>
+<h3>API Design</h3>
+<p>One endpoint per use case, derived from Step 0:</p>
+<pre><code>POST   /tweets              → create tweet         { content, media_ids[] }
+GET    /tweets/{id}         → read single tweet
+GET    /feed                → read personalized feed (paginated)
+POST   /follows             → follow a user         { followee_id }
+POST   /tweets/{id}/likes   → like a tweet
+POST   /tweets/{id}/comments → comment on a tweet   { content }
+</code></pre>
+<hr>
+<h3>High-Level Architecture</h3>
+<p><strong>Start simple — basic data flow first:</strong></p>
+<pre><code>Client
+  │
+  ▼
+API Gateway
+  │
+  ├── Tweet Service    → Tweet DB
+  ├── Feed Service     → Feed DB
+  ├── Follow Service   → Follow DB
+  └── Engagement Service → Engagement DB
+</code></pre>
+<p><strong>Layer in components driven by constraints:</strong></p>
+<p><strong>Scalability → Load balancer + multiple instances:</strong></p>
+<pre><code>Client → API Gateway → Load Balancer → [Tweet Service × N]
+</code></pre>
+<p><strong>Low latency → Cache layer:</strong></p>
+<p>When a user posts a tweet, the Feed Service precomputes follower timelines and pushes them into Redis. Reads go to Redis first; DB is only a fallback on cache miss.</p>
+<p><strong>High availability → Message queue:</strong></p>
+<pre><code>Tweet Service → Kafka (tweet.created) → Feed Consumer → Feed Cache + Feed DB
+</code></pre>
+<p>Even if the Feed Service is down when a tweet is posted, the message persists in Kafka and processes when the service recovers.</p>
+<p><strong>Durability → Replicated distributed databases:</strong></p>
+<p>Use a distributed database (Cassandra, DynamoDB, Spanner) with automatic multi-node replication. Point-in-time recovery with automated snapshots.</p>
+<hr>
+<h3>Deep Dives</h3>
+<p>After the high-level architecture, interviewers probe the hardest problems.</p>
+<p><strong>The Celebrity Problem (fan-out at scale)</strong></p>
+<p>A user with 10M followers posts a tweet. Standard fan-out-on-write pushes that tweet into 10M feed caches — this is 10M writes in seconds, overwhelming the system.</p>
+<p>Solution: <strong>Hybrid fan-out</strong></p>
+<ul>
+<li>Normal users (&lt; 10K followers): fan-out on write. Tweet pushed to all follower caches immediately.</li>
+<li>Celebrity users (&gt; 10K followers): fan-out on read. Tweet stored in Tweet Cache only. When followers load their feed, the Feed Service fetches celebrity tweets dynamically and merges with the precomputed portion.</li>
+</ul>
+<p>Use a follow threshold (e.g., 10K) stored as a flag on the User entity to switch strategies dynamically.</p>
+<p><strong>Trends and Hashtags</strong></p>
+<p>Problem: Computing trending topics across billions of tweets in real time.</p>
+<p>Solution:</p>
+<ul>
+<li>The Tweet Service indexes hashtags to an inverted index (hashtag → [tweet_ids]) in Elasticsearch on tweet creation.</li>
+<li>Each data center computes local trends using a sliding window (last 15 minutes) — top-K hashtag counts via Redis sorted sets.</li>
+<li>A Global Trends Aggregator merges regional results every minute and caches the final list in Redis with a short TTL.</li>
+</ul>
+<p><strong>Tweet Search at Scale</strong></p>
+<p>Problem: Full-text search across billions of tweets with low latency.</p>
+<p>Solution:</p>
+<ul>
+<li>Tweet Service publishes each new tweet to a Kafka topic consumed by a Search Indexing Service.</li>
+<li>Indexing Service writes to Elasticsearch with inverted indexing for keyword/hashtag search.</li>
+<li>Partition the index by time (daily indices) — hot recent indices on fast SSDs, older indices on cheaper storage.</li>
+<li>Rank results using BM25 or an ML-based ranking model.</li>
+<li>Cache the top 1,000 most popular searches in Redis.</li>
+</ul>
+<hr>
+<h2>Using This Framework in Any Interview</h2>
+<p>The Verbs/Nouns/Adjectives framework works on any problem:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Time</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0 — Verbs</td>
+<td>2 min</td>
+<td>List of use cases; clarifying questions answered</td>
+</tr>
+<tr>
+<td>1 — Nouns</td>
+<td>2 min</td>
+<td>Entity list; service ownership map</td>
+</tr>
+<tr>
+<td>2 — Adjectives</td>
+<td>2 min</td>
+<td>Non-functional requirements; architectural additions justified</td>
+</tr>
+<tr>
+<td>API Design</td>
+<td>3 min</td>
+<td>2–4 core endpoints</td>
+</tr>
+</tbody></table>
+<p>Total: ~9 minutes before you draw a single box — and every box you then draw has a reason.</p>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="../module-6-globalisation/01-multi-region-architecture.md">Module 6 — Globalisation &amp; Real-World Deployment →</a></p>
+</blockquote>

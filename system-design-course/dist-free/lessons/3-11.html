@@ -1,0 +1,232 @@
+<h1>Design 11: Rate Limiter as a Service</h1>
+<blockquote>
+<p><strong>Lesson 3.11</strong> · Pro + Senior · 75 min</p>
+</blockquote>
+<hr>
+<h2>Problem Statement</h2>
+<p>Design a standalone rate limiting service that:</p>
+<ul>
+<li>Can be used by multiple APIs as middleware</li>
+<li>Supports multiple rate limiting policies (per user, per IP, per API key)</li>
+<li>Handles distributed deployments (many API servers)</li>
+<li>Adds minimal latency overhead (&lt; 5ms)</li>
+</ul>
+<hr>
+<h2>Step 1: Clarify Requirements</h2>
+<p><strong>Functional:</strong></p>
+<ol>
+<li>Given a (client_id, resource), allow or deny the request</li>
+<li>Configurable policies: 100 req/min per user, 1000 req/min per API key</li>
+<li>Multiple algorithms: token bucket, sliding window</li>
+<li>Return standard HTTP headers (X-RateLimit-Limit, X-RateLimit-Remaining)</li>
+<li>Soft limits (log and allow) vs hard limits (return 429)</li>
+</ol>
+<p><strong>Non-functional:</strong></p>
+<ul>
+<li>1M API requests/second across all services</li>
+<li>Rate limiter decision latency &lt; 5ms (must not slow down APIs significantly)</li>
+<li>Distributed: 100 API servers share rate limit state</li>
+<li>Eventually consistent limits are acceptable (brief overage is OK)</li>
+<li>Single point of failure is not acceptable</li>
+</ul>
+<hr>
+<h2>Step 2: Why a Shared Service?</h2>
+<p>Each API server independently tracking rate limits would not work:</p>
+<pre><code>User sends 100 requests, round-robin across 10 servers:
+  Server 1: sees 10 requests → allows (limit 100)
+  Server 2: sees 10 requests → allows (limit 100)
+  ...
+  Total: 100 requests → user hit 100 requests across 10 servers
+         but each server thinks they only sent 10!
+</code></pre>
+<p>Rate limit state must be <strong>shared</strong> across all API servers.</p>
+<hr>
+<h2>Step 3: The Token Bucket in Redis</h2>
+<p>Token bucket is the best algorithm for a distributed rate limiter:</p>
+<ul>
+<li>Allows controlled bursting</li>
+<li>Refills continuously (not in discrete windows)</li>
+<li>Simple atomic operations</li>
+</ul>
+<pre><code>For each (client_id, resource) pair, store in Redis:
+  key:   &quot;rl:{client_id}:{resource}&quot;
+  value: {tokens: 95, last_refill: 1700000000.123}
+
+On each request:
+  1. Get current tokens and last_refill_time
+  2. Compute elapsed = now - last_refill
+  3. Refill: new_tokens = min(max_tokens, tokens + elapsed * rate)
+  4. If new_tokens &lt; 1: deny (return 429)
+  5. Deduct: tokens = new_tokens - 1
+  6. Store updated state
+</code></pre>
+<p><strong>Problem:</strong> Steps 1–6 must be atomic. If two requests hit simultaneously, both might read <code>tokens=1</code>, both pass, but only one should.</p>
+<p><strong>Solution: Redis Lua script</strong> (atomic on the Redis server)</p>
+<pre><code class="language-lua">local key = KEYS[1]
+local rate = tonumber(ARGV[1])      -- tokens per second
+local max_tokens = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])       -- current timestamp (ms)
+
+local data = redis.call(&#39;GET&#39;, key)
+local tokens, last_refill
+
+if data then
+    local parsed = cjson.decode(data)
+    tokens = parsed.tokens
+    last_refill = parsed.last_refill
+else
+    tokens = max_tokens
+    last_refill = now
+end
+
+-- Refill
+local elapsed = (now - last_refill) / 1000  -- seconds
+tokens = math.min(max_tokens, tokens + elapsed * rate)
+last_refill = now
+
+-- Check
+local allowed = 0
+if tokens &gt;= 1 then
+    tokens = tokens - 1
+    allowed = 1
+end
+
+-- Store
+redis.call(&#39;SET&#39;, key, cjson.encode({tokens=tokens, last_refill=last_refill}), &#39;EX&#39;, 3600)
+
+return {allowed, math.floor(tokens)}
+</code></pre>
+<p>Redis executes the entire Lua script atomically — no race conditions.</p>
+<hr>
+<h2>Step 4: Sliding Window Log Algorithm</h2>
+<p>Token bucket allows bursting. If you want strict &quot;no more than N requests per minute at any point,&quot; use a sliding window.</p>
+<p><strong>Sliding window log:</strong>
+Store the timestamps of each request in a sorted set.</p>
+<pre><code>On each request for client X:
+  1. Remove timestamps older than now - 60 seconds:
+     ZREMRANGEBYSCORE rl:X 0 (now-60000)
+  2. Count remaining entries:
+     ZCARD rl:X
+  3. If count &gt;= limit: deny
+  4. Add current timestamp:
+     ZADD rl:X now now
+     EXPIRE rl:X 90
+</code></pre>
+<p><strong>Downside:</strong> Memory grows with request count. For 1M requests/second, storing timestamps is expensive.</p>
+<p><strong>Sliding window counter (compromise):</strong>
+Maintain two counters — current minute and previous minute — and compute a weighted sum:</p>
+<pre><code>requests = prev_minute_count × (1 - elapsed_in_current_minute / 60)
+         + current_minute_count
+
+If requests &gt;= limit: deny
+</code></pre>
+<p>This approximates the sliding window with O(1) space.</p>
+<hr>
+<h2>Step 5: Service Architecture</h2>
+<pre><code>API Server → Rate Limiter Sidecar (same host, local call)
+                      │
+                      ▼
+              Rate Limiter Service
+                      │
+                      ▼
+              Redis Cluster
+</code></pre>
+<p><strong>Sidecar pattern:</strong> Deploy the rate limiter as a sidecar container alongside each API server. The API server calls the sidecar over localhost (&lt; 1ms). The sidecar calls Redis (2–3ms). Total overhead: ~3ms.</p>
+<p><strong>Alternative: service mesh interceptor</strong>
+Istio/Envoy can enforce rate limits at the proxy layer without touching application code. The proxy intercepts requests and checks rate limit service.</p>
+<hr>
+<h2>Step 6: Redis Cluster for Scale</h2>
+<p>1M requests/second × 1 Redis command per request = 1M Redis ops/second.
+Single Redis: ~100,000 ops/second limit.</p>
+<p><strong>Solution: Redis cluster sharded by key</strong></p>
+<pre><code>Shard 0: client IDs hashing to slots 0-5460
+Shard 1: client IDs hashing to slots 5461-10922
+Shard 2: client IDs hashing to slots 10923-16383
+
+Rate limit key: &quot;rl:{client_id}:{resource}&quot;
+Redis consistent hash → always routes to same shard
+</code></pre>
+<p>With 10-shard cluster: 1M ops/second ÷ 10 = 100K per shard. Within limits.</p>
+<hr>
+<h2>Step 7: Handling Redis Failures</h2>
+<p>Redis is a single point of failure. What happens if it goes down?</p>
+<p><strong>Options:</strong></p>
+<ol>
+<li><strong>Fail open:</strong> If Redis is unreachable, allow all requests. Risk: burst of traffic passes through during outage.</li>
+<li><strong>Fail closed:</strong> If Redis is unreachable, deny all requests. Risk: service completely unavailable during Redis outage.</li>
+<li><strong>Local fallback:</strong> Switch to per-node in-memory rate limiting during Redis outage. Risk: brief period where limits are not shared (each server allows full limit).</li>
+</ol>
+<p><strong>Best practice:</strong> Fail open for most APIs (availability &gt; strict limiting), fail closed for payment/auth endpoints (security &gt; availability).</p>
+<p>Detect Redis failure with circuit breaker. Reconnect automatically.</p>
+<hr>
+<h2>Step 8: HTTP Response Headers</h2>
+<p>Standard rate limit headers (follow RFC 6585):</p>
+<pre><code>HTTP/1.1 200 OK
+X-RateLimit-Limit: 100         (requests allowed per window)
+X-RateLimit-Remaining: 47      (requests left in current window)
+X-RateLimit-Reset: 1700000060  (unix timestamp when window resets)
+Retry-After: 60                (seconds until retry — only on 429)
+
+HTTP/1.1 429 Too Many Requests
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1700000060
+Retry-After: 30
+</code></pre>
+<p>Clients use <code>Retry-After</code> to know when to retry. Without it, clients retry immediately and amplify load.</p>
+<hr>
+<h2>Step 9: Multi-Region Considerations</h2>
+<p>In a multi-region deployment, each region has its own Redis cluster. A user who makes 50 requests to the US region and 60 requests to the EU region could exceed a 100/min limit.</p>
+<p><strong>Options:</strong></p>
+<ol>
+<li><strong>Accept slight overage:</strong> User gets 110 requests instead of 100. Acceptable for most use cases.</li>
+<li><strong>Region-specific limits:</strong> Each region allows 100/min independently. Users get 200/min globally but 100/min per region.</li>
+<li><strong>Async cross-region sync:</strong> Periodically sync counts across regions. Eventually consistent. Complex.</li>
+</ol>
+<p>In practice, accept slight overage. The cost of cross-region synchronization far exceeds the benefit.</p>
+<hr>
+<h2>Interview Cheat Sheet</h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Algorithm</td>
+<td>Token bucket (bursting) or sliding window counter (strict)</td>
+</tr>
+<tr>
+<td>Atomicity</td>
+<td>Redis Lua script (executed server-side, no race conditions)</td>
+</tr>
+<tr>
+<td>Distribution</td>
+<td>Redis cluster sharded by client_id hash</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>Redis ~2ms; sidecar pattern adds ~3ms total</td>
+</tr>
+<tr>
+<td>Redis failure</td>
+<td>Fail open (most APIs); fail closed (payment/auth)</td>
+</tr>
+<tr>
+<td>Headers</td>
+<td>X-RateLimit-Limit, Remaining, Reset; 429 with Retry-After</td>
+</tr>
+<tr>
+<td>Multi-region</td>
+<td>Accept slight overage; region-specific limits are simpler</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>Sliding window log expensive; use sliding window counter (O(1))</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./12-google-drive.md">Design 12 — Distributed File Storage (like Google Drive)</a></p>
+</blockquote>

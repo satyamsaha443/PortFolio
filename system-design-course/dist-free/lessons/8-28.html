@@ -1,0 +1,115 @@
+<h1>Design a Chat / Messenger Service</h1>
+<blockquote>
+<p><strong>Lesson 8.28</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem statement</h2>
+<p>Design a real-time messaging service: users exchange 1:1 and group messages that arrive within milliseconds, in order, exactly once to the eye, and survive the recipient being offline.</p>
+<p>In scope: sending and receiving 1:1 and group messages, offline delivery on reconnect, per-conversation ordering, receipts (sent/delivered/read), and presence (online/last-seen). End-to-end encryption is a variant.</p>
+<h2>Clarifying questions</h2>
+<p>Each answer changes the design and fixes an assumption.</p>
+<p>1:1 only, or groups — and how large? Small groups fan out — one message copied to each member — cheaply; large groups need a different fan-out strategy.</p>
+<p>Delivery guarantee? At-least-once with client dedup is the practical answer; true exactly-once is expensive and usually unnecessary.</p>
+<p>Ordering scope? Per-conversation ordering is the norm and achievable; global ordering across conversations is neither needed nor cheap.</p>
+<p>Offline support and history? A week-long offline user must receive everything missed — this drives durable storage and a sync protocol.</p>
+<p>Receipts and presence? Each is its own subsystem.</p>
+<p>End-to-end encryption? It changes where messages can be processed (the server can&#39;t read content) — a major variant.</p>
+<h2>What makes this problem distinctive</h2>
+<p>A naive chat is &quot;client sends to server, server sends to client.&quot; That is incomplete: the recipient is often not connected when the message is sent, yet the message must not be lost and must still arrive the instant they reconnect.</p>
+<p>That contradiction — durable and real-time at once — is what shapes the design. A message cannot be delivered straight over a socket, because the socket may be gone; it cannot only be stored for clients to poll, because that is not real-time. Every message has to be both saved and pushed, to a recipient who may be online on some server or offline entirely. The delivery path — how a message reaches a possibly-offline recipient — is the main design problem, not the happy-path socket write.</p>
+<p>Key idea. Chat is a durable per-conversation log: clients read new messages as they arrive and re-read missed ones on reconnect, with the real-time path kept separate from the durable store.</p>
+<h2>Key concepts</h2>
+<p>This section covers the concepts needed to solve this problem — prerequisites for the design work that follows.</p>
+<h3>Persistent connections and the registry</h3>
+<p>Clients hold a long-lived WebSocket to a gateway server; with hundreds of millions of clients, gateways are a large fleet. Because any user can be on any gateway, a connection registry maps user → gateway so the system knows where to route a message. The registry is rebuilt on connect/disconnect and lives in a fast in-memory store.</p>
+<p>WebSocket. A persistent, bidirectional TCP connection between client and server, so the server can push a message down to the client instead of the client polling for it.</p>
+<h3>Durability before delivery</h3>
+<p>A message acked to its sender is already stored. The message service writes to the durable store — assigning the message its order — before it acks the sender or attempts delivery. Live delivery is then a latency optimization on top of a durable record, not the system of record itself.</p>
+<h3>At-least-once and dedup</h3>
+<p>Networks force retries, so a message can be delivered twice. The sender attaches a client_msg_id; the server and client dedupe on it. The guarantee is at-least-once, but because duplicates are discarded, the experience is exactly-once. True exactly-once delivery across systems is expensive and rarely worth it.</p>
+<h3>Per-conversation ordering</h3>
+<p>Each conversation has a monotonic server_seq assigned at persist time; clients sort and dedupe by it. Per-conversation ordering is consistent for all participants and needs no global clock — global ordering across conversations is neither needed nor affordable.</p>
+<h3>Fan-out for groups</h3>
+<p>A group message to N members is N deliveries: push to the online members through their gateways, queue for the offline ones. Small groups fan out on write cheaply; very large groups favor a shared log the members read.</p>
+<h3>Presence</h3>
+<p>Online/last-seen is ephemeral and eventually-consistent — not part of the durable message path. The mechanism is a heartbeat with a time-to-live (TTL): each user has an in-memory presence key that expires after a few seconds, and the client sends periodic heartbeats that refresh it. While heartbeats arrive, the user reads as online. If the app crashes, the heartbeats stop, the TTL lapses a few seconds later, and the key flips to offline with a last-seen timestamp — subscribers watching that user get the change. Because it is rebuilt on connect and kept alive by heartbeats, losing the whole pre</p>
+<p>Key idea. Persist before you deliver; order per conversation with a monotonic sequence; dedupe by client id; keep presence and routing ephemeral, off the durable path.</p>
+<h2>1. Requirements</h2>
+<p>Before reading on. List the requirements, then name the property you would never compromise and the constraint that drives the design.</p>
+<h3>1.1 Functional requirements</h3>
+<p>Send / receive 1:1 and group messages in real time.</p>
+<p>Offline delivery — messages sent while a user is offline are delivered on reconnect.</p>
+<p>Ordering within a conversation.</p>
+<p>Receipts — sent / delivered / read — and presence — online / last-seen.</p>
+<h3>1.2 Non-functional requirements</h3>
+<p>Durability — a sent (acked) message is not lost. The top priority.</p>
+<p>Latency — online-to-online delivery well under a second.</p>
+<p>Ordering — per-conversation, consistent across participants.</p>
+<p>Availability — connection loss is routine; a client should reconnect and resync within a few seconds.</p>
+<p>Scale — hundreds of millions of concurrent connections; millions of messages per second.</p>
+<h3>1.3 The constraint versus the property</h3>
+<p>Durability is the property to protect: once a message is acked, it is not lost, which is why the message service persists before it acks or delivers. Real-time delivery is the constraint that drives the design: the demand to push within a second — to a recipient who may be on any gateway or offline — forces the persistent-connection fleet, the connection registry, and the split between the live path and the durable store.</p>
+<p>Key idea. Protect durability (acked means stored); design around real-time delivery to a possibly-offline recipient.</p>
+<h2>2. Back-of-the-envelope estimation</h2>
+<p>The numbers size the gateway fleet (from concurrent connections) and the delivery and write rates (from the message rate and fan-out). Illustrative anchors.</p>
+<h3>2.1 Connections and gateways</h3>
+<p>At ~100M concurrent users there are ~100M open WebSocket connections. At ~100K connections per gateway, that is ~1,000 gateway servers. Connections, not message volume, set the fleet size.</p>
+<h3>2.2 Messages and deliveries</h3>
+<p>At ~1M messages sent per second, each fanning out to a few recipients, the system does a few million deliveries per second. At ~1 KB each, ingest is on the order of ~1 GB/sec, and retained history times replication reaches petabytes over time.</p>
+<p>Key idea. Concurrent connections size the gateway fleet; message rate × fan-out sizes deliveries and the durable write rate.</p>
+<h2>3. API design</h2>
+<p>The interface is a persistent connection plus four operations.</p>
+<p>Key idea. send carries a client id for dedup and returns a per-conversation server_seq; sync replays everything after a sequence on reconnect.</p>
+<h2>4. Data model</h2>
+<p>A minimal message record exposes the fields needed for ordering, delivery, and receipts; each thing it cannot represent adds the next field.</p>
+<h3>4.1 Message and conversation</h3>
+<p>A message needs a conversation to belong to and a sequence to be ordered by; per-user cursors track how far each member has been delivered and has read.</p>
+<h3>4.2 Where each piece lives</h3>
+<p>Messages are partitioned by conversation_id in a durable log/KV store, ordered by server_seq — a per-conversation sequence gives ordering without a global clock. The connection registry (user → gateway) and presence (user → online | last-seen) are in-memory only, rebuilt on connect, and never on the durable message path.</p>
+<p>Key idea. Messages are a durable per-conversation log; routing and presence are ephemeral in-memory state.</p>
+<h2>5. High-level design</h2>
+<p>The design is built up from the simplest version, each failure pulling in the next box.</p>
+<p>Reading the diagrams. Each step marks the components newly added at that step with a dashed outline and a NEW badge.</p>
+<h3>5.1 One server</h3>
+<p>A single server holds every connection and relays messages between them. It breaks at the first scale step: one box cannot hold hundreds of millions of sockets, and the instant there are many servers, a sender&#39;s server has no idea which server holds the recipient.</p>
+<h3>5.2 Fix 1: a gateway fleet and a connection registry</h3>
+<p>Spread connections across a fleet of gateways, and add a connection registry that records user → gateway so any message can find where its recipient is connected.</p>
+<h3>5.3 Fix 2: a message service and an internal bus</h3>
+<p>Direct gateway-to-gateway communication does not scale — every gateway would hold a connection to every other, which fails at a thousand boxes. Add a message service that owns each message and an internal pub-sub bus — a message broker where a sender publishes to a named topic and whichever servers subscribe to that topic receive it — that carries the message from the sender&#39;s gateway to the recipient&#39;s.</p>
+<p>The mechanism is a topic per gateway. Each gateway subscribes to its own topic — Gateway-17 listens on gateway.17 — and the registry maps users to gateways. To deliver to User B: the message service asks the registry (B is on Gateway-17), publishes the message to topic gateway.17, and only Gateway-17, the one subscriber, receives it and pushes it down B&#39;s socket. No gateway ever sees traffic for connections it does not hold.</p>
+<p>The bus gets a message to an online recipient&#39;s gateway, but if that recipient is offline, no gateway is subscribed to receive it and the message has nowhere to go — it would simply be dropped.</p>
+<h3>5.4 Fix 3: a durable store and offline delivery</h3>
+<p>The message service persists to a durable store (assigning server_seq) before acking the sender. If the recipient is offline, the message is already stored; mark it pending and fire a push notification, and the recipient pulls it via sync on reconnect.</p>
+<h3>5.5 The composed delivery path</h3>
+<p>Key idea. Each component answers one failure: a gateway fleet for connection scale, a registry to find the recipient, a bus to cross gateways, and a durable store so an acked message survives the recipient being offline.</p>
+<h2>6. Deep dives</h2>
+<h3>6.1 Delivery and the connection registry</h3>
+<p>Before reading on. A message is persisted and acked. The recipient is on some gateway in a fleet of a thousand — or on none. How does the message find them?</p>
+<p>The registry routes: user → gateway, kept in a fast store and updated on connect/disconnect, tells the message service which gateway holds the recipient. If they are online, the message goes over the bus to that gateway and down the socket; if offline, it is already durably stored, so the system marks it pending and fires a push, and the client pulls it with sync(since_seq) on reconnect. Heartbeats detect dead connections the server hasn&#39;t noticed yet, and the registry entry is cleared so messages aren&#39;t routed to a stale gateway entry.</p>
+<p>In the offline case, Alice and Bob&#39;s conversation log holds seq 41–45. Bob&#39;s phone drops after his client has seen seq 42, so it remembers last_delivered_seq = 42. While he is offline, Alice sends 43, 44, 45 — each persisted to the log. Bob reconnects and calls sync(conv, since_seq=42); the server returns messages 43, 44, 45 straight from the log, and his client advances its cursor to 45. No message is missed and none is shown twice, because the cursor — not the live socket — defines what he still needs. A week offline is no different: the gap is larger.</p>
+<h3>6.2 Ordering and delivery guarantees</h3>
+<p>Before reading on. A consumer reads a message, the network drops the ack, and it retries. Without care the recipient sees it twice and possibly out of order. What is the precise contract?</p>
+<p>The contract is at-least-once with idempotent dedup, which presents as exactly-once. The monotonic server_seq per conversation gives order: clients sort and dedupe by it, so a re-delivered or reordered message lands in the right place once. Receipts ride the same channel — sent (stored) → delivered (reached the device) → read (opened) — each a small state update on the per-user cursor keyed by sequence.</p>
+<h3>6.3 Group chat and presence</h3>
+<p>Before reading on. A 50,000-member group posts a message. Pushing it to every member like 50,000 unicasts is a lot of work. When does that stop being the right model?</p>
+<p>Small groups fan out on write — one message becomes N deliveries, pushed to online members and queued for offline ones — which is cheap up to moderate sizes. Concretely, a 50-member group turns one send into 50 delivery tasks, which is manageable. A 50,000-member group turns each send into 50,000 tasks, plus offline-cursor bookkeeping for every member — and that repeats on every message. So very large groups flip to a shared conversation log: the message is stored once, and each member reads it on their own by cursor (fan-out on read), turning 50,000 writes back into one. This is the same fan-</p>
+<h2>7. Variants</h2>
+<p>For very large groups and broadcast (channels with thousands of members), the shared-log read model applies — participants read from one durable log rather than receiving thousands of pushed copies.</p>
+<p>For end-to-end encryption, the server routes ciphertext it cannot read; the architecture is unchanged, but plaintext-dependent features (search, smart replies) move client-side.</p>
+<p>For 10× scale (billions of connections), the gateway fleet expands, the message store and registry shard by conversation and user, the pub-sub bus is partitioned, and presence becomes aggressive in-memory sampling — a stale dot is acceptable, a lost message is not.</p>
+<p>Key idea. The architecture holds across encryption and scale; only very large groups change the fan-out from push to a shared log.</p>
+<h2>8. The transferable pattern</h2>
+<p>A chat system is a per-conversation durable log, read live as messages arrive and re-read on reconnect. Persist first, then deliver; order with a per-conversation sequence; dedupe by a client id; and keep the durable message path strictly separate from the ephemeral routing and presence state. Whenever real-time delivery and durability both matter — notifications, activity feeds, collaborative editing, order events — the same shape recurs: a durable log under a live delivery layer, with a registry pointing live traffic at the right connection.</p>
+<h2>Review: the 30-second answer</h2>
+<p>Persistent WebSocket connections to a gateway fleet, with a connection registry mapping users to their gateway.</p>
+<p>Persist before delivering — a message is written durably (and assigned a sequence) before the sender is acked.</p>
+<p>Deliver live to online recipients, queue plus push for offline ones; the client pulls missed messages with sync on reconnect.</p>
+<p>Per-conversation monotonic server_seq for ordering; client_msg_id for dedup — at-least-once that looks exactly-once.</p>
+<p>Durable path separate from ephemeral state — routing and presence live in memory, off the message path.</p>
+<h2>Quiz</h2>
+<h2>Sources and further reading</h2>
+<p>It&#39;s About Time: How WhatsApp Built Reliability — Meta Engineering — connection management and reliable delivery for hundreds of millions of concurrent users.</p>
+<p>How Discord stores trillions of messages — Discord Engineering — partitioning a durable message store by conversation and the storage-engine tradeoffs.</p>
+<p>The Log: what every software engineer should know about real-time data — Jay Kreps (LinkedIn Engineering) — the append-only log and per-reader cursor underneath the durable-log-plus-replay model.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

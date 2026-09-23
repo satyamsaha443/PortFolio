@@ -1,0 +1,167 @@
+[    4182ms] Error: Minified React error #425; visit https://reactjs.org/docs/error-decoder.html?invariant=425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at rg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:40173)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:100717
+    at oI (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:106228)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99176)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4183ms] Error: Minified React error #425; visit https://reactjs.org/docs/error-decoder.html?invariant=425 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at rg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:40173)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:100717
+    at oI (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:106228)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99176)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4183ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4186ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4186ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4186ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4186ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4186ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4186ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4188ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4188ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4188ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4189ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4190ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4190ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4190ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4190ms] Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at lg (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:46426)
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:121163)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94029)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    4190ms] Error: Minified React error #423; visit https://reactjs.org/docs/error-decoder.html?invariant=423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at i (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:120832)
+    at oD (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:99116)
+    at https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98983
+    at oO (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:98990)
+    at oE (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:95742)
+    at ox (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:9:94297)
+    at x (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1374)
+    at MessagePort.T (https://systemdesignschool.io/_next/static/chunks/framework-2fe4cb6473b20297.js:33:1904)
+[    5772ms] [WARNING] [GSI_LOGGER]: Your client application uses one of the Google One Tap prompt UI status methods that may stop functioning when FedCM becomes mandatory. Refer to the migration guide to update your code accordingly and opt-in to FedCM to test your changes. Learn more: https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#display_moment and https://developers.google.com/identity/gsi/web/guides/fedcm-migration?s=dc#skipped_moment @ https://accounts.google.com/gsi/client:86
+[    5775ms] [ERROR] Not signed in with the identity provider. @ https://systemdesignschool.io/problems/url-shortener/solution:0
+[   16982ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with NetworkError: Error retrieving a token. @ https://accounts.google.com/gsi/client:87

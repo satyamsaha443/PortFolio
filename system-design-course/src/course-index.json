@@ -1,0 +1,2972 @@
+{
+  "title": "System Design: Zero to Mastery",
+  "version": "1.0.0",
+  "lastUpdated": "2026-07-28",
+  "modules": [
+    {
+      "id": "module-0",
+      "number": 0,
+      "title": "Course Overview & Learning Roadmap",
+      "description": "Your starting point. Understand how to navigate this course, what you will learn, and build your personal learning path.",
+      "audienceLevels": [
+        "beginner",
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 1.5,
+      "lessons": [
+        {
+          "id": "0-1",
+          "title": "Welcome & How to Use This Course",
+          "slug": "welcome",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 10,
+          "objectives": [],
+          "contentFile": "module-0-overview/01-welcome.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "orientation"
+          ]
+        },
+        {
+          "id": "0-2",
+          "title": "Visual Learning Path: Beginner → Pro → Senior",
+          "slug": "learning-path",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 10,
+          "objectives": [],
+          "contentFile": "module-0-overview/02-learning-path.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "orientation",
+            "roadmap"
+          ]
+        },
+        {
+          "id": "0-3",
+          "title": "Prerequisites Checklist",
+          "slug": "prerequisites",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 5,
+          "objectives": [],
+          "contentFile": "module-0-overview/03-prerequisites.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "orientation"
+          ]
+        },
+        {
+          "id": "0-4",
+          "title": "Glossary of 100+ Terms",
+          "slug": "glossary",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-0-overview/04-glossary.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "reference",
+            "glossary"
+          ]
+        },
+        {
+          "id": "0-5",
+          "title": "Level Expectations: L4, L5, and L6",
+          "slug": "level-expectations",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 15,
+          "objectives": [],
+          "contentFile": "module-0-overview/05-level-expectations.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "interview",
+            "levels",
+            "faang"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-10",
+      "number": 1,
+      "title": "Introduction to System Design",
+      "description": "The official System Design School primer: 12 lessons covering what system design is, interview expectations, how to prepare, core challenges, scaling, consistency, the master template, main components, and the full interview walkthrough. Best read before Module 3.",
+      "audienceLevels": [
+        "beginner",
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 4,
+      "lessons": [
+        {
+          "id": "10-1",
+          "title": "Introduction",
+          "slug": "primer-introduction",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 5,
+          "objectives": [],
+          "contentFile": "module-10-primer/01-introduction.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "intro"
+          ]
+        },
+        {
+          "id": "10-2",
+          "title": "What Is System Design?",
+          "slug": "primer-what-is-system-design",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 15,
+          "objectives": [],
+          "contentFile": "module-10-primer/02-what-is-system-design.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "foundations"
+          ]
+        },
+        {
+          "id": "10-3",
+          "title": "What Are System Design Interviews?",
+          "slug": "primer-interviews",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 15,
+          "objectives": [],
+          "contentFile": "module-10-primer/03-what-are-system-design-interviews.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "interviews"
+          ]
+        },
+        {
+          "id": "10-4",
+          "title": "Level Expectations",
+          "slug": "primer-level-expectations",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-10-primer/04-level-expectations.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "levels",
+            "l4",
+            "l5",
+            "l6"
+          ]
+        },
+        {
+          "id": "10-5",
+          "title": "How to Prepare",
+          "slug": "primer-how-to-prepare",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-10-primer/05-how-to-prepare.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "preparation"
+          ]
+        },
+        {
+          "id": "10-6",
+          "title": "Core Design Challenges",
+          "slug": "primer-core-challenges",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-10-primer/06-core-design-challenges.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "challenges",
+            "scale"
+          ]
+        },
+        {
+          "id": "10-7",
+          "title": "Designing for Scale",
+          "slug": "primer-designing-for-scale",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-10-primer/07-designing-for-scale.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "scaling",
+            "partitioning",
+            "caching"
+          ]
+        },
+        {
+          "id": "10-8",
+          "title": "Consistency and Tradeoffs",
+          "slug": "primer-consistency",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-10-primer/08-consistency-and-tradeoffs.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "cap",
+            "consistency",
+            "sagas"
+          ]
+        },
+        {
+          "id": "10-9",
+          "title": "Master Template",
+          "slug": "primer-master-template",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-10-primer/09-master-template.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "template",
+            "framework"
+          ]
+        },
+        {
+          "id": "10-10",
+          "title": "Main Components",
+          "slug": "primer-main-components",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-10-primer/10-main-components.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "components",
+            "databases",
+            "cache",
+            "cdn",
+            "queues"
+          ]
+        },
+        {
+          "id": "10-11",
+          "title": "Problem Decomposition Framework",
+          "slug": "primer-decomposition",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-10-primer/11-problem-decomposition-framework.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "decomposition",
+            "verbs",
+            "nouns",
+            "adjectives"
+          ]
+        },
+        {
+          "id": "10-12",
+          "title": "Interview Step-by-Step",
+          "slug": "primer-interview-step-by-step",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-10-primer/12-interview-step-by-step.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "primer",
+            "interview",
+            "walkthrough",
+            "twitter"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-1",
+      "number": 2,
+      "title": "Foundations (Beginner Friendly)",
+      "description": "The mental models every engineer needs before touching a single architecture diagram.",
+      "audienceLevels": [
+        "beginner",
+        "pro"
+      ],
+      "estimatedHours": 5,
+      "lessons": [
+        {
+          "id": "1-1",
+          "title": "What Is System Design?",
+          "slug": "what-is-system-design",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-1-foundations/01-what-is-system-design.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "fundamentals"
+          ]
+        },
+        {
+          "id": "1-2",
+          "title": "The Client–Server Model",
+          "slug": "client-server",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-1-foundations/02-client-server.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "fundamentals",
+            "networking"
+          ]
+        },
+        {
+          "id": "1-3",
+          "title": "HTTP, DNS & TCP/IP — What You Actually Need",
+          "slug": "http-dns-tcp",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-1-foundations/03-http-dns-tcp.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "networking",
+            "protocols"
+          ]
+        },
+        {
+          "id": "1-4",
+          "title": "Databases 101: SQL vs NoSQL",
+          "slug": "sql-vs-nosql",
+          "audienceLevels": [
+            "beginner",
+            "pro"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-1-foundations/04-sql-vs-nosql.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "databases"
+          ]
+        },
+        {
+          "id": "1-5",
+          "title": "APIs: REST, GraphQL & gRPC Compared",
+          "slug": "apis-rest-graphql-grpc",
+          "audienceLevels": [
+            "beginner",
+            "pro"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-1-foundations/05-apis.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "apis"
+          ]
+        },
+        {
+          "id": "1-6",
+          "title": "Caching: Browser → CDN → Server",
+          "slug": "caching-basics",
+          "audienceLevels": [
+            "beginner",
+            "pro"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-1-foundations/06-caching-basics.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "caching",
+            "performance"
+          ]
+        },
+        {
+          "id": "1-7",
+          "title": "Scalability: Vertical vs Horizontal (with Real Cost Numbers)",
+          "slug": "scalability",
+          "audienceLevels": [
+            "beginner",
+            "pro"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-1-foundations/07-scalability.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "scalability"
+          ]
+        },
+        {
+          "id": "1-8",
+          "title": "Latency vs Throughput — Everyday Analogies",
+          "slug": "latency-throughput",
+          "audienceLevels": [
+            "beginner",
+            "pro"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-1-foundations/08-latency-throughput.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "performance",
+            "fundamentals"
+          ]
+        },
+        {
+          "id": "1-9",
+          "title": "CAP Theorem — The Pizza Shop Example",
+          "slug": "cap-theorem",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-1-foundations/09-cap-theorem.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "distributed-systems",
+            "theory"
+          ]
+        },
+        {
+          "id": "1-10",
+          "title": "ACID vs BASE — The Banking Example",
+          "slug": "acid-vs-base",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-1-foundations/10-acid-vs-base.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "databases",
+            "consistency"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-9",
+      "number": 3,
+      "title": "System Design Patterns",
+      "description": "Four cross-cutting patterns that appear in almost every real system: scaling reads and writes, async job processing, real-time transport, and large file handling. Study these after M2 and before M3 — they are the bridge between building blocks and full designs.",
+      "audienceLevels": [
+        "beginner",
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 2,
+      "lessons": [
+        {
+          "id": "9-1",
+          "title": "Scaling Reads & Writes",
+          "slug": "scaling-reads-and-writes",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-9-patterns/01-scaling-reads-and-writes.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "patterns",
+            "scaling",
+            "caching",
+            "sharding",
+            "cqrs"
+          ]
+        },
+        {
+          "id": "9-2",
+          "title": "Asynchronous Jobs",
+          "slug": "asynchronous-jobs",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-9-patterns/02-asynchronous-jobs.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "patterns",
+            "async",
+            "queues",
+            "workers",
+            "idempotency"
+          ]
+        },
+        {
+          "id": "9-3",
+          "title": "Real-Time Transport",
+          "slug": "real-time-transport",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-9-patterns/03-real-time-transport.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "patterns",
+            "websockets",
+            "sse",
+            "long-polling",
+            "real-time"
+          ]
+        },
+        {
+          "id": "9-4",
+          "title": "Handling Large Files",
+          "slug": "handling-large-files",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-9-patterns/04-handling-large-files.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "patterns",
+            "object-storage",
+            "presigned-urls",
+            "cdn",
+            "multipart"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-2",
+      "number": 4,
+      "title": "Core Building Blocks",
+      "description": "The components you will reach for in every real-world design — understood deeply enough to use correctly.",
+      "audienceLevels": [
+        "beginner",
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 7,
+      "lessons": [
+        {
+          "id": "2-1",
+          "title": "Load Balancers (Round Robin, Least Connections, IP Hash)",
+          "slug": "load-balancers",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/01-load-balancers.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "load-balancing",
+            "scalability"
+          ]
+        },
+        {
+          "id": "2-2",
+          "title": "Message Queues & Event Streaming (Kafka, RabbitMQ, SQS)",
+          "slug": "message-queues",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 45,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/02-message-queues.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "messaging",
+            "kafka",
+            "async"
+          ]
+        },
+        {
+          "id": "2-3",
+          "title": "CDN — How Netflix Uses It",
+          "slug": "cdn",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/03-cdn.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "cdn",
+            "caching",
+            "performance"
+          ]
+        },
+        {
+          "id": "2-4",
+          "title": "Rate Limiting & Throttling (Token Bucket, Leaky Bucket)",
+          "slug": "rate-limiting",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/04-rate-limiting.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "rate-limiting",
+            "reliability"
+          ]
+        },
+        {
+          "id": "2-5",
+          "title": "Consistent Hashing — Visual Ring Examples",
+          "slug": "consistent-hashing",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/05-consistent-hashing.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "distributed-systems",
+            "hashing"
+          ]
+        },
+        {
+          "id": "2-6",
+          "title": "SQL Sharding & Partitioning Strategies",
+          "slug": "sharding-partitioning",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/06-sharding-partitioning.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "databases",
+            "scalability",
+            "sharding"
+          ]
+        },
+        {
+          "id": "2-7",
+          "title": "Replication: Leader-Follower & Multi-Master",
+          "slug": "replication",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/07-replication.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "databases",
+            "replication",
+            "availability"
+          ]
+        },
+        {
+          "id": "2-8",
+          "title": "Indexes: B-Tree & LSM Tree with Query Performance",
+          "slug": "indexes",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/08-indexes.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "databases",
+            "performance",
+            "indexes"
+          ]
+        },
+        {
+          "id": "2-9",
+          "title": "Blob / Object Storage (S3, GCS) — When to Use",
+          "slug": "object-storage",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/09-object-storage.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "storage",
+            "s3"
+          ]
+        },
+        {
+          "id": "2-10",
+          "title": "Search Systems (Elasticsearch & Inverted Index)",
+          "slug": "search-systems",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-2-building-blocks/10-search-systems.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "search",
+            "elasticsearch"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-3",
+      "number": 5,
+      "title": "15 Complete End-to-End System Designs",
+      "description": "Full designs with capacity estimates, schemas, API contracts, diagrams, and interview cheat sheets.",
+      "audienceLevels": [
+        "beginner",
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 20,
+      "lessons": [
+        {
+          "id": "3-1",
+          "title": "Design 01: URL Shortener (like bit.ly)",
+          "slug": "design-url-shortener",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 60,
+          "objectives": [],
+          "contentFile": "module-3-designs/01-url-shortener.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "beginner",
+            "database",
+            "hashing"
+          ]
+        },
+        {
+          "id": "3-2",
+          "title": "Design 02: Chat Messaging App (like WhatsApp)",
+          "slug": "design-chat-app",
+          "audienceLevels": [
+            "beginner",
+            "pro"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/02-chat-messaging.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "websockets",
+            "messaging",
+            "realtime"
+          ]
+        },
+        {
+          "id": "3-3",
+          "title": "Design 03: Instagram / Photo Sharing",
+          "slug": "design-instagram",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/03-instagram.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "cdn",
+            "feed",
+            "storage"
+          ]
+        },
+        {
+          "id": "3-4",
+          "title": "Design 04: YouTube / Video Streaming",
+          "slug": "design-youtube",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/04-youtube.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "streaming",
+            "encoding",
+            "cdn"
+          ]
+        },
+        {
+          "id": "3-5",
+          "title": "Design 05: Ride-Sharing App (like Uber)",
+          "slug": "design-uber",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/05-uber.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "geolocation",
+            "realtime",
+            "matching"
+          ]
+        },
+        {
+          "id": "3-6",
+          "title": "Design 06: Food Delivery Platform (like DoorDash)",
+          "slug": "design-food-delivery",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/06-food-delivery.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "marketplace",
+            "realtime",
+            "geolocation"
+          ]
+        },
+        {
+          "id": "3-7",
+          "title": "Design 07: E-Commerce Platform (like Amazon)",
+          "slug": "design-ecommerce",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 80,
+          "objectives": [],
+          "contentFile": "module-3-designs/07-ecommerce.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "inventory",
+            "cart",
+            "payments"
+          ]
+        },
+        {
+          "id": "3-8",
+          "title": "Design 08: Payment & Wallet System",
+          "slug": "design-payments",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/08-payments.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "payments",
+            "idempotency",
+            "consistency"
+          ]
+        },
+        {
+          "id": "3-9",
+          "title": "Design 09: Notification System at 100M Scale",
+          "slug": "design-notifications",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 70,
+          "objectives": [],
+          "contentFile": "module-3-designs/09-notifications.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "push",
+            "sms",
+            "email",
+            "fanout"
+          ]
+        },
+        {
+          "id": "3-10",
+          "title": "Design 10: Search Autocomplete / Typeahead",
+          "slug": "design-typeahead",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 70,
+          "objectives": [],
+          "contentFile": "module-3-designs/10-typeahead.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "search",
+            "trie",
+            "redis"
+          ]
+        },
+        {
+          "id": "3-11",
+          "title": "Design 11: Rate Limiter as a Service",
+          "slug": "design-rate-limiter-service",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/11-rate-limiter-service.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "rate-limiting",
+            "redis",
+            "multi-region"
+          ]
+        },
+        {
+          "id": "3-12",
+          "title": "Design 12: Distributed File Storage (like Google Drive)",
+          "slug": "design-google-drive",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/12-google-drive.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "storage",
+            "sync",
+            "chunking"
+          ]
+        },
+        {
+          "id": "3-13",
+          "title": "Design 13: Real-Time Collaborative Docs (OT / CRDT)",
+          "slug": "design-collab-docs",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/13-collab-docs.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "crdt",
+            "ot",
+            "collaboration",
+            "websockets"
+          ]
+        },
+        {
+          "id": "3-14",
+          "title": "Design 14: Social Media Feed / Timeline (Fanout Strategies)",
+          "slug": "design-social-feed",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 85,
+          "objectives": [],
+          "contentFile": "module-3-designs/14-social-feed.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "feed",
+            "fanout",
+            "timeline"
+          ]
+        },
+        {
+          "id": "3-15",
+          "title": "Design 15: Global Job Scheduler (Cron-as-a-Service)",
+          "slug": "design-job-scheduler",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 85,
+          "objectives": [],
+          "contentFile": "module-3-designs/15-job-scheduler.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "scheduler",
+            "distributed",
+            "cron"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-4",
+      "number": 6,
+      "title": "Deep Dives (Working Professionals)",
+      "description": "Production-grade patterns, failure modes, and architectural decisions that separate senior engineers from the rest.",
+      "audienceLevels": [
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 8,
+      "lessons": [
+        {
+          "id": "4-1",
+          "title": "Microservices vs Monolith — Migration Strategy",
+          "slug": "microservices-vs-monolith",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 45,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/01-microservices-vs-monolith.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "architecture",
+            "microservices"
+          ]
+        },
+        {
+          "id": "4-2",
+          "title": "Service Mesh (Istio, Envoy)",
+          "slug": "service-mesh",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/02-service-mesh.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "service-mesh",
+            "istio",
+            "kubernetes"
+          ]
+        },
+        {
+          "id": "4-3",
+          "title": "Distributed Transactions (Saga, 2-Phase Commit)",
+          "slug": "distributed-transactions",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 45,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/03-distributed-transactions.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "transactions",
+            "saga",
+            "consistency"
+          ]
+        },
+        {
+          "id": "4-4",
+          "title": "Observability: Logs, Metrics, Traces",
+          "slug": "observability",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/04-observability.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "observability",
+            "monitoring",
+            "tracing"
+          ]
+        },
+        {
+          "id": "4-5",
+          "title": "CI/CD Pipeline Design for Large Teams",
+          "slug": "cicd-pipelines",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/05-cicd-pipelines.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "cicd",
+            "devops",
+            "deployment"
+          ]
+        },
+        {
+          "id": "4-6",
+          "title": "Zero-Downtime Deployments (Blue-Green, Canary, Feature Flags)",
+          "slug": "zero-downtime-deployments",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/06-zero-downtime-deployments.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "deployments",
+            "canary",
+            "feature-flags"
+          ]
+        },
+        {
+          "id": "4-7",
+          "title": "API Gateway Patterns (BFF, Aggregation, Auth)",
+          "slug": "api-gateway-patterns",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/07-api-gateway-patterns.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "api-gateway",
+            "bff",
+            "auth"
+          ]
+        },
+        {
+          "id": "4-8",
+          "title": "Data Pipelines & Analytics (Lambda / Kappa Architecture)",
+          "slug": "data-pipelines",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 45,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/08-data-pipelines.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "data-pipelines",
+            "kafka",
+            "analytics"
+          ]
+        },
+        {
+          "id": "4-9",
+          "title": "Event-Driven Architecture — Pros, Cons, Anti-Patterns",
+          "slug": "event-driven-architecture",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/09-event-driven-architecture.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "event-driven",
+            "async",
+            "kafka"
+          ]
+        },
+        {
+          "id": "4-10",
+          "title": "Multi-Region Active-Active Architecture",
+          "slug": "multi-region-active-active",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 50,
+          "objectives": [],
+          "contentFile": "module-4-deep-dives/10-multi-region-active-active.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "multi-region",
+            "global",
+            "availability"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-5",
+      "number": 7,
+      "title": "Interview Mastery Track",
+      "description": "A complete playbook for system design interviews — from junior level through staff engineer.",
+      "audienceLevels": [
+        "beginner",
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 7,
+      "lessons": [
+        {
+          "id": "5-1",
+          "title": "The 45-Minute Framework for Any System Design Question",
+          "slug": "45-min-framework",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-5-interview-mastery/01-45-minute-framework.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "interview",
+            "framework"
+          ]
+        },
+        {
+          "id": "5-2",
+          "title": "How to Drive the Conversation by Seniority",
+          "slug": "drive-conversation",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-5-interview-mastery/02-drive-the-conversation.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "interview",
+            "communication"
+          ]
+        },
+        {
+          "id": "5-3",
+          "title": "30 Most Common Questions with Model Answers",
+          "slug": "30-common-questions",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-5-interview-mastery/03-30-common-questions.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "interview",
+            "questions"
+          ]
+        },
+        {
+          "id": "5-4",
+          "title": "Whiteboarding Best Practices",
+          "slug": "whiteboarding",
+          "audienceLevels": [
+            "beginner",
+            "pro"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-5-interview-mastery/04-whiteboarding-best-practices.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "interview",
+            "whiteboard"
+          ]
+        },
+        {
+          "id": "5-5",
+          "title": "Common Mistakes & How to Avoid Them",
+          "slug": "common-mistakes",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-5-interview-mastery/05-common-mistakes.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "interview",
+            "mistakes"
+          ]
+        },
+        {
+          "id": "5-6",
+          "title": "Mock Interview Script Templates (Beginner & Senior)",
+          "slug": "mock-interview-scripts",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-5-interview-mastery/06-mock-interview-scripts.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "interview",
+            "mock"
+          ]
+        },
+        {
+          "id": "5-7",
+          "title": "Cheat Sheet: Latency, Throughput & Cost Numbers",
+          "slug": "cheat-sheet-numbers",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-5-interview-mastery/07-cheat-sheet-numbers.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "reference",
+            "cheat-sheet",
+            "numbers"
+          ]
+        },
+        {
+          "id": "5-8",
+          "title": "Problem Decomposition Framework (Verbs, Nouns, Adjectives)",
+          "slug": "problem-decomposition",
+          "audienceLevels": [
+            "beginner",
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-5-interview-mastery/08-problem-decomposition-framework.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "interview",
+            "framework",
+            "decomposition"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-6",
+      "number": 8,
+      "title": "Globalisation & Real-World Deployment",
+      "description": "How to design systems that work for every country, every regulation, every network condition.",
+      "audienceLevels": [
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 4,
+      "lessons": [
+        {
+          "id": "6-1",
+          "title": "Multi-Region Architecture (Latency Zones & Data Residency)",
+          "slug": "multi-region-architecture",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-6-globalisation/01-multi-region-architecture.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "multi-region",
+            "global"
+          ]
+        },
+        {
+          "id": "6-2",
+          "title": "GDPR, CCPA & PDPA Built into Design",
+          "slug": "compliance",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-6-globalisation/02-gdpr-ccpa-compliance.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "gdpr",
+            "compliance",
+            "privacy"
+          ]
+        },
+        {
+          "id": "6-3",
+          "title": "Currency, Timezone & Locale Handling",
+          "slug": "i18n-l10n",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-6-globalisation/03-currency-timezone-locale.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "i18n",
+            "localisation",
+            "timezone"
+          ]
+        },
+        {
+          "id": "6-4",
+          "title": "Edge Computing Use Cases",
+          "slug": "edge-computing",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-6-globalisation/04-edge-computing.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "edge",
+            "cdn",
+            "cloudflare"
+          ]
+        },
+        {
+          "id": "6-5",
+          "title": "Designing for Emerging Markets (Low Bandwidth, Offline-First)",
+          "slug": "emerging-markets",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-6-globalisation/05-emerging-markets.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "offline-first",
+            "low-bandwidth",
+            "pwa"
+          ]
+        },
+        {
+          "id": "6-6",
+          "title": "Case Study: 1 Country → 50 Countries",
+          "slug": "global-expansion-case-study",
+          "audienceLevels": [
+            "pro",
+            "senior"
+          ],
+          "estimatedMinutes": 40,
+          "objectives": [],
+          "contentFile": "module-6-globalisation/06-country-expansion-case-study.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "case-study",
+            "globalisation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-7",
+      "number": 9,
+      "title": "Bonus: Course Creator Playbook",
+      "description": "Optional bonus module for engineers who want to teach system design themselves. Covers platform strategy, pricing, launch, community, and marketing. Not required for learning system design — skip if you are here as a student.",
+      "audienceLevels": [
+        "senior"
+      ],
+      "estimatedHours": 3,
+      "lessons": [
+        {
+          "id": "7-1",
+          "title": "Platform Strategy (Udemy vs Teachable vs Own Site)",
+          "slug": "platform-strategy",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-7-monetisation/01-platform-strategy.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "monetisation",
+            "platform"
+          ]
+        },
+        {
+          "id": "7-2",
+          "title": "Pricing Tiers: Free, Pro & Premium",
+          "slug": "pricing-tiers",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-7-monetisation/02-pricing-tiers.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "monetisation",
+            "pricing"
+          ]
+        },
+        {
+          "id": "7-3",
+          "title": "8 Revenue Streams (Courses → Corporate B2B)",
+          "slug": "revenue-streams",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-7-monetisation/03-revenue-streams.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "revenue",
+            "b2b"
+          ]
+        },
+        {
+          "id": "7-4",
+          "title": "SEO, YouTube & LinkedIn Marketing Plan",
+          "slug": "seo-marketing",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 35,
+          "objectives": [],
+          "contentFile": "module-7-monetisation/04-seo-youtube-linkedin.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "seo",
+            "marketing",
+            "youtube"
+          ]
+        },
+        {
+          "id": "7-5",
+          "title": "Community Building: Discord Server Structure",
+          "slug": "community-discord",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 20,
+          "objectives": [],
+          "contentFile": "module-7-monetisation/05-community-discord.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "community",
+            "discord"
+          ]
+        },
+        {
+          "id": "7-6",
+          "title": "Launch Strategy: Beta Cohort → Full Launch",
+          "slug": "launch-strategy",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 30,
+          "objectives": [],
+          "contentFile": "module-7-monetisation/06-launch-strategy.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "launch",
+            "marketing"
+          ]
+        },
+        {
+          "id": "7-7",
+          "title": "Localisation: Spanish, Hindi, Portuguese, Arabic",
+          "slug": "localisation-strategy",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 25,
+          "objectives": [],
+          "contentFile": "module-7-monetisation/07-localisation.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "localisation",
+            "translation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "module-8",
+      "number": 10,
+      "title": "Design Solutions Library — 34 Problems (Easy → Hard)",
+      "description": "Complete solution walkthroughs for 34 real interview problems: problem statement, clarifying questions, key concepts, high-level design, and deep dives. Sourced and structured for interview practice.",
+      "audienceLevels": [
+        "beginner",
+        "pro",
+        "senior"
+      ],
+      "estimatedHours": 40,
+      "lessons": [
+        {
+          "id": "8-1",
+          "title": "Easy: URL Shortener",
+          "slug": "scraped-url-shortener",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 60,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/url-shortener.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "easy",
+            "url-shortener"
+          ]
+        },
+        {
+          "id": "8-2",
+          "title": "Easy: Pastebin",
+          "slug": "scraped-pastebin",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 60,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/pastebin.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "easy",
+            "pastebin"
+          ]
+        },
+        {
+          "id": "8-3",
+          "title": "Easy: Webhook System",
+          "slug": "scraped-webhook",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 60,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/webhook.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "easy",
+            "webhook"
+          ]
+        },
+        {
+          "id": "8-4",
+          "title": "Easy: Typeahead / Autocomplete",
+          "slug": "scraped-typeahead",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 60,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/typeahead.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "easy",
+            "typeahead"
+          ]
+        },
+        {
+          "id": "8-5",
+          "title": "Easy: Rate Limiter",
+          "slug": "scraped-rate-limiter",
+          "audienceLevels": [
+            "beginner"
+          ],
+          "estimatedMinutes": 60,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/rate-limiter.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "easy",
+            "rate-limiter"
+          ]
+        },
+        {
+          "id": "8-6",
+          "title": "Medium: Tinder (Location-Based Matching)",
+          "slug": "scraped-tinder",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/tinder.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "medium",
+            "tinder"
+          ]
+        },
+        {
+          "id": "8-7",
+          "title": "Medium: Online Judge (LeetCode)",
+          "slug": "scraped-leetcode",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/leetcode.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "medium",
+            "leetcode"
+          ]
+        },
+        {
+          "id": "8-8",
+          "title": "Medium: Google Calendar",
+          "slug": "scraped-google-calendar",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/google-calendar.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "medium",
+            "google-calendar"
+          ]
+        },
+        {
+          "id": "8-9",
+          "title": "Medium: Twitter / X",
+          "slug": "scraped-twitter",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/twitter.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "medium",
+            "twitter"
+          ]
+        },
+        {
+          "id": "8-10",
+          "title": "Medium: Yelp (Local Business Search)",
+          "slug": "scraped-yelp",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/yelp.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "medium",
+            "yelp"
+          ]
+        },
+        {
+          "id": "8-11",
+          "title": "Medium: Distributed Message Queue",
+          "slug": "scraped-message-queue",
+          "audienceLevels": [
+            "pro"
+          ],
+          "estimatedMinutes": 75,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/message-queue.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "medium",
+            "message-queue"
+          ]
+        },
+        {
+          "id": "8-12",
+          "title": "Hard: Robinhood (Stock Trading)",
+          "slug": "scraped-robinhood",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/robinhood.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "robinhood"
+          ]
+        },
+        {
+          "id": "8-13",
+          "title": "Hard: Dropbox / Google Drive",
+          "slug": "scraped-dropbox",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/dropbox.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "dropbox"
+          ]
+        },
+        {
+          "id": "8-14",
+          "title": "Hard: Google Docs (Collaborative Editor)",
+          "slug": "scraped-google-docs",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/google-docs.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "google-docs"
+          ]
+        },
+        {
+          "id": "8-15",
+          "title": "Hard: TicketMaster",
+          "slug": "scraped-ticketmaster",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/ticketmaster.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "ticketmaster"
+          ]
+        },
+        {
+          "id": "8-16",
+          "title": "Hard: Live Comments (Real-Time Fan-Out)",
+          "slug": "scraped-live-comments",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/live-comments.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "live-comments"
+          ]
+        },
+        {
+          "id": "8-17",
+          "title": "Hard: News Aggregator",
+          "slug": "scraped-news-aggregator",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/news-aggregator.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "news-aggregator"
+          ]
+        },
+        {
+          "id": "8-18",
+          "title": "Hard: Post Search (Full-Text Search)",
+          "slug": "scraped-post-search",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/post-search.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "post-search"
+          ]
+        },
+        {
+          "id": "8-19",
+          "title": "Hard: Local Delivery (Gopuff)",
+          "slug": "scraped-local-delivery",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/local-delivery.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "local-delivery"
+          ]
+        },
+        {
+          "id": "8-20",
+          "title": "Hard: Online Auction",
+          "slug": "scraped-online-auction",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/online-auction.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "online-auction"
+          ]
+        },
+        {
+          "id": "8-21",
+          "title": "Hard: Metrics Monitoring System",
+          "slug": "scraped-metrics-monitoring",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/metrics-monitoring.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "metrics-monitoring"
+          ]
+        },
+        {
+          "id": "8-22",
+          "title": "Hard: Distributed Job Scheduler",
+          "slug": "scraped-job-scheduler",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/job-scheduler.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "job-scheduler"
+          ]
+        },
+        {
+          "id": "8-23",
+          "title": "Hard: Payment System",
+          "slug": "scraped-payment-system",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/payment-system.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "payment-system"
+          ]
+        },
+        {
+          "id": "8-24",
+          "title": "Hard: Web Crawler",
+          "slug": "scraped-web-crawler",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/web-crawler.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "web-crawler"
+          ]
+        },
+        {
+          "id": "8-25",
+          "title": "Hard: Ad Click Aggregator",
+          "slug": "scraped-ad-click-aggregator",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/ad-click-aggregator.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "ad-click-aggregator"
+          ]
+        },
+        {
+          "id": "8-26",
+          "title": "Hard: Spotify Top K Songs",
+          "slug": "scraped-topk",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/topk.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "topk"
+          ]
+        },
+        {
+          "id": "8-27",
+          "title": "Hard: Uber (Ride-Hailing)",
+          "slug": "scraped-uber",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/uber.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "uber"
+          ]
+        },
+        {
+          "id": "8-28",
+          "title": "Hard: WhatsApp (Chat App)",
+          "slug": "scraped-chatapp",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/chatapp.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "chatapp"
+          ]
+        },
+        {
+          "id": "8-29",
+          "title": "Hard: YouTube",
+          "slug": "scraped-youtube",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/youtube.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "youtube"
+          ]
+        },
+        {
+          "id": "8-30",
+          "title": "Hard: News Feed",
+          "slug": "scraped-news-feed",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/news-feed.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "news-feed"
+          ]
+        },
+        {
+          "id": "8-31",
+          "title": "Hard: Instagram",
+          "slug": "scraped-instagram",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/instagram.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "instagram"
+          ]
+        },
+        {
+          "id": "8-32",
+          "title": "Hard: Distributed Cache",
+          "slug": "scraped-distributed-cache",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/distributed-cache.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "distributed-cache"
+          ]
+        },
+        {
+          "id": "8-33",
+          "title": "Hard: Distributed Key-Value Store",
+          "slug": "scraped-distributed-kv-store",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/distributed-kv-store.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "distributed-kv-store"
+          ]
+        },
+        {
+          "id": "8-34",
+          "title": "Hard: Google Maps",
+          "slug": "scraped-google-map",
+          "audienceLevels": [
+            "senior"
+          ],
+          "estimatedMinutes": 90,
+          "objectives": [],
+          "contentFile": "module-3-designs/scraped/google-map.md",
+          "quiz": [],
+          "assignment": {
+            "beginner": "",
+            "pro": "",
+            "senior": ""
+          },
+          "furtherReading": [],
+          "tags": [
+            "hard",
+            "google-map"
+          ]
+        }
+      ]
+    }
+  ]
+}

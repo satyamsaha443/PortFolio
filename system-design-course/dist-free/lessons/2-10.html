@@ -1,0 +1,303 @@
+<h1>Search Systems (Elasticsearch &amp; Inverted Index)</h1>
+<blockquote>
+<p><strong>Lesson 2.10</strong> · Pro + Senior · 35 min</p>
+</blockquote>
+<hr>
+<h2>Why Databases Are Bad at Search</h2>
+<pre><code class="language-sql">-- Find all posts mentioning &quot;distributed systems&quot;
+SELECT * FROM posts WHERE content LIKE &#39;%distributed systems%&#39;;
+</code></pre>
+<p>This query does a full table scan — reads every row, every character. On a table with 100 million posts, it takes minutes. Even with indexes, B-trees cannot efficiently search for substrings in the middle of text.</p>
+<p>Databases are optimized for structured data (rows, columns, exact values). <strong>Full-text search</strong> requires a fundamentally different data structure: the <strong>inverted index</strong>.</p>
+<hr>
+<h2>The Inverted Index</h2>
+<p>An inverted index maps each word to the list of documents containing that word — the opposite of a document index (which maps document → words).</p>
+<pre><code>Documents:
+Doc 1: &quot;distributed systems are complex&quot;
+Doc 2: &quot;systems design requires thinking&quot;
+Doc 3: &quot;complex distributed databases&quot;
+
+Inverted Index:
+&quot;distributed&quot; → [Doc1, Doc3]
+&quot;systems&quot;     → [Doc1, Doc2]
+&quot;complex&quot;     → [Doc1, Doc3]
+&quot;design&quot;      → [Doc2]
+&quot;requires&quot;    → [Doc2]
+&quot;thinking&quot;    → [Doc2]
+&quot;databases&quot;   → [Doc3]
+</code></pre>
+<p>To find documents containing &quot;distributed&quot; AND &quot;complex&quot;:</p>
+<ul>
+<li>Look up &quot;distributed&quot; → [Doc1, Doc3]</li>
+<li>Look up &quot;complex&quot; → [Doc1, Doc3]</li>
+<li>Intersect → [Doc1, Doc3]</li>
+</ul>
+<p>This is O(1) per word lookup, regardless of how many documents exist.</p>
+<h3>Building the Index: Text Analysis Pipeline</h3>
+<p>Raw text must be processed before indexing:</p>
+<pre><code>Input: &quot;The QUICK Brown Fox Jumps! Over the lazy DOG.&quot;
+
+Step 1: Tokenization
+  [&quot;The&quot;, &quot;QUICK&quot;, &quot;Brown&quot;, &quot;Fox&quot;, &quot;Jumps!&quot;, &quot;Over&quot;, &quot;the&quot;, &quot;lazy&quot;, &quot;DOG.&quot;]
+
+Step 2: Lowercasing
+  [&quot;the&quot;, &quot;quick&quot;, &quot;brown&quot;, &quot;fox&quot;, &quot;jumps!&quot;, &quot;over&quot;, &quot;the&quot;, &quot;lazy&quot;, &quot;dog.&quot;]
+
+Step 3: Remove punctuation
+  [&quot;the&quot;, &quot;quick&quot;, &quot;brown&quot;, &quot;fox&quot;, &quot;jumps&quot;, &quot;over&quot;, &quot;the&quot;, &quot;lazy&quot;, &quot;dog&quot;]
+
+Step 4: Remove stop words (&quot;the&quot;, &quot;over&quot;)
+  [&quot;quick&quot;, &quot;brown&quot;, &quot;fox&quot;, &quot;jumps&quot;, &quot;lazy&quot;, &quot;dog&quot;]
+
+Step 5: Stemming / Lemmatization
+  [&quot;quick&quot;, &quot;brown&quot;, &quot;fox&quot;, &quot;jump&quot;, &quot;lazi&quot;, &quot;dog&quot;]
+  (&quot;jumps&quot; → &quot;jump&quot;, &quot;lazy&quot; → &quot;lazi&quot;)
+</code></pre>
+<p>The same analysis is applied at query time. Searching &quot;jumping&quot; becomes &quot;jump&quot; — which matches documents containing &quot;jumps,&quot; &quot;jumped,&quot; &quot;jumping.&quot;</p>
+<hr>
+<h2>Elasticsearch</h2>
+<p>Elasticsearch is the most widely used search engine. Built on Apache Lucene (which provides the inverted index implementation), Elasticsearch adds:</p>
+<ul>
+<li><strong>Distributed architecture</strong> — data sharded across multiple nodes</li>
+<li><strong>Real-time indexing</strong> — documents searchable within ~1 second of indexing</li>
+<li><strong>REST API</strong> — JSON over HTTP</li>
+<li><strong>Aggregations</strong> — analytics alongside search</li>
+<li><strong>Relevance scoring</strong> — rank results by how well they match the query</li>
+</ul>
+<h3>Core Concepts</h3>
+<p><strong>Index:</strong> Like a database table. Contains documents of the same type.</p>
+<p><strong>Document:</strong> Like a row. A JSON object.</p>
+<p><strong>Shard:</strong> An index is divided into shards — each shard is a self-contained Lucene index. Enables horizontal scaling.</p>
+<p><strong>Replica:</strong> A copy of a shard for redundancy and read performance.</p>
+<pre><code>Index: &quot;posts&quot; (3 shards, 1 replica each)
+
+Shard 0 Primary    Shard 0 Replica
+Shard 1 Primary    Shard 1 Replica
+Shard 2 Primary    Shard 2 Replica
+
+Node 1: Shard 0 Primary, Shard 1 Replica
+Node 2: Shard 1 Primary, Shard 2 Replica
+Node 3: Shard 2 Primary, Shard 0 Replica
+</code></pre>
+<h3>Indexing a Document</h3>
+<pre><code class="language-json">PUT /posts/_doc/42
+{
+  &quot;title&quot;: &quot;Consistent Hashing Explained&quot;,
+  &quot;content&quot;: &quot;Consistent hashing is a technique for distributing keys...&quot;,
+  &quot;author&quot;: &quot;alice&quot;,
+  &quot;tags&quot;: [&quot;distributed-systems&quot;, &quot;databases&quot;],
+  &quot;published_at&quot;: &quot;2024-03-15T10:00:00Z&quot;
+}
+</code></pre>
+<h3>Searching</h3>
+<pre><code class="language-json">GET /posts/_search
+{
+  &quot;query&quot;: {
+    &quot;bool&quot;: {
+      &quot;must&quot;: [
+        { &quot;match&quot;: { &quot;content&quot;: &quot;consistent hashing&quot; } }
+      ],
+      &quot;filter&quot;: [
+        { &quot;term&quot;: { &quot;author&quot;: &quot;alice&quot; } },
+        { &quot;range&quot;: { &quot;published_at&quot;: { &quot;gte&quot;: &quot;2024-01-01&quot; } } }
+      ]
+    }
+  },
+  &quot;sort&quot;: [
+    { &quot;_score&quot;: &quot;desc&quot; },
+    { &quot;published_at&quot;: &quot;desc&quot; }
+  ],
+  &quot;size&quot;: 10
+}
+</code></pre>
+<p>Result includes:</p>
+<ul>
+<li>Documents sorted by relevance score</li>
+<li><code>_score</code> — how well the document matches the query</li>
+<li>Highlights — which parts of the text matched</li>
+</ul>
+<hr>
+<h2>Relevance Scoring: TF-IDF and BM25</h2>
+<p>How does Elasticsearch decide which result is most relevant?</p>
+<h3>TF-IDF (Term Frequency-Inverse Document Frequency)</h3>
+<p><strong>TF (Term Frequency):</strong> How often does the search term appear in this document? More occurrences = more relevant.</p>
+<p><strong>IDF (Inverse Document Frequency):</strong> How rare is this term across all documents? Rare terms are more informative than common ones.</p>
+<pre><code>&quot;the&quot; appears in 99% of documents → IDF is low → contributes little to score
+&quot;elasticsearch&quot; appears in 0.1% of documents → IDF is high → contributes a lot
+</code></pre>
+<p><strong>Score = TF × IDF</strong> (simplified)</p>
+<h3>BM25</h3>
+<p>Elasticsearch uses BM25 (Best Match 25), an improvement over TF-IDF:</p>
+<ul>
+<li>Handles document length normalization (a long document naturally has more term occurrences; BM25 normalizes for this)</li>
+<li>Diminishing returns: 10 occurrences of a term is not 10x better than 1 occurrence</li>
+</ul>
+<p>BM25 is the state of the art for keyword search.</p>
+<hr>
+<h2>The Database + Search Pattern</h2>
+<p>Elasticsearch is not a primary database. It lacks:</p>
+<ul>
+<li>ACID transactions</li>
+<li>Strong consistency</li>
+<li>Complex foreign key relationships</li>
+<li>Point-in-time recovery</li>
+</ul>
+<p><strong>The standard pattern:</strong></p>
+<pre><code>User creates a post
+         │
+         ▼
+  PostgreSQL (source of truth)
+         │
+         │ async sync (CDC or event queue)
+         ▼
+  Elasticsearch (search index)
+
+User searches:
+         │
+         ▼
+  Elasticsearch returns matching post IDs
+         │
+         ▼
+  PostgreSQL fetches full post data by IDs
+</code></pre>
+<p><strong>Or:</strong> Use a background sync job that reads from PostgreSQL and writes to Elasticsearch every few seconds.</p>
+<p><strong>Or:</strong> Use Logstash (part of the ELK stack) or Debezium for Change Data Capture — automatically mirror database writes to Elasticsearch.</p>
+<hr>
+<h2>Aggregations: Search + Analytics</h2>
+<p>Elasticsearch combines search with analytics:</p>
+<pre><code class="language-json">GET /orders/_search
+{
+  &quot;size&quot;: 0,
+  &quot;aggs&quot;: {
+    &quot;sales_by_month&quot;: {
+      &quot;date_histogram&quot;: {
+        &quot;field&quot;: &quot;created_at&quot;,
+        &quot;calendar_interval&quot;: &quot;month&quot;
+      },
+      &quot;aggs&quot;: {
+        &quot;total_revenue&quot;: { &quot;sum&quot;: { &quot;field&quot;: &quot;amount&quot; } }
+      }
+    }
+  }
+}
+</code></pre>
+<p>This is equivalent to:</p>
+<pre><code class="language-sql">SELECT DATE_TRUNC(&#39;month&#39;, created_at), SUM(amount)
+FROM orders
+GROUP BY 1
+ORDER BY 1;
+</code></pre>
+<p>But on billions of records, in milliseconds. Elasticsearch shines for analytics on large datasets that also need search.</p>
+<hr>
+<h2>Alternatives to Elasticsearch</h2>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Strengths</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Elasticsearch</strong></td>
+<td>Full-featured, aggregations, mature</td>
+<td>General-purpose search + analytics</td>
+</tr>
+<tr>
+<td><strong>OpenSearch</strong></td>
+<td>Elasticsearch fork (open source, AWS)</td>
+<td>AWS-native search</td>
+</tr>
+<tr>
+<td><strong>Apache Solr</strong></td>
+<td>Mature, enterprise features</td>
+<td>Enterprise search</td>
+</tr>
+<tr>
+<td><strong>Typesense</strong></td>
+<td>Simple, fast, typo-tolerant</td>
+<td>Product search, small-medium scale</td>
+</tr>
+<tr>
+<td><strong>Meilisearch</strong></td>
+<td>Very easy setup, fast</td>
+<td>Developer-friendly product search</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL FTS</strong></td>
+<td>Built-in, no extra service</td>
+<td>Simple search needs, existing Postgres</td>
+</tr>
+<tr>
+<td><strong>Algolia</strong></td>
+<td>Managed, instant search, SDKs</td>
+<td>E-commerce, fast time-to-market</td>
+</tr>
+</tbody></table>
+<p>For <strong>most applications</strong>, PostgreSQL full-text search is sufficient. Add Elasticsearch when:</p>
+<ul>
+<li>You need relevance scoring and ranking</li>
+<li>Data volume exceeds what Postgres search can handle</li>
+<li>You need faceted search (filter by category, price range, etc.)</li>
+<li>You need analytics alongside search</li>
+</ul>
+<hr>
+<h2>Operational Considerations</h2>
+<h3>Index Sizing</h3>
+<p>A general rule: Elasticsearch index size is ~1.5x the raw JSON data size (due to index overhead). Plan disk accordingly.</p>
+<h3>Sharding Strategy</h3>
+<p>Choose the right number of shards at index creation (hard to change later):</p>
+<ul>
+<li>Target 10–50GB per shard</li>
+<li>More shards = more parallelism, but more overhead</li>
+<li>Start with 1–2 shards and increase as data grows (use ILM — Index Lifecycle Management)</li>
+</ul>
+<h3>Cluster Sizing</h3>
+<p>A production cluster needs at minimum:</p>
+<ul>
+<li>3 master-eligible nodes (quorum for cluster state)</li>
+<li>Data nodes sized for your index</li>
+<li>Optionally, coordinating-only nodes for heavy query load</li>
+</ul>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Key point</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Inverted index</td>
+<td>Maps words to documents — O(1) lookup per term</td>
+</tr>
+<tr>
+<td>Text analysis</td>
+<td>Tokenize, lowercase, remove stop words, stem</td>
+</tr>
+<tr>
+<td>Elasticsearch</td>
+<td>Distributed search engine on top of Lucene</td>
+</tr>
+<tr>
+<td>BM25</td>
+<td>Relevance scoring algorithm; handles TF, IDF, document length</td>
+</tr>
+<tr>
+<td>DB + Search pattern</td>
+<td>PostgreSQL as source of truth; ES as search index</td>
+</tr>
+<tr>
+<td>Aggregations</td>
+<td>Real-time analytics on billions of documents</td>
+</tr>
+<tr>
+<td>When to add ES</td>
+<td>Relevance search, faceting, analytics at scale</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="../module-3-designs/01-url-shortener.md">Module 3 — 15 Complete End-to-End System Designs</a></p>
+</blockquote>

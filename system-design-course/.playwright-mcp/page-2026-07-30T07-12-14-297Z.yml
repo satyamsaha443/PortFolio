@@ -1,0 +1,462 @@
+- generic [active] [ref=f20e1]:
+  - generic [ref=f20e2]:
+    - generic [ref=f20e3]:
+      - generic [ref=f20e4]:
+        - navigation [ref=f20e5]:
+          - generic [ref=f20e6]:
+            - link "System Design School Logo System Design School" [ref=f20e7] [cursor=pointer]:
+              - /url: /
+              - img "System Design School Logo" [ref=f20e8]
+              - generic [ref=f20e9]: System Design School
+            - button "Toggle navigation" [ref=f20e10] [cursor=pointer]
+        - generic [ref=f20e13]:
+          - link "50% off annual plans View offer" [ref=f20e14] [cursor=pointer]:
+            - /url: /pricing
+            - generic [ref=f20e15]:
+              - generic [ref=f20e16]: 50% off annual plans
+              - strong [ref=f20e17]: View offer
+          - button "Dismiss promotion" [ref=f20e19] [cursor=pointer]
+      - generic [ref=f20e20]:
+        - progressbar "Reading progress"
+        - generic [ref=f20e25]:
+          - complementary [ref=f20e26]:
+            - generic [ref=f20e27]:
+              - button "System Design Primer 12" [expanded] [ref=f20e28] [cursor=pointer]:
+                - generic [ref=f20e29]: System Design Primer
+                - generic [ref=f20e30]: "12"
+              - generic [ref=f20e33]:
+                - link "01 Introduction" [ref=f20e34] [cursor=pointer]:
+                  - /url: /primer#introduction
+                  - generic [ref=f20e35]: "01"
+                  - strong [ref=f20e36]: Introduction
+                - link "02 What Is System Design?" [ref=f20e37] [cursor=pointer]:
+                  - /url: /primer#what-is-system-design
+                  - generic [ref=f20e38]: "02"
+                  - strong [ref=f20e39]: What Is System Design?
+                - link "03 What Are System Design Interviews?" [ref=f20e40] [cursor=pointer]:
+                  - /url: /primer#what-are-system-design-interviews
+                  - generic [ref=f20e41]: "03"
+                  - strong [ref=f20e42]: What Are System Design Interviews?
+                - link "04 Level Expectations" [ref=f20e43] [cursor=pointer]:
+                  - /url: /primer#level-expectations
+                  - generic [ref=f20e44]: "04"
+                  - strong [ref=f20e45]: Level Expectations
+                - link "05 How to Prepare" [ref=f20e46] [cursor=pointer]:
+                  - /url: /primer#how-to-prepare
+                  - generic [ref=f20e47]: "05"
+                  - strong [ref=f20e48]: How to Prepare
+                - link "06 Core Design Challenges" [ref=f20e49] [cursor=pointer]:
+                  - /url: /primer#core-design-challenges
+                  - generic [ref=f20e50]: "06"
+                  - strong [ref=f20e51]: Core Design Challenges
+                - link "07 Designing for Scale" [ref=f20e52] [cursor=pointer]:
+                  - /url: /primer#designing-for-scale
+                  - generic [ref=f20e53]: "07"
+                  - strong [ref=f20e54]: Designing for Scale
+                - link "08 Consistency and Tradeoffs" [ref=f20e55] [cursor=pointer]:
+                  - /url: /primer#consistency-and-tradeoffs
+                  - generic [ref=f20e56]: "08"
+                  - strong [ref=f20e57]: Consistency and Tradeoffs
+                - link "09 Master Template" [ref=f20e58] [cursor=pointer]:
+                  - /url: /primer#master-template
+                  - generic [ref=f20e59]: "09"
+                  - strong [ref=f20e60]: Master Template
+                - link "10 Main Components" [ref=f20e61] [cursor=pointer]:
+                  - /url: /primer#main-components
+                  - generic [ref=f20e62]: "10"
+                  - strong [ref=f20e63]: Main Components
+                - link "11 Problem Decomposition Framework" [ref=f20e64] [cursor=pointer]:
+                  - /url: /primer#problem-decomposition-framework
+                  - generic [ref=f20e65]: "11"
+                  - strong [ref=f20e66]: Problem Decomposition Framework
+                - link "12 Interview Step-by-Step" [ref=f20e67] [cursor=pointer]:
+                  - /url: /primer#interview-step-by-step
+                  - generic [ref=f20e68]: "12"
+                  - strong [ref=f20e69]: Interview Step-by-Step
+            - generic [ref=f20e70]:
+              - button "Design Solutions 34" [expanded] [ref=f20e71] [cursor=pointer]:
+                - generic [ref=f20e72]: Design Solutions
+                - generic [ref=f20e73]: "34"
+              - generic [ref=f20e76]:
+                - generic [ref=f20e77]:
+                  - generic [ref=f20e78]: Easy
+                  - link "🔗 URL Shortener" [ref=f20e79] [cursor=pointer]:
+                    - /url: /problems/url-shortener/solution
+                    - generic [ref=f20e80]: 🔗
+                    - strong [ref=f20e81]: URL Shortener
+                  - link "📋 Pastebin" [ref=f20e82] [cursor=pointer]:
+                    - /url: /problems/pastebin/solution
+                    - generic [ref=f20e83]: 📋
+                    - strong [ref=f20e84]: Pastebin
+                  - link "🪝 Webhook" [ref=f20e85] [cursor=pointer]:
+                    - /url: /problems/webhook/solution
+                    - generic [ref=f20e86]: 🪝
+                    - strong [ref=f20e87]: Webhook
+                  - link "⌨️ Typeahead System" [ref=f20e88] [cursor=pointer]:
+                    - /url: /problems/typeahead/solution
+                    - generic [ref=f20e89]: ⌨️
+                    - strong [ref=f20e90]: Typeahead System
+                  - link "🚦 Rate Limiter" [ref=f20e91] [cursor=pointer]:
+                    - /url: /problems/rate-limiter/solution
+                    - generic [ref=f20e92]: 🚦
+                    - strong [ref=f20e93]: Rate Limiter
+                - generic [ref=f20e94]:
+                  - generic [ref=f20e95]: Medium
+                  - link "❤️ Tinder" [ref=f20e96] [cursor=pointer]:
+                    - /url: /problems/tinder/solution
+                    - generic [ref=f20e97]: ❤️
+                    - strong [ref=f20e98]: Tinder
+                  - link "💻 Online Judge (LeetCode)" [ref=f20e99] [cursor=pointer]:
+                    - /url: /problems/leetcode/solution
+                    - generic [ref=f20e100]: 💻
+                    - strong [ref=f20e101]: Online Judge (LeetCode)
+                  - link "📅 Google Calendar" [ref=f20e102] [cursor=pointer]:
+                    - /url: /problems/google-calendar/solution
+                    - generic [ref=f20e103]: 📅
+                    - strong [ref=f20e104]: Google Calendar
+                  - link "🐦 Twitter" [ref=f20e105] [cursor=pointer]:
+                    - /url: /problems/twitter/solution
+                    - generic [ref=f20e106]: 🐦
+                    - strong [ref=f20e107]: Twitter
+                  - link "📍 Yelp" [ref=f20e108] [cursor=pointer]:
+                    - /url: /problems/yelp/solution
+                    - generic [ref=f20e109]: 📍
+                    - strong [ref=f20e110]: Yelp
+                  - link "📨 Distributed Message Queue" [ref=f20e111] [cursor=pointer]:
+                    - /url: /problems/message-queue/solution
+                    - generic [ref=f20e112]: 📨
+                    - strong [ref=f20e113]: Distributed Message Queue
+                - generic [ref=f20e114]:
+                  - generic [ref=f20e115]: Hard
+                  - link "📈 Robinhood (Stock Trading)" [ref=f20e116] [cursor=pointer]:
+                    - /url: /problems/robinhood/solution
+                    - generic [ref=f20e117]: 📈
+                    - strong [ref=f20e118]: Robinhood (Stock Trading)
+                  - link "📦 Dropbox" [ref=f20e119] [cursor=pointer]:
+                    - /url: /problems/dropbox/solution
+                    - generic [ref=f20e120]: 📦
+                    - strong [ref=f20e121]: Dropbox
+                  - link "📝 Google Docs" [ref=f20e122] [cursor=pointer]:
+                    - /url: /problems/google-docs/solution
+                    - generic [ref=f20e123]: 📝
+                    - strong [ref=f20e124]: Google Docs
+                  - link "🎫 TicketMaster" [ref=f20e125] [cursor=pointer]:
+                    - /url: /problems/ticketmaster/solution
+                    - generic [ref=f20e126]: 🎫
+                    - strong [ref=f20e127]: TicketMaster
+                  - link "📺 Live Comments (Real-Time Fan-Out)" [ref=f20e128] [cursor=pointer]:
+                    - /url: /problems/live-comments/solution
+                    - generic [ref=f20e129]: 📺
+                    - strong [ref=f20e130]: Live Comments (Real-Time Fan-Out)
+                  - link "📰 News Aggregator" [ref=f20e131] [cursor=pointer]:
+                    - /url: /problems/news-aggregator/solution
+                    - generic [ref=f20e132]: 📰
+                    - strong [ref=f20e133]: News Aggregator
+                  - link "🔍 Post Search (Full-Text Search)" [ref=f20e134] [cursor=pointer]:
+                    - /url: /problems/post-search/solution
+                    - generic [ref=f20e135]: 🔍
+                    - strong [ref=f20e136]: Post Search (Full-Text Search)
+                  - link "🛵 Local Delivery (Gopuff)" [ref=f20e137] [cursor=pointer]:
+                    - /url: /problems/local-delivery/solution
+                    - generic [ref=f20e138]: 🛵
+                    - strong [ref=f20e139]: Local Delivery (Gopuff)
+                  - link "🔨 Online Auction" [ref=f20e140] [cursor=pointer]:
+                    - /url: /problems/online-auction/solution
+                    - generic [ref=f20e141]: 🔨
+                    - strong [ref=f20e142]: Online Auction
+                  - link "📊 Metrics Monitoring System" [ref=f20e143] [cursor=pointer]:
+                    - /url: /problems/metrics-monitoring/solution
+                    - generic [ref=f20e144]: 📊
+                    - strong [ref=f20e145]: Metrics Monitoring System
+                  - link "⏰ Distributed Job Scheduler" [ref=f20e146] [cursor=pointer]:
+                    - /url: /problems/job-scheduler/solution
+                    - generic [ref=f20e147]: ⏰
+                    - strong [ref=f20e148]: Distributed Job Scheduler
+                  - link "💳 Payment System" [ref=f20e149] [cursor=pointer]:
+                    - /url: /problems/payment-system/solution
+                    - generic [ref=f20e150]: 💳
+                    - strong [ref=f20e151]: Payment System
+                  - link "🕷️ Web Crawler" [ref=f20e152] [cursor=pointer]:
+                    - /url: /problems/web-crawler/solution
+                    - generic [ref=f20e153]: 🕷️
+                    - strong [ref=f20e154]: Web Crawler
+                  - link "🖱️ Ad Click Aggregator" [ref=f20e155] [cursor=pointer]:
+                    - /url: /problems/ad-click-aggregator/solution
+                    - generic [ref=f20e156]: 🖱️
+                    - strong [ref=f20e157]: Ad Click Aggregator
+                  - link "🏆 Spotify Top K Songs" [ref=f20e158] [cursor=pointer]:
+                    - /url: /problems/topk/solution
+                    - generic [ref=f20e159]: 🏆
+                    - strong [ref=f20e160]: Spotify Top K Songs
+                  - link "🚗 Uber" [ref=f20e161] [cursor=pointer]:
+                    - /url: /problems/uber/solution
+                    - generic [ref=f20e162]: 🚗
+                    - strong [ref=f20e163]: Uber
+                  - link "💬 WhatsApp" [ref=f20e164] [cursor=pointer]:
+                    - /url: /problems/chatapp/solution
+                    - generic [ref=f20e165]: 💬
+                    - strong [ref=f20e166]: WhatsApp
+                  - link "▶️ YouTube" [ref=f20e167] [cursor=pointer]:
+                    - /url: /problems/youtube/solution
+                    - generic [ref=f20e168]: ▶️
+                    - strong [ref=f20e169]: YouTube
+                  - link "📜 News Feed" [ref=f20e170] [cursor=pointer]:
+                    - /url: /problems/news-feed/solution
+                    - generic [ref=f20e171]: 📜
+                    - strong [ref=f20e172]: News Feed
+                  - link "📸 Instagram" [ref=f20e173] [cursor=pointer]:
+                    - /url: /problems/instagram/solution
+                    - generic [ref=f20e174]: 📸
+                    - strong [ref=f20e175]: Instagram
+                  - link "⚡ Distributed Cache" [ref=f20e176] [cursor=pointer]:
+                    - /url: /problems/distributed-cache/solution
+                    - generic [ref=f20e177]: ⚡
+                    - strong [ref=f20e178]: Distributed Cache
+                  - link "🗄️ Distributed Key-Value Store" [ref=f20e179] [cursor=pointer]:
+                    - /url: /problems/distributed-kv-store/solution
+                    - generic [ref=f20e180]: 🗄️
+                    - strong [ref=f20e181]: Distributed Key-Value Store
+                  - link "🗺️ Google Maps" [ref=f20e182] [cursor=pointer]:
+                    - /url: /problems/google-map/solution
+                    - generic [ref=f20e183]: 🗺️
+                    - strong [ref=f20e184]: Google Maps
+            - generic [ref=f20e185]:
+              - button "Patterns 4" [ref=f20e186] [cursor=pointer]:
+                - generic [ref=f20e187]: Patterns
+                - generic [ref=f20e188]: "4"
+              - generic [ref=f20e191]:
+                - link "01 Scaling Reads & Writes" [ref=f20e192] [cursor=pointer]:
+                  - /url: /patterns/scaling-reads-and-writes
+                  - generic [ref=f20e193]: "01"
+                  - strong [ref=f20e194]: Scaling Reads & Writes
+                - link "02 Asynchronous Jobs" [ref=f20e195] [cursor=pointer]:
+                  - /url: /patterns/asynchronous-jobs
+                  - generic [ref=f20e196]: "02"
+                  - strong [ref=f20e197]: Asynchronous Jobs
+                - link "03 Real-Time Transport" [ref=f20e198] [cursor=pointer]:
+                  - /url: /patterns/real-time-transport
+                  - generic [ref=f20e199]: "03"
+                  - strong [ref=f20e200]: Real-Time Transport
+                - link "04 Handling Large Files" [ref=f20e201] [cursor=pointer]:
+                  - /url: /patterns/handling-large-files
+                  - generic [ref=f20e202]: "04"
+                  - strong [ref=f20e203]: Handling Large Files
+              - button "Show all 4 →" [ref=f20e204] [cursor=pointer]
+            - generic [ref=f20e205]:
+              - button "Key Technologies 5" [ref=f20e206] [cursor=pointer]:
+                - generic [ref=f20e207]: Key Technologies
+                - generic [ref=f20e208]: "5"
+              - generic [ref=f20e211]:
+                - link "01 Networking Essentials" [ref=f20e212] [cursor=pointer]:
+                  - /url: /technologies/networking-essentials
+                  - generic [ref=f20e213]: "01"
+                  - strong [ref=f20e214]: Networking Essentials
+                - link "02 Technology Choices" [ref=f20e215] [cursor=pointer]:
+                  - /url: /technologies/technology-choices
+                  - generic [ref=f20e216]: "02"
+                  - strong [ref=f20e217]: Technology Choices
+                - link "03 Redis" [ref=f20e218] [cursor=pointer]:
+                  - /url: /technologies/redis
+                  - generic [ref=f20e219]: "03"
+                  - strong [ref=f20e220]: Redis
+                - link "04 Tries & Prefix Search" [ref=f20e221] [cursor=pointer]:
+                  - /url: /technologies/tries-and-prefix-search
+                  - generic [ref=f20e222]: "04"
+                  - strong [ref=f20e223]: Tries & Prefix Search
+              - button "Show all 5 →" [ref=f20e224] [cursor=pointer]
+          - main [ref=f20e225]:
+            - generic [ref=f20e227]:
+              - heading "Design Twitter" [level=1] [ref=f20e229]
+              - generic [ref=f20e230]:
+                - generic [ref=f20e231]:
+                  - paragraph [ref=f20e232]: We aim to design a simplified version of Twitter, a popular social media platform where users can post tweets, follow or unfollow other users, and view the tweets of the people they follow. The platform also includes a recommendation algorithm that suggests content to users based on their preferences and interactions.
+                  - generic [ref=f20e233]:
+                    - heading "Functional Requirements" [level=2] [ref=f20e234]
+                    - list [ref=f20e235]:
+                      - listitem [ref=f20e236]:
+                        - strong [ref=f20e237]: Tweeting
+                        - text: ": Users should be able to write and post new tweets."
+                      - listitem [ref=f20e238]:
+                        - strong [ref=f20e239]: Follow/Unfollow
+                        - text: ": Users should have the ability to follow or unfollow other users."
+                      - listitem [ref=f20e240]:
+                        - strong [ref=f20e241]: Timeline
+                        - text: ": Users should be able to view a list of tweets from the people they follow, as well as content recommended by the recommendation algorithm."
+                  - generic [ref=f20e242]:
+                    - heading "Non-Functional Requirements" [level=2] [ref=f20e243]
+                    - list [ref=f20e244]:
+                      - listitem [ref=f20e245]: 300M DAUs
+                      - listitem [ref=f20e246]: Each tweet is approximately 140 characters (or 280 bytes)
+                      - listitem [ref=f20e247]: Retain data for five years.
+                      - listitem [ref=f20e248]: Assuming each user posts one tweet per day.
+                      - listitem [ref=f20e249]: High availability
+                      - listitem [ref=f20e250]: Low latency
+                      - listitem [ref=f20e251]: High durability
+                      - listitem [ref=f20e252]: Security
+                  - generic [ref=f20e253]:
+                    - heading "Resource Estimation" [level=2] [ref=f20e254]
+                    - paragraph [ref=f20e255]: Assuming a read-write ratio of 100:1.
+                    - paragraph [ref=f20e256]:
+                      - text: Using the
+                      - link "resource estimator" [ref=f20e257] [cursor=pointer]:
+                        - /url: /resource-estimator?dau=300000000&read_write_ratio=100:1&write_operations=1&data_retention=60&data_per_write_request=280&precision_mode=true
+                      - text: ", we get the following results:"
+                    - paragraph [ref=f20e258]:
+                      - img "Resource Estimation" [ref=f20e260]
+                  - generic [ref=f20e262]:
+                    - heading "API Endpoint Design" [level=2] [ref=f20e263]
+                    - paragraph [ref=f20e264]: "The API endpoints could include:"
+                    - list [ref=f20e265]:
+                      - listitem [ref=f20e266]:
+                        - code [ref=f20e267]: POST /tweets
+                        - text: "for creating a new tweet. Request body as below:"
+                        - code [ref=f20e269]: "{ \"content\": \"The content of the new tweet.\" }"
+                      - listitem [ref=f20e270]:
+                        - code [ref=f20e271]: "GET /tweets/{userId}?last={timestamp}&size={size}"
+                        - text: for retrieving a user's tweets.
+                      - listitem [ref=f20e272]:
+                        - code [ref=f20e273]: "POST /follow/{userId}"
+                        - text: for following a user.
+                      - listitem [ref=f20e274]:
+                        - code [ref=f20e275]: "DELETE /follow/{userId}"
+                        - text: for unfollowing a user.
+                      - listitem [ref=f20e276]:
+                        - code [ref=f20e277]: "GET /timeline?last={timestamp}"
+                        - text: for retrieving timeline tweets.
+                  - generic [ref=f20e278]:
+                    - heading "High-Level Design" [level=2] [ref=f20e279]
+                    - paragraph [ref=f20e280]:
+                      - text: Twitter is the perfect example of designing scalable system using our
+                      - link "system design template" [ref=f20e281] [cursor=pointer]:
+                        - /url: /fundamentals/system-design-template
+                      - text: .
+                    - paragraph [ref=f20e282]: "The system could be designed with distinct components, specifically the Tweet Service, Follow Service, and Timeline Service. The Design Diagram is as below:"
+                    - paragraph [ref=f20e283]:
+                      - img "Twitter System Design Diagram" [ref=f20e285]
+                    - paragraph [ref=f20e287]: The Tweet Service and Follow Service are used to handle requests for sending tweets, following, and unfollowing. Considering the need for response speed to the client and support for high concurrency, these two services do not directly write into the database, but write the request data into the Message Queue. The Database Updater component reads the request data from the Message Queue, genuinely processes the business logic, writes into the server, and updates the cache.
+                    - paragraph [ref=f20e288]: The Timeline Service is used to handle requests for loading Twitter lists. Based on considerations of response speed and improving system efficiency, this service reads data from the cache, rather than accessing the database.
+                    - heading "Fan-out-on-write" [level=3] [ref=f20e289]
+                    - paragraph [ref=f20e290]: Each user has their own "inbox" inside the cache that stores the tweets to be displayed in its timeline. When a user it follows posts a tweet, the tweet is sent to its "inbox". This is often called "fan-out-on-write" because it replicates ("fans out") a piece of information to multiple destinations at the time of its creation or update. The advantage of this is it significantly enhances the read performance since the tweets are already present in a timeline cache when a user logs in. It reduces the need for complex and time-consuming queries at the time of read. However, for celebrities with millions of followings this could present a problem as the write would be quite large. This is a common follow-up question in Design Twitter interviews. We will cover it in the follow-up question section.
+                  - generic [ref=f20e291]:
+                    - heading "Detailed Design" [level=2] [ref=f20e292]
+                    - heading "Database Type" [level=3] [ref=f20e293]
+                    - paragraph [ref=f20e294]: Considering the scale requirement of 300M DAU and assuming that each user sends one tweet per day, this would generate 300M tweets per day, which is a tremendous amount of data. At the same time, this system does not have complex query requirements. Considering these two points, NoSQL could be used as the database.
+                    - paragraph [ref=f20e295]: A NoSQL database like Cassandra could be used due to its ability to handle large amounts of data and its high write speed.
+                    - heading "Data Schema" [level=3] [ref=f20e296]
+                - generic [ref=f20e297]:
+                  - generic [ref=f20e298]:
+                    - generic [ref=f20e299]:
+                      - heading [level=2] [ref=f20e300]:
+                        - strong [ref=f20e301]: Grasping the building blocks ("the lego pieces")
+                      - paragraph [ref=f20e302]: This part of the guide will focus on the various components that are often used to construct a system (the building blocks), and the design templates that provide a framework for structuring these blocks.
+                      - heading "Core Building blocks" [level=3] [ref=f20e303]
+                      - paragraph [ref=f20e304]: At the bare minimum you should know the core building blocks of system design
+                      - list [ref=f20e305]:
+                        - listitem [ref=f20e306]: Scaling stateless services with load balancing
+                        - listitem [ref=f20e307]: Scaling database reads with replication and caching
+                        - listitem [ref=f20e308]: Scaling database writes with partition (aka sharding)
+                        - listitem [ref=f20e309]: Scaling data flow with message queues
+                      - heading "System Design Template" [level=3] [ref=f20e310]
+                      - paragraph [ref=f20e311]:
+                        - text: With these building blocks, you will be able to apply our template to solve many system design problems. We will dive into the details in the
+                        - link "Design Template" [ref=f20e312] [cursor=pointer]:
+                          - /url: /concepts/design-template
+                        - text: "section. Here’s a sneak peak:"
+                      - paragraph [ref=f20e313]:
+                        - img "System Design Template" [ref=f20e315]
+                      - heading "Additional Building Blocks" [level=3] [ref=f20e317]
+                      - paragraph [ref=f20e318]: Additionally, you will want to understand these concepts
+                      - list [ref=f20e319]:
+                        - listitem [ref=f20e320]:
+                          - text: Processing large amount of data (aka “big data”) with batch and stream processing
+                          - list [ref=f20e321]:
+                            - listitem [ref=f20e322]: Particularly useful for solving data-intensive problems such as designing an analytics app
+                        - listitem [ref=f20e323]:
+                          - text: Achieving consistency across services using distribution transaction or event sourcing
+                          - list [ref=f20e324]:
+                            - listitem [ref=f20e325]: Particularly useful for solving problems that require strict transactions such as designing financial apps
+                        - listitem [ref=f20e326]: "Full text search: full-text index"
+                        - listitem [ref=f20e327]: "Storing data for the long term: data warehousing"
+                      - paragraph [ref=f20e328]: On top of these, there are ad hoc knowledge you would want to know tailored to certain problems. For example, geohashing for designing location-based services like Yelp or Uber, operational transform to solve problems like designing Google Doc. You can learn these these on a case-by-case basis. System design interviews are supposed to test your general design skills and not specific knowledge.
+                    - generic [ref=f20e329]:
+                      - heading [level=2] [ref=f20e330]:
+                        - strong [ref=f20e331]: Working through problems and building solutions using the building blocks
+                      - paragraph [ref=f20e332]: Finally, we have a series of practical problems for you to work through. You can find the problem in /problems. This hands-on practice will not only help you apply the principles learned but will also enhance your understanding of how to use the building blocks to construct effective solutions. The list of questions grow. We are actively adding more questions to the list.
+                  - generic [ref=f20e334]:
+                    - generic [ref=f20e336]:
+                      - img "Pro Member" [ref=f20e337]
+                      - generic [ref=f20e338]: Pro Member Exclusive
+                      - generic [ref=f20e339]: Upgrade your account to continue
+                      - generic [ref=f20e340]: Benefits
+                      - generic [ref=f20e341]:
+                        - generic [ref=f20e342]:
+                          - img "check" [ref=f20e343]
+                          - generic [ref=f20e344]: Unlimited access to practice tool with AI grading
+                        - generic [ref=f20e345]:
+                          - img "check" [ref=f20e346]
+                          - generic [ref=f20e347]: Unlimited access to expert-written solutions
+                        - generic [ref=f20e348]:
+                          - img "check" [ref=f20e349]
+                          - generic [ref=f20e350]: Unlock 100+ lessons with full course access
+                        - generic [ref=f20e351]:
+                          - img "check" [ref=f20e352]
+                          - generic [ref=f20e353]: Access to all future content while subscribed
+                      - separator [ref=f20e354]
+                    - button "Upgrade" [ref=f20e355] [cursor=pointer]
+            - generic [ref=f20e359]:
+              - paragraph [ref=f20e360]: The System Design Courses
+              - paragraph [ref=f20e361]: Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.
+              - link "Start Learning" [ref=f20e362] [cursor=pointer]:
+                - /url: /pricing
+            - generic [ref=f20e363]:
+              - generic [ref=f20e364]: Was this lesson clear?
+              - generic [ref=f20e366]:
+                - button "Yes — the lesson was clear" [ref=f20e367] [cursor=pointer]:
+                  - generic [ref=f20e368]: 👍
+                - button "No — the lesson was unclear" [ref=f20e369] [cursor=pointer]:
+                  - generic [ref=f20e370]: 👎
+            - generic [ref=f20e371]:
+              - heading "System Design Master Template" [level=3] [ref=f20e372]
+              - iframe [ref=f20e374]:
+                - generic [ref=f21e1]:
+                  - generic "YouTube Video Player" [ref=f21e3]
+                  - generic [ref=f21e5]:
+                    - generic:
+                      - generic:
+                        - button "Play video" [ref=f21e10] [cursor=pointer]
+                        - button "Hide player controls" [ref=f21e12] [cursor=pointer]
+                        - generic [ref=f21e14]:
+                          - generic [ref=f21e19]:
+                            - generic [ref=f21e20]:
+                              - 'link "Master System Design Interviews: 5 Key Questions & a Winning Template" [ref=f21e21] [cursor=pointer]':
+                                - /url: https://www.youtube.com/watch?v=OWVaX_cBrh8
+                              - link "System Design School" [ref=f21e22] [cursor=pointer]:
+                                - /url: /channel/UCekXOQXPXh2JXv5EkQB9MRQ
+                            - generic [ref=f21e24]:
+                              - button [ref=f21e25] [cursor=pointer]
+                              - generic [ref=f21e27]:
+                                - generic: System Design School
+                                - generic: 20.8K subscribers
+                          - generic [ref=f21e28]:
+                            - button "Share" [ref=f21e31] [cursor=pointer]
+                            - link "Watch on YouTube" [ref=f21e42] [cursor=pointer]:
+                              - /url: https://www.youtube.com/watch?v=OWVaX_cBrh8
+                              - generic [ref=f21e43]: Watch on
+            - generic [ref=f20e375]:
+              - heading "Comments" [level=4] [ref=f20e376]
+              - button "Join the Discussion" [ref=f20e378] [cursor=pointer]
+            - generic [ref=f20e382]:
+              - generic [ref=f20e386]:
+                - generic [ref=f20e387]: Michał Dobrzański
+                - generic [ref=f20e388]: You're missing an arrow from Read service to the Database. As some timeline might not be prepared yet. Also this happens for the celebrity hybrid fan-out case, when users have not been active.
+                - generic [ref=f20e389]: Mon Sep 22 2025
+              - generic [ref=f20e400]:
+                - generic [ref=f20e401]: Jean-Christian Imbeault
+                - generic [ref=f20e402]: For the timeline cache, mow many tweets does it hold? Is it able to go back years? Asking as this sounds like the timeline service will work well for going back days or weeks, but I can't imagine that it work if I wanted to go back 10 years ...
+                - generic [ref=f20e403]: Fri Oct 18 2024
+                - generic [ref=f20e415]:
+                  - generic [ref=f20e416]: Sheldon Chi
+                  - generic [ref=f20e417]: Great question. If a user doesn't login for a while and becomes "dormant", the timeline cache may evict the entry. If it does become online again, we can do a pull to get his latest timeline.
+                  - generic [ref=f20e418]: Sat Oct 19 2024
+    - button "Send feedback" [ref=f20e427] [cursor=pointer]
+  - alert [ref=f20e431]

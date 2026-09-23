@@ -1,0 +1,158 @@
+<h1>Design YouTube</h1>
+<blockquote>
+<p><strong>Lesson 8.29</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem statement</h2>
+<p>Design a service where users upload videos and a global audience watches them on any device and any connection. Uploads can be several gigabytes, and viewers expect playback to begin within a second or two and remain smooth as available bandwidth changes. The scope here is upload and delivery; browse, search, and recommendations are treated as a separate ranking problem.</p>
+<h2>Clarifying questions</h2>
+<p>Before designing, define what is being asked. Each question, with the assumption its answer establishes:</p>
+<p>VOD or live? Video-on-demand (VOD) serves pre-recorded files, transcoded once after upload; live transcodes in real time with low-latency delivery, which is a different system. Assume VOD unless specified otherwise.</p>
+<p>Uploads vs. views? Views exceed uploads by orders of magnitude, which makes the CDN and delivery economics the primary concern.</p>
+<p>Device and network mix? A phone on cellular and a television on fiber cannot share one file, which determines how many rungs the ladder needs and how important ABR is.</p>
+<p>Time to first watchable after upload? Minutes of transcode latency are acceptable for VOD, which permits asynchronous, batched transcoding.</p>
+<p>Global? Typically yes, which makes per-region CDN and storage replication primary concerns.</p>
+<p>Recommendations or search in scope? Usually deferred as a separate ranking and search problem; the focus remains on upload and delivery.</p>
+<h2>Why video is its own problem</h2>
+<p>The read path resembles any media platform: blob storage behind a content delivery network (CDN). Video adds two requirements that shape the rest of the design: an encoding ladder (multiple bitrates per video) and adaptive bitrate (ABR) streaming, in which the player selects a quality per segment based on current network conditions. The cost profile also differs: storage is inexpensive, but transferring the bytes to a large audience dominates cost, so most later decisions aim to minimize origin egress. The defining characteristics are therefore delivery cost and the encoding ladder, not simple</p>
+<p>Ingress and egress. Ingress is data entering the system — here, uploads. Egress is data leaving it — the bytes served out to viewers. For video, egress far exceeds ingress, because each upload is watched many times.</p>
+<p>Key idea. Video&#39;s defining traits are egress cost and the encoding ladder, not storage and retrieval.</p>
+<h2>Key concepts</h2>
+<p>This section covers the concepts needed to solve this problem — prerequisites for the design work that follows.</p>
+<p>Video playback is a loop. The player downloads a small manifest listing the available qualities and the URLs of the segments that make up the video. It then fetches segments a few seconds at a time into a buffer — a short queue of already-downloaded video waiting to be shown — and plays from that buffer while it keeps downloading ahead. A brief network dip drains the buffer rather than stopping playback, and at each segment boundary the player can switch to a higher or lower quality. The widget below shows this loop.</p>
+<p>Each part of that loop has a name, and the design depends on all of them. The player&#39;s central choice, made at every segment boundary, is which quality to fetch — so we start with the qualities it chooses among, the renditions, and work outward to the segments and manifest it reads and the adaptation rule it follows.</p>
+<h3>Rendition</h3>
+<p>A rendition is the same video encoded at one resolution and bitrate — a single rung. A lower bitrate yields a smaller file and lower quality; a higher bitrate yields higher quality and more bytes. The control below shows how quality and file size vary with bitrate.</p>
+<p>Reading bitrate. Bitrate is measured in megabits per second (Mbps) — the rate at which the stream delivers data. Eight bits make a byte, so 3 Mbps is about 0.38 MB per second, or roughly 225 MB for a 10-minute clip. For reference, typical YouTube renditions run about 1 Mbps at 360p, 2.5 Mbps at 720p, 4.5 Mbps at 1080p, and 15+ Mbps at 4K. To play without stalling, the connection must sustain at least the rendition&#39;s bitrate.</p>
+<h3>Codec</h3>
+<p>A codec compresses each rendition. It stores one full keyframe and then only the differences between frames, which is the source of the compression. A more efficient codec achieves the same quality at a lower bitrate.</p>
+<h3>Encoding ladder</h3>
+<p>The encoding ladder is the set of renditions produced from one upload — for example 240p through 4K, one rung per device and network class. The same video exists at every rung, so the player can always select a quality it can sustain.</p>
+<h3>Segments and the manifest</h3>
+<p>A rendition is not fetched as a single file. Each is divided into short segments of a few seconds, which is the unit that is requested and cached. A manifest lists the renditions and, per rendition, the ordered segment URLs. Two manifest formats dominate: HLS (HTTP Live Streaming, Apple&#39;s protocol, .m3u8 files) and DASH (Dynamic Adaptive Streaming over HTTP, the open standard, .mpd files); both follow the same manifest-plus-segments model. The player reads the manifest and then fetches segments in order.</p>
+<h3>Adaptive bitrate (ABR)</h3>
+<p>The player, not the server, selects the quality. It measures available bandwidth and, at each segment boundary, requests the next segment at the highest rung it can sustain — stepping down when the signal weakens and back up when it recovers. The server serves cacheable segments only, so the adaptation logic resides entirely in the client.</p>
+<h3>Rebuffering</h3>
+<p>If the buffer empties, playback stalls until enough new data arrives — a rebuffer, the spinning-wheel pause. It happens when the network cannot deliver the chosen quality fast enough to keep the buffer ahead of playback. Preventing it is exactly why ABR exists: in the widget below, a fixed 1080p stream stalls during a bandwidth dip, while adaptive mode drops to a lower quality the network can sustain, so the buffer holds and playback continues.</p>
+<p>Key idea. Playback is a client-driven loop: read the manifest, fill a buffer, switch rendition per segment.</p>
+<h2>1. Requirements</h2>
+<p>Before reading on. List three functional and three non-functional requirements, and identify the resource to size first. The resource that dominates is egress bandwidth, which is the main respect in which video differs from most systems.</p>
+<h3>1.1 Functional requirements</h3>
+<p>Functional requirements come from the actions in the problem statement — its verbs. The statement names two: users upload videos, and an audience watches them. Discovery (browse, search, subscriptions) is a separate ranking-and-search problem and is out of scope here, so the design covers two requirements:</p>
+<p>Upload a video → it is transcoded and becomes watchable.</p>
+<p>Watch a video with ABR → smooth across connections, with seeking supported.</p>
+<h3>1.2 Non-functional requirements</h3>
+<p>Non-functional requirements come from the qualities the problem demands — its adjectives and constraints. &quot;Begin within a second or two&quot; and &quot;remain smooth as bandwidth changes&quot; set startup latency and smooth playback. &quot;A global audience … on any device and any connection&quot; sets availability and, at that scale, makes delivery cost the binding constraint. And the implicit expectation that an upload is never lost sets durability of the source. Each requirement, with the mechanism that addresses it:</p>
+<p>Low startup latency and smooth playback — the first frame appears within roughly 1–2 seconds, with minimal rebuffering afterward (defined in Key concepts). ABR addresses both.</p>
+<p>High availability — playback continues through component failures, because the CDN absorbs origin interruptions for cached content.</p>
+<p>Durability — the uploaded source is never lost, since it is the master used for re-transcoding.</p>
+<p>Cost efficiency — egress dominates cost, so origin egress is minimized by maximizing CDN hit rate.</p>
+<h3>1.3 Durability versus egress</h3>
+<p>Two distinct things should be stated: the property that must not be compromised, and the constraint the architecture is organized around. Durability is the former and is non-negotiable: if the source master is lost, the video cannot be recovered. Egress is the latter. Storage is inexpensive and metadata is small, so CDN tiering, immutable segment URLs, lazy long-tail transcoding, and per-region replication all serve a single purpose: reducing origin egress toward zero.</p>
+<p>Key idea. Egress, not storage, is the quantity to size first; it justifies most later decisions.</p>
+<h2>2. Back-of-the-envelope estimation</h2>
+<p>The purpose of this estimate is not precision but to establish, with numbers, that egress dominates all other costs. The figures are illustrative anchors, not measured values, and they rest on a few base assumptions, each derived from usage rather than asserted:</p>
+<p>~1 billion watch-hours per day — from roughly 1 billion daily viewers, each watching about an hour. Total viewing time is what drives egress.</p>
+<p>~500 hours of video uploaded per minute — a far smaller set of creators, each uploading a few minutes per day, summing to this rate.</p>
+<p>~3 Mbps average stream bitrate — a typical mid-ladder quality, around 720–1080p, averaged across viewers and devices.</p>
+<p>~10 MB per source-minute, with the encoding ladder adding about 2–3× for its extra renditions.</p>
+<p>The calculator shows how ingest and egress respond to these inputs.</p>
+<h3>2.1 Ingest — what we store</h3>
+<p>From 500 hours uploaded per minute at about 10 MB per source-minute, the source is roughly 600 MB per source-hour; the ladder brings this to about 1.5 GB stored per source-hour. Across 500 hours per minute, that is near 12 GB/sec of new stored bytes, on the order of petabytes per day. This is large, but storage is inexpensive and is written once.</p>
+<h3>2.2 Delivery — what we serve</h3>
+<p>This is the dominant cost. From about 1 billion watch-hours per day at an average 3 Mbps rendition, the egress is 1e9 watch-hours × 3600 s × 3 Mbps ÷ 8, on the order of exabytes per month. Comparing the two figures — petabytes per day written once versus exabytes per month served on every view — shows why nearly all of these bytes must be served from the CDN edge rather than the origin.</p>
+<h3>2.3 Metadata — a rounding error</h3>
+<p>Video records are about 1 KB each, so a sharded database handles them easily. Media exceeds metadata by roughly 1000×, which is the quantitative basis for separating metadata from media.</p>
+<p>Key idea. Exabytes served per month dwarf petabytes stored per day, so the design optimizes delivery.</p>
+<h2>3. API design</h2>
+<p>The API splits along two directions, and neither resembles a small-object CRUD interface. Getting bytes in means a multi-gigabyte file over a connection that may drop mid-transfer. Getting bytes out means cacheable media served to a player that changes quality during playback. Rather than list the endpoints, we derive each from one need, in the order a video moves through the system.</p>
+<h3>3.1 Open an upload session</h3>
+<p>A single request carrying the whole file cannot resume, so the first call carries no bytes. It opens a session: the server allocates an identifier, returns a pre-signed URL — a short-lived, pre-authorized link that lets the client write bytes directly to blob storage, bypassing application servers (for example, an Amazon S3 pre-signed URL or a Google Cloud Storage signed URL) — and fixes the chunk size the client must use.</p>
+<h3>3.2 Upload the chunks</h3>
+<p>With a session open, the client sends the file as fixed-size chunks, each identified by its index so a failure is isolated to a single part. The server records which parts have arrived.</p>
+<p>A dropped connection is recovered by re-sending only the missing parts, not the whole file.</p>
+<h3>3.3 Commit the upload</h3>
+<p>The bytes are now in blob storage, but nothing is watchable, and transcoding must not start until every chunk is present. A final call commits the session: it verifies the parts, writes the video record, and emits the transcode event.</p>
+<p>Keeping this step separate from the chunk uploads ensures the record is created and the transcode is triggered exactly once, only after all bytes have arrived.</p>
+<h3>3.4 Fetch the manifest</h3>
+<p>Now the read path. When a viewer opens a video, the player first needs the list of available qualities and the locations of their segments — the manifest. This is a small metadata read, not media.</p>
+<p>The client does not ask the server which bitrate to use; it reads the manifest and selects one per segment (ABR).</p>
+<h3>3.5 Fetch the segments</h3>
+<p>Finally the media itself. Each segment is a plain, immutable file with its own URL, served from the CDN edge rather than an application endpoint.</p>
+<p>Because the URL never changes, the CDN caches it indefinitely, and application servers stay off the playback byte path entirely.</p>
+<p>Key idea. Bytes move directly to and from blob storage; app servers stay off the upload and playback paths.</p>
+<h2>4. Data model</h2>
+<p>Rather than beginning with the final schema, start with the single obvious entity and let each property it cannot represent introduce the next.</p>
+<h3>4.1 Start with one entity: the video</h3>
+<p>The uploaded item has a title, an uploader, a duration, and a status that progresses uploading → transcoding → ready. One row per upload.</p>
+<p>This is sufficient to list a video and track its progress, but it does not describe how the video plays.</p>
+<h3>4.2 One video plays at many qualities: the rendition</h3>
+<p>A phone on cellular requires a low-quality version; a television on fiber uses the top of the ladder. Each is a separately encoded file with its own codec and bitrate — the encoding ladder. This is a one-to-many relationship that cannot be represented in a single column, so it becomes its own entity.</p>
+<p>Each rendition is one rung of the encoding ladder defined in Key concepts: a resolution, bitrate, and codec, with its own manifest. The same video exists at every rung, so the player can always select a quality it can sustain.</p>
+<h3>4.3 A rendition isn&#39;t one file: the segment</h3>
+<p>A rendition still cannot be fetched as a single file, because ABR changes quality during playback. The player fetches a few seconds at a time, and the CDN caches at whatever unit is made addressable. Each rendition is therefore divided into short segments, which are the unit requested and cached.</p>
+<p>The manifest reassembles these segments, as defined in Key concepts: the player reads it and then fetches segments in order.</p>
+<h3>4.4 Where each entity lives</h3>
+<p>Each of the three entities is introduced by what the previous one cannot represent, and the storage for each follows from its nature. Metadata — the video and rendition records — resides in a sharded database partitioned by video_id: small, structured, and read on every watch. The large data — source master, renditions, and segments — resides in blob storage behind immutable, cache-forever URLs, with the source retained for re-transcoding to new codecs later. The status field governs availability: a video is watchable once its baseline renditions exist, while higher rungs finish encoding after</p>
+<p>The three entities and their relationships — one Video has many Renditions, and each Rendition is sliced into many Segments:</p>
+<p>Key idea. One Video fans out to many Renditions and Segments, with metadata and media in separate stores.</p>
+<h2>5. High-level design</h2>
+<p>Rather than presenting the final system, construct it incrementally: begin with the simplest design that works and let each failure introduce the next component.</p>
+<p>Reading the diagrams. Each step&#39;s diagram outlines the components newly added at that step in pink, so you can see at a glance what changed from the step before.</p>
+<h3>5.1 The naive version</h3>
+<p>Begin with one app server. The creator uploads to it, it stores the file on disk, and on playback it streams the bytes back. Under real video workloads, this fails in three ways: the multi-gigabyte upload passes through the app server over an unreliable connection; one stored file cannot serve both a phone and a television; and every viewer streams bytes through the server, so origin egress becomes prohibitively expensive. Each is addressed in turn.</p>
+<h3>5.2 Fix 1: get the upload off the app server</h3>
+<p>Consider a 4 GB upload from a phone passing through the app server. If the connection drops at 90%, the entire transfer is lost. A simple retry restarts from byte zero, so the fix must change where the bytes are written. They are sent directly to a blob store with a resumable, pre-signed URL: a dropped connection re-sends one chunk, and the app server writes only a small metadata record. Large opaque files belong in a blob store rather than on an app server&#39;s disk.</p>
+<h3>5.3 Fix 2: transcode into a ladder, off the request path</h3>
+<p>The bytes are now stored, but a raw source still cannot play everywhere, so it is transcoded into the ladder of renditions and segments. Transcoding within the upload request is the direct approach, but a full ladder requires minutes of CPU time, so the request would time out and upload availability would depend on encode capacity. Instead, the completed upload places an event on a queue, and a worker fleet runs the ladder asynchronously, writes the renditions, segments, and manifest to blob storage, and sets status to ready. Because segments are independent, the work distributes across the fl</p>
+<p>The upload-to-watchable flow over time:</p>
+<h3>5.4 Fix 3: serve playback from the CDN, not the origin</h3>
+<p>The third failure is the costly one. If every viewer reads from the origin, origin egress equals the full view bandwidth — the exabyte figure from the estimation. Nearly every byte must therefore be served from the edge. The viewer fetches the small manifest from metadata and then fetches immutable segments from the CDN, changing rendition per segment via ABR. The origin is accessed only on a cache miss, and those misses pass through an origin shield — a single intermediate cache placed between the many edge locations and the origin. Because every edge in a region fetches through the shield ra</p>
+<p>A playback request over time. The dashed alt box marks two alternative paths: a cache hit, served straight from the edge, or a cache miss, which fetches through the shield to the origin and then caches the segment.</p>
+<h3>5.5 The composed design</h3>
+<p>Combining the three fixes yields the complete system.</p>
+<p>These stores are the data model&#39;s three locations made concrete. The video and rendition records reside in the metadata database; the large data is split into two blob stores — source, written once on upload, and renditions, written later by the workers. The data model specifies what is stored; the design specifies which component writes each store, and when.</p>
+<p>Strong-answer criteria. A complete answer derives each component from a specific failure, justifies the parallel transcode and the origin shield from scale, and notes that the source master is retained for re-transcoding to future codecs.</p>
+<p>Key idea. Each component answers one failure of the naive server: direct upload, async transcode, CDN delivery.</p>
+<h2>6. Deep dives</h2>
+<p>Three topics are central: the transcode pipeline, ABR and CDN delivery, and delivery economics with storage tiering.</p>
+<h3>6.1 The transcode pipeline</h3>
+<p>Before reading on. Why is one uploaded video turned into five or more copies? And how is a 2-hour video transcoded in less than 2 hours?</p>
+<p>One source cannot play on all devices, which requires the encoding ladder defined in Key concepts. The ladder is five or more times the work, and a 2-hour video cannot take 2 hours to encode, which requires segmentation and parallelism. Because segments are independent, the source is split, chunks are transcoded concurrently across the fleet, and the results are reassembled. The useful consequence is that transcode time is decoupled from video length: a 2-hour video and a 10-minute video are both ready in roughly the time of one chunk, given enough workers. The DAG below shows the fan-out and </p>
+<p>Two refinements complete the pipeline. Emitting HLS and DASH separately for every rendition duplicates storage, so the source is packaged once into a shared segment format both protocols can reference, and the packager produces both manifests from those shared segments, roughly halving segment storage. And because a job distributed across a fleet may fail partway, each unit is keyed by (video_id, rendition, segment) so a failed segment retries independently. The retained source master means a failure only delays completion; it does not lose data.</p>
+<h3>6.2 ABR delivery and the CDN</h3>
+<p>Before reading on. A viewer&#39;s bandwidth drops mid-video while moving out of WiFi range. What component selects 480p instead of 1080p, and when?</p>
+<p>The answer to the teaser: the player decides, and it decides at every segment boundary. ABR, defined in Key concepts, runs entirely on the client. The mechanics rest on four points.</p>
+<p>The client drives ABR. The player measures its download throughput and how much buffered video it has left, and at each segment boundary requests the next segment at the highest rendition those signals can sustain — 480p instead of 1080p when bandwidth falls, back up when it recovers. The server does nothing adaptive and holds no per-viewer state; it just serves cacheable segments. This pushes the intelligence to the edge of the system — literally the client — keeping delivery a dumb, cacheable read.</p>
+<p>The manifest is the contract. It lists every rendition and its segment URLs, and the player picks a path through it, switching renditions between segments without re-downloading anything. Because segment URLs are immutable, the CDN caches each one indefinitely.</p>
+<p>The CDN hierarchy does the heavy lifting. Edge points of presence (POPs — a CDN&#39;s local clusters of cache servers, placed close to users in many cities) serve most hits on hot segments, while regional caches and the origin shield raise the cumulative hit rate toward near-complete. A newly popular video is cold exactly once per POP, and the shield coalesces those simultaneous misses into a handful of origin fetches.</p>
+<p>Pre-positioning (push). For a scheduled premiere or a known-viral drop, push segments to the edges ahead of demand, so the first viewers do not pay the cold miss.</p>
+<p>The manifest behaves like a grid the player walks across — one row per rendition, one column per segment. As bandwidth changes, the player switches rows between columns, always pulling the next segment&#39;s URL from the rendition it can sustain.</p>
+<p>When many viewers hit the same cold segment at once, the shield collapses their simultaneous misses into a single origin fetch:</p>
+<p>Strong-answer criteria. Client-driven ABR with the server as a cacheable read, the manifest as the contract, CDN tiering with shield coalescing, and pre-positioning for predictable spikes.</p>
+<h3>6.3 Delivery economics and storage tiering</h3>
+<p>Among these problems, video is distinctive in that egress bandwidth dominates cost rather than compute or storage. The deep dive therefore reduces to one equation and its consequences.</p>
+<p>The equation is origin egress = total × (1 − hit rate). At exabyte scale, even 1% origin egress is substantial, so the design maximizes hit rate through long cache lifetimes, immutable URLs, shield coalescing, and pre-positioning. The control below shows how origin egress falls as the hit rate rises.</p>
+<p>The second factor is popularity, which follows a power law: a small set of videos serves most views, while the long tail is rarely watched. Storage is therefore tiered by popularity — popular renditions on fast storage near the CDN, and older or cold content on lower-cost archival tiers with slower first-byte latency.</p>
+<p>The same reasoning applies to rendition economics: pre-generating the 4K rung for a video rarely watched at that quality wastes transcode and storage, so common rungs are generated eagerly and rare or high rungs on demand. Source masters and popular renditions are replicated per region so the CDN origin is local, while cold content is stored in fewer regions.</p>
+<p>Strong-answer criteria. Treating hit rate as the cost lever, tiering storage by the power law of views, transcoding the long tail on demand, and replicating popular content per region — each decision framed in terms of bandwidth and storage economics.</p>
+<p>Key idea. Every deep dive serves one goal: drive origin egress toward zero while producing and serving the ladder.</p>
+<h2>7. Variants</h2>
+<p>For live streaming, transcoding occurs in real time as the stream arrives, segments are produced continuously, and the manifest grows during the stream. The added constraint is latency — viewers expect to be only seconds behind real time — so segment duration is reduced or low-latency chunked transfer is used. Delivery remains CDN-based, but cache lifetimes are short and the origin receives a continuous stream of new segments.</p>
+<p>At 10× scale, egress and storage reach multiple exabytes and the same measures become mandatory: aggressive cold-tiering, on-demand long-tail transcoding, per-region CDN origins, and maximizing hit rate. Transcode fleet cost becomes a significant line item, so codec efficiency — for example AV1 versus H.264 — trades transcode CPU for egress savings.</p>
+<p>For recommendations and discovery, the watch-next feed is a separate ranking problem built on a fan-out of subscriptions; it is named and deferred rather than designed here.</p>
+<p>Key idea. Live trades latency for freshness; 10× scale makes cold-tiering and codec efficiency mandatory.</p>
+<h2>8. The transferable pattern</h2>
+<p>A video platform is the metadata/media split applied at large scale, where delivery rather than storage is the primary problem. One immutable blob becomes a set of immutable blobs — renditions times segments. The read path becomes a CDN hit-rate optimization because egress dominates cost. And the client, not the server, performs adaptation through ABR, so delivery remains a simple cacheable read.</p>
+<p>The same structure — precompute variants, segment for cacheability, move adaptation to the client, and serve from the CDN — recurs wherever large media is delivered to a global audience: live sports, podcasts, game-asset delivery, and software distribution. Recognizing that video is large media delivered at planetary audience scale reduces the problem to a hit-rate budget and an encoding ladder.</p>
+<h2>Review: the 30-second answer</h2>
+<p>If you had thirty seconds to give the whole design, it rests on five decisions, each derived in the sections above:</p>
+<p>Upload once, transcode to a ladder. One source video becomes multiple renditions, each divided into short segments, produced asynchronously behind a queue.</p>
+<p>Adaptive bitrate delivery. The client reads a manifest, fetches segments, and changes quality per segment as bandwidth changes, providing smooth playback across connections.</p>
+<p>CDN delivery is essential. Because video is an egress-bound workload, nearly every byte must be served from the edge; otherwise bandwidth cost and origin load become prohibitive.</p>
+<p>Separate metadata from media. Small records reside in a database; large segments reside in blob storage behind the CDN.</p>
+<p>Tier storage by popularity. A small set of videos serves most views, so the long tail is moved to lower-cost storage.</p>
+<h2>Quiz</h2>
+<p>Test your understanding of the key design decisions in this video platform.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

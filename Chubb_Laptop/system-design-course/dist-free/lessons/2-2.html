@@ -1,0 +1,297 @@
+<h1>Message Queues &amp; Event Streaming (Kafka, RabbitMQ, SQS)</h1>
+<blockquote>
+<p><strong>Lesson 2.2</strong> · Pro + Senior · 45 min</p>
+</blockquote>
+<hr>
+<h2>The Problem: Tight Coupling</h2>
+<p>A user signs up. Your API needs to:</p>
+<ol>
+<li>Create the user in the database</li>
+<li>Send a welcome email</li>
+<li>Notify the analytics service</li>
+<li>Create a default workspace</li>
+<li>Send a Slack notification to the sales team</li>
+</ol>
+<p>If you do all of this synchronously in the API handler, the user waits for all five operations before getting a response. If the email service is slow, every signup is slow. If the analytics service is down, signups fail.</p>
+<p><strong>Message queues</strong> decouple these operations: the API handler does the minimum (create user in DB), puts a message on a queue, and returns immediately. The other services consume the message and do their work independently.</p>
+<hr>
+<h2>The Core Model</h2>
+<pre><code>Producer                Queue / Topic              Consumer(s)
+────────                 ─────────────              ──────────
+API Server ──publish──► [msg][msg][msg] ──consume──► Email Service
+                                        ──consume──► Analytics Service
+                                        ──consume──► Workspace Service
+</code></pre>
+<p><strong>Producer:</strong> Publishes messages to the queue.
+<strong>Queue / Topic:</strong> Stores messages until consumers are ready.
+<strong>Consumer:</strong> Reads messages from the queue and processes them.</p>
+<hr>
+<h2>Message Queues vs Event Streams</h2>
+<p>These are related but distinct concepts. Both use a producer/consumer model, but they differ in how messages are stored and consumed.</p>
+<h3>Message Queue (Point-to-Point)</h3>
+<ul>
+<li>A message is <strong>consumed once</strong> and then deleted</li>
+<li>Each message goes to <strong>one consumer</strong> (competing consumers share the work)</li>
+<li>Purpose: distribute work across workers</li>
+<li>Example: a job queue</li>
+</ul>
+<pre><code>Producer → [job1][job2][job3] → Worker 1 picks up job1
+                               → Worker 2 picks up job2
+                               → Worker 3 picks up job3
+</code></pre>
+<p><strong>Examples:</strong> RabbitMQ, AWS SQS, ActiveMQ</p>
+<h3>Event Stream (Publish-Subscribe)</h3>
+<ul>
+<li>Messages are <strong>retained</strong> for a configured period (hours, days, forever)</li>
+<li><strong>Every subscriber</strong> reads every message independently</li>
+<li>Purpose: broadcast events to multiple independent consumers</li>
+<li>Example: audit logs, real-time feeds</li>
+</ul>
+<pre><code>Producer → [event1][event2][event3]
+             ▲ Consumer A reads from offset 0
+             ▲ Consumer B independently reads from offset 0
+             ▲ Consumer C independently reads from offset 0
+</code></pre>
+<p><strong>Examples:</strong> Apache Kafka, AWS Kinesis, Google Pub/Sub</p>
+<hr>
+<h2>RabbitMQ: Classic Message Queue</h2>
+<p>RabbitMQ is a mature, feature-rich message broker implementing the AMQP protocol.</p>
+<h3>Core Concepts</h3>
+<p><strong>Exchange:</strong> Receives messages from producers and routes them to queues based on routing rules.</p>
+<p><strong>Queue:</strong> Stores messages until a consumer reads them.</p>
+<p><strong>Binding:</strong> A rule that connects an exchange to a queue.</p>
+<pre><code>Producer
+   │
+   ▼
+Exchange (direct/fanout/topic)
+   ├──binding──► Queue A → Consumer 1
+   └──binding──► Queue B → Consumer 2
+</code></pre>
+<h3>Exchange Types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Routing rule</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Direct</strong></td>
+<td>Route by exact routing key</td>
+<td>Work queue — route &quot;email&quot; to email workers</td>
+</tr>
+<tr>
+<td><strong>Fanout</strong></td>
+<td>Send to all bound queues</td>
+<td>Broadcast — notify all subscribers</td>
+</tr>
+<tr>
+<td><strong>Topic</strong></td>
+<td>Route by pattern (<code>user.*</code>)</td>
+<td>Fine-grained routing</td>
+</tr>
+<tr>
+<td><strong>Headers</strong></td>
+<td>Route by message headers</td>
+<td>Complex routing conditions</td>
+</tr>
+</tbody></table>
+<h3>Delivery Guarantees</h3>
+<ul>
+<li><strong>At-most-once:</strong> Message delivered zero or one time (fire and forget)</li>
+<li><strong>At-least-once:</strong> Message delivered one or more times (consumer must handle duplicates)</li>
+<li><strong>Exactly-once:</strong> Message delivered exactly once (very expensive, rarely needed)</li>
+</ul>
+<p>RabbitMQ supports at-least-once with <strong>acknowledgements</strong>: consumer sends ACK after processing; broker only deletes the message after ACK. If consumer crashes, message is re-queued.</p>
+<h3>When to Use RabbitMQ</h3>
+<ul>
+<li>Task queues (background jobs, email sending, image resizing)</li>
+<li>Request/reply patterns</li>
+<li>Complex routing logic</li>
+<li>When you need exactly-once semantics</li>
+</ul>
+<hr>
+<h2>Apache Kafka: Distributed Event Stream</h2>
+<p>Kafka is a distributed log, designed for high-throughput event streaming. Originally built at LinkedIn, now the backbone of real-time data pipelines at thousands of companies.</p>
+<h3>Core Concepts</h3>
+<p><strong>Topic:</strong> A named stream of events. Like a database table, but for events.</p>
+<p><strong>Partition:</strong> A topic is split into partitions. Each partition is an ordered, immutable log. Partitions enable parallelism.</p>
+<p><strong>Offset:</strong> The position of a message within a partition. Consumers track their offset — they decide how far they have read.</p>
+<p><strong>Consumer Group:</strong> A group of consumers that collectively read a topic. Each partition is assigned to exactly one consumer in a group.</p>
+<pre><code>Topic: &quot;user-events&quot;  (3 partitions)
+
+Partition 0: [e1][e4][e7][e10] ← Consumer A (Group 1)
+Partition 1: [e2][e5][e8][e11] ← Consumer B (Group 1)
+Partition 2: [e3][e6][e9][e12] ← Consumer C (Group 1)
+
+Same topic, different group:
+Partition 0: [e1][e4]...       ← Consumer X (Group 2, its own offset)
+Partition 1: [e2][e5]...       ← Consumer Y (Group 2)
+Partition 2: [e3][e6]...       ← Consumer Z (Group 2)
+</code></pre>
+<p>Group 1 and Group 2 both read all events independently — perfect for multiple services consuming the same events.</p>
+<h3>Why Kafka Is Fast</h3>
+<ul>
+<li><strong>Sequential disk writes:</strong> Messages are appended to a log. Sequential writes are 100x faster than random writes.</li>
+<li><strong>Zero-copy:</strong> Messages transferred from disk to network without CPU copying.</li>
+<li><strong>Batching:</strong> Producers batch messages; consumers fetch batches.</li>
+<li><strong>Compression:</strong> Messages compressed in transit and at rest.</li>
+</ul>
+<p>Kafka handles <strong>millions of messages per second</strong> on modest hardware.</p>
+<h3>Retention</h3>
+<p>Kafka retains messages for a configurable period (default 7 days) regardless of whether they have been consumed. This enables:</p>
+<ul>
+<li><strong>Replay:</strong> Re-process all events from the beginning (debug, migration, new consumer)</li>
+<li><strong>Time travel:</strong> &quot;What was the state of the system at 3am yesterday?&quot;</li>
+<li><strong>Multiple consumers:</strong> New services can read historical events they missed</li>
+</ul>
+<h3>Partitioning and Ordering</h3>
+<p>Events in a single partition are strictly ordered. Events across partitions have no ordering guarantee.</p>
+<pre><code>Partition 0 (user_id % 3 == 0): events for Alice, Dave, ...
+Partition 1 (user_id % 3 == 1): events for Bob, Eve, ...
+Partition 2 (user_id % 3 == 2): events for Carol, Frank, ...
+</code></pre>
+<p>By partitioning by <code>user_id</code>, all events for a given user are in the same partition — so they are processed in order.</p>
+<h3>When to Use Kafka</h3>
+<ul>
+<li>High-throughput event streaming (millions of events/second)</li>
+<li>Event sourcing (your database of events is the source of truth)</li>
+<li>Real-time analytics pipelines</li>
+<li>Activity feeds (every user action is an event)</li>
+<li>Log aggregation</li>
+<li>Change Data Capture (stream database changes to other services)</li>
+</ul>
+<hr>
+<h2>AWS SQS: Managed Queue</h2>
+<p>AWS SQS is a fully managed message queue — no servers to run, no brokers to configure.</p>
+<h3>SQS vs SQS FIFO</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Standard SQS</th>
+<th>FIFO SQS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Ordering</td>
+<td>Best-effort</td>
+<td>Strict FIFO</td>
+</tr>
+<tr>
+<td>Throughput</td>
+<td>Nearly unlimited</td>
+<td>300 msg/sec (3,000 with batching)</td>
+</tr>
+<tr>
+<td>Delivery</td>
+<td>At-least-once (duplicates possible)</td>
+<td>Exactly-once</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>High throughput, order does not matter</td>
+<td>Order matters, limited throughput</td>
+</tr>
+</tbody></table>
+<h3>Visibility Timeout</h3>
+<p>When a consumer reads a message from SQS, the message becomes <strong>invisible</strong> to other consumers for the visibility timeout period (default 30 seconds). If the consumer processes and deletes it within that window, done. If the consumer crashes, the message becomes visible again and another consumer picks it up.</p>
+<p>This implements at-least-once delivery.</p>
+<h3>Dead Letter Queue (DLQ)</h3>
+<p>If a message fails processing repeatedly (e.g., 5 times), SQS moves it to a <strong>dead letter queue</strong>. You can inspect failed messages, fix the bug, and replay them.</p>
+<pre><code>SQS Queue → Consumer fails 5 times → Message moved to DLQ
+                                      ↑ Alert fires
+                                      ↑ Engineer investigates
+                                      ↑ Fix deployed
+                                      ↑ Messages replayed from DLQ
+</code></pre>
+<hr>
+<h2>Comparison: When to Use Each</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>RabbitMQ</th>
+<th>Kafka</th>
+<th>SQS</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Model</strong></td>
+<td>Message queue</td>
+<td>Event stream</td>
+<td>Message queue</td>
+</tr>
+<tr>
+<td><strong>Throughput</strong></td>
+<td>Moderate (50k msg/sec)</td>
+<td>Very high (1M+ msg/sec)</td>
+<td>High (managed)</td>
+</tr>
+<tr>
+<td><strong>Message retention</strong></td>
+<td>Until consumed</td>
+<td>Configurable (days)</td>
+<td>14 days max</td>
+</tr>
+<tr>
+<td><strong>Multiple consumers</strong></td>
+<td>Fan-out exchange</td>
+<td>Consumer groups</td>
+<td>Multiple queues</td>
+</tr>
+<tr>
+<td><strong>Replay</strong></td>
+<td>No</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Ordering</strong></td>
+<td>Per-queue</td>
+<td>Per-partition</td>
+<td>FIFO queue only</td>
+</tr>
+<tr>
+<td><strong>Operational burden</strong></td>
+<td>High (self-hosted)</td>
+<td>High (self-hosted)</td>
+<td>None (managed)</td>
+</tr>
+<tr>
+<td><strong>Best for</strong></td>
+<td>Task queues, routing</td>
+<td>Event streaming, logs</td>
+<td>AWS-native simple queues</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Common Patterns</h2>
+<h3>Fan-Out</h3>
+<p>One event consumed by multiple independent services:</p>
+<pre><code>Order placed event
+    ├──► Inventory service (deduct stock)
+    ├──► Email service (send confirmation)
+    ├──► Analytics service (track conversion)
+    └──► Fulfillment service (create shipment)
+</code></pre>
+<h3>Work Queue</h3>
+<p>Distribute CPU-intensive jobs across multiple workers:</p>
+<pre><code>Image uploaded
+    └──► [resize queue] ──► Worker 1 (resize to 100px)
+                        ──► Worker 2 (resize to 400px)
+                        ──► Worker 3 (resize to 1200px)
+</code></pre>
+<h3>Event Sourcing</h3>
+<p>Store every state change as an immutable event. Replay events to rebuild state:</p>
+<pre><code>user.created  → user.email_verified → user.profile_updated → user.plan_upgraded
+      ↑                                                              ↑
+   Event 1                                                       Event 4
+   
+Current state = apply all events in order
+</code></pre>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./03-cdn.md">Lesson 2.3 — CDN: How Netflix Uses It</a></p>
+</blockquote>

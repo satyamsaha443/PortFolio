@@ -1,0 +1,296 @@
+<h1>Caching: Browser → CDN → Server</h1>
+<blockquote>
+<p><strong>Lesson 1.6</strong> · Beginner + Pro · 30 min</p>
+</blockquote>
+<hr>
+<h2>The Problem Caching Solves</h2>
+<p>Fetching data is expensive. A database query might take 10–50ms. Calling an external API might take 200ms. Rendering a complex page might take 500ms. Do that for every user on every request and your system will buckle under load.</p>
+<p><strong>Caching</strong> stores the result of an expensive operation so future requests can use the stored result instead of repeating the work.</p>
+<p>The key insight: <strong>most data does not change between requests.</strong> A news article written yesterday is the same for all 50,000 readers today. Compute it once, serve it 50,000 times.</p>
+<hr>
+<h2>Three Layers of Cache</h2>
+<p>Think of caching as a series of checkpoints between the user and your database:</p>
+<pre><code>User
+  │
+  ▼
+Browser Cache      ← Layer 1: On the user&#39;s device
+  │
+  ▼
+CDN Cache          ← Layer 2: Near the user geographically
+  │
+  ▼
+Application Cache  ← Layer 3: On your server (Redis, Memcached)
+  │
+  ▼
+Database           ← Source of truth (never hit if cache works)
+</code></pre>
+<p>Each layer can answer the request. Only if it cannot (a <strong>cache miss</strong>) does the request fall through to the next layer.</p>
+<hr>
+<h2>Layer 1: Browser Cache</h2>
+<p>The browser stores responses locally on the user&#39;s device. Controlled by HTTP response headers.</p>
+<h3>Cache-Control Header</h3>
+<pre><code>Cache-Control: public, max-age=86400
+</code></pre>
+<ul>
+<li><code>public</code> — any cache (browser or CDN) can store this</li>
+<li><code>private</code> — only the user&#39;s browser can store this (not CDNs)</li>
+<li><code>max-age=86400</code> — cache for 86,400 seconds (1 day)</li>
+<li><code>no-store</code> — never cache this response</li>
+<li><code>no-cache</code> — cache but always revalidate before using</li>
+</ul>
+<h3>ETag and Conditional Requests</h3>
+<p>ETags let the browser ask &quot;has this changed since I last got it?&quot;</p>
+<pre><code># First request:
+Response: 200 OK
+ETag: &quot;abc123&quot;
+[full response body]
+
+# Next request (browser sends the ETag back):
+Request:  If-None-Match: &quot;abc123&quot;
+
+# If unchanged:
+Response: 304 Not Modified
+[no body — browser uses its cached copy]
+
+# If changed:
+Response: 200 OK
+ETag: &quot;def456&quot;
+[new response body]
+</code></pre>
+<p>The 304 response saves bandwidth — the server sends headers only, no body.</p>
+<h3>What to Cache in the Browser</h3>
+<table>
+<thead>
+<tr>
+<th>Content</th>
+<th>Cache strategy</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Static assets (JS, CSS)</td>
+<td>Long TTL (1 year) + versioned filenames (<code>app.v2.js</code>)</td>
+</tr>
+<tr>
+<td>Images</td>
+<td>Long TTL with content-hash in URL</td>
+</tr>
+<tr>
+<td>HTML pages</td>
+<td>Short TTL or no-cache (content changes)</td>
+</tr>
+<tr>
+<td>API responses</td>
+<td>Usually private, short TTL or no-store</td>
+</tr>
+<tr>
+<td>Authentication tokens</td>
+<td>no-store (never cache credentials)</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Layer 2: CDN Cache</h2>
+<p>A <strong>CDN (Content Delivery Network)</strong> is a network of servers distributed globally. When a user in Tokyo requests your content, the CDN serves it from a Tokyo server instead of your origin in Virginia.</p>
+<pre><code>User (Tokyo) → CDN Edge (Tokyo) → Cache hit → Response in ~5ms
+User (Tokyo) → CDN Edge (Tokyo) → Cache miss → Origin (Virginia) → CDN stores it → Response in ~150ms
+              Next user in Tokyo → CDN Edge → Cache hit → Response in ~5ms
+</code></pre>
+<h3>What CDNs Cache</h3>
+<p>CDNs are best for <strong>static content</strong> that is the same for all users:</p>
+<ul>
+<li>Images, videos, audio files</li>
+<li>JavaScript bundles, CSS stylesheets</li>
+<li>Fonts</li>
+<li>Static HTML pages</li>
+</ul>
+<p>CDNs can also cache dynamic API responses with the right headers. Cloudflare Workers and similar edge compute allow running code at the CDN edge.</p>
+<h3>Cache Invalidation at the CDN</h3>
+<p>When you deploy new code or update a file, how do you ensure CDN caches serve the new version?</p>
+<ol>
+<li><strong>TTL expiry:</strong> Wait for the cache to expire. Simple but slow.</li>
+<li><strong>Cache purge:</strong> Programmatically tell the CDN to delete a cached URL. Instant but requires API call.</li>
+<li><strong>Content-hashed URLs:</strong> Change the filename when the content changes (<code>app.abc123.js</code> → <code>app.def456.js</code>). The browser fetches the new URL automatically. Old caches just become unused.</li>
+</ol>
+<p>Content-hashed URLs are the gold standard for static assets.</p>
+<hr>
+<h2>Layer 3: Application Cache (Redis / Memcached)</h2>
+<p>The application cache sits between your API server and your database. It is a fast, in-memory key-value store.</p>
+<p><strong>Redis</strong> is the default choice. It is fast (sub-millisecond reads), supports complex data structures, and is used at enormous scale (Twitter, GitHub, Snapchat).</p>
+<h3>The Cache-Aside Pattern</h3>
+<p>The most common caching pattern:</p>
+<pre><code class="language-python">def get_user(user_id):
+    # 1. Check cache
+    user = redis.get(f&quot;user:{user_id}&quot;)
+    if user:
+        return json.loads(user)  # cache hit
+
+    # 2. Cache miss: fetch from database
+    user = db.query(&quot;SELECT * FROM users WHERE id = ?&quot;, user_id)
+
+    # 3. Populate cache for future requests
+    redis.setex(f&quot;user:{user_id}&quot;, 3600, json.dumps(user))  # TTL = 1 hour
+
+    return user
+</code></pre>
+<p><strong>Read path:</strong> Check Redis → if miss, read from DB → write to Redis.
+<strong>Write path:</strong> Update the DB → delete (or update) the Redis key.</p>
+<h3>Cache Invalidation on Write</h3>
+<p>When a user&#39;s data changes, you must update or delete the cache:</p>
+<pre><code class="language-python">def update_user(user_id, data):
+    db.execute(&quot;UPDATE users SET ... WHERE id = ?&quot;, user_id, data)
+    redis.delete(f&quot;user:{user_id}&quot;)  # invalidate cache
+</code></pre>
+<p>The next read will be a cache miss, fetch fresh data from DB, and repopulate the cache.</p>
+<h3>What to Cache at the Application Level</h3>
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>User profiles</td>
+<td>Read frequently, change rarely</td>
+</tr>
+<tr>
+<td>Product catalog</td>
+<td>Same data for all users, expensive to compute</td>
+</tr>
+<tr>
+<td>Session tokens</td>
+<td>Need fast lookup on every request</td>
+</tr>
+<tr>
+<td>Aggregated counts</td>
+<td>Likes, views — avoid counting DB rows on every request</td>
+</tr>
+<tr>
+<td>Rendered HTML fragments</td>
+<td>Expensive templates</td>
+</tr>
+<tr>
+<td>Third-party API responses</td>
+<td>Rate-limited, slow</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Cache Eviction Policies</h2>
+<p>Caches have limited memory. When full, they must remove old entries to make room for new ones. The <strong>eviction policy</strong> decides which entries to remove.</p>
+<table>
+<thead>
+<tr>
+<th>Policy</th>
+<th>Description</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>LRU</strong> (Least Recently Used)</td>
+<td>Remove the entry not accessed for the longest time</td>
+<td>General purpose — the default</td>
+</tr>
+<tr>
+<td><strong>LFU</strong> (Least Frequently Used)</td>
+<td>Remove the entry accessed fewest times</td>
+<td>Workloads with long-lived hot items</td>
+</tr>
+<tr>
+<td><strong>TTL</strong> (Time to Live)</td>
+<td>Remove entries after they expire</td>
+<td>Data that becomes stale over time</td>
+</tr>
+<tr>
+<td><strong>FIFO</strong> (First In First Out)</td>
+<td>Remove the oldest-inserted entry</td>
+<td>Simple, predictable behaviour</td>
+</tr>
+<tr>
+<td><strong>Random</strong></td>
+<td>Remove a random entry</td>
+<td>Simple, low overhead</td>
+</tr>
+</tbody></table>
+<p>Redis uses LRU by default (configurable). For most use cases, TTL combined with LRU is the right approach.</p>
+<hr>
+<h2>Cache Stampede (Thundering Herd)</h2>
+<p>A cache stampede happens when a popular cached item expires and thousands of requests hit the database simultaneously:</p>
+<pre><code>Time 0:   Cache key &quot;popular_post:42&quot; expires
+Time 0.1: 10,000 simultaneous requests arrive
+          All 10,000 get cache miss
+          All 10,000 hit the database simultaneously
+          Database falls over
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Locking:</strong> First thread acquires a lock, fetches from DB, populates cache. Other threads wait.</li>
+<li><strong>Background refresh:</strong> A background job refreshes the cache before it expires.</li>
+<li><strong>Probabilistic expiry:</strong> Each request has a small chance of considering the cache &quot;expired&quot; even when it is not, and refreshing proactively. Spreads the refresh load.</li>
+<li><strong>Stale-while-revalidate:</strong> Serve stale data while refreshing asynchronously. Users get a slightly old response instead of a slow one.</li>
+</ol>
+<hr>
+<h2>Cache Consistency Trade-offs</h2>
+<p>Caching inherently introduces <strong>consistency challenges</strong>:</p>
+<ul>
+<li><strong>Cache hit, stale data:</strong> A user sees old data until the TTL expires or cache is invalidated.</li>
+<li><strong>Cache miss after write:</strong> Another server invalidates the cache key, but your server still has a local copy.</li>
+<li><strong>Write-through vs write-behind:</strong> Write-through writes to cache and DB simultaneously (consistent but slower). Write-behind writes to cache first and DB asynchronously (fast but risk of data loss).</li>
+</ul>
+<p>The right consistency level depends on the use case:</p>
+<table>
+<thead>
+<tr>
+<th>Use case</th>
+<th>Acceptable staleness</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>User profile picture</td>
+<td>Minutes (even hours)</td>
+</tr>
+<tr>
+<td>Stock prices</td>
+<td>Seconds</td>
+</tr>
+<tr>
+<td>Bank account balance</td>
+<td>Zero — do not cache or cache with very short TTL</td>
+</tr>
+<tr>
+<td>Social media like count</td>
+<td>Minutes (approximate is fine)</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Where</th>
+<th>What it caches</th>
+<th>Typical TTL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Browser</strong></td>
+<td>User device</td>
+<td>Static assets, API responses</td>
+<td>Hours to 1 year</td>
+</tr>
+<tr>
+<td><strong>CDN</strong></td>
+<td>Near user geographically</td>
+<td>Static assets, public pages</td>
+<td>Hours to 1 year</td>
+</tr>
+<tr>
+<td><strong>Application</strong></td>
+<td>Your servers (Redis)</td>
+<td>DB results, rendered fragments</td>
+<td>Seconds to hours</td>
+</tr>
+</tbody></table>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./07-scalability.md">Lesson 1.7 — Scalability: Vertical vs Horizontal</a></p>
+</blockquote>

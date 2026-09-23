@@ -1,0 +1,307 @@
+<h1>Databases 101: SQL vs NoSQL</h1>
+<blockquote>
+<p><strong>Lesson 1.4</strong> · Beginner + Pro · 35 min</p>
+</blockquote>
+<hr>
+<h2>What Is a Database?</h2>
+<p>A database is a system for <strong>storing, organizing, and retrieving data</strong>. It provides:</p>
+<ul>
+<li><strong>Persistence:</strong> Data survives server restarts</li>
+<li><strong>Concurrency:</strong> Multiple clients read and write simultaneously without corrupting data</li>
+<li><strong>Querying:</strong> Find exactly the data you need efficiently</li>
+<li><strong>Transactions:</strong> Group multiple operations so they all succeed or all fail together</li>
+</ul>
+<p>You could store data in files, but databases solve the hard problems of concurrent access, crash recovery, and efficient querying.</p>
+<hr>
+<h2>Relational Databases (SQL)</h2>
+<p>Relational databases store data in <strong>tables</strong> — rows and columns, like a spreadsheet.</p>
+<pre><code>users table:
+┌────┬──────────┬──────────────────────┬────────────┐
+│ id │ username │ email                │ created_at │
+├────┼──────────┼──────────────────────┼────────────┤
+│  1 │ alice    │ alice@example.com    │ 2024-01-01 │
+│  2 │ bob      │ bob@example.com      │ 2024-01-02 │
+└────┴──────────┴──────────────────────┴────────────┘
+
+posts table:
+┌────┬─────────┬───────────────────┬──────────────────────┐
+│ id │ user_id │ content           │ created_at           │
+├────┼─────────┼───────────────────┼──────────────────────┤
+│  1 │       1 │ Hello world       │ 2024-01-03 10:00:00  │
+│  2 │       1 │ System design     │ 2024-01-03 11:00:00  │
+└────┴─────────┴───────────────────┴──────────────────────┘
+</code></pre>
+<p><code>posts.user_id</code> is a <strong>foreign key</strong> that references <code>users.id</code>. This is a <strong>relationship</strong> — the &quot;relational&quot; in relational database.</p>
+<p>You query relational databases with <strong>SQL</strong> (Structured Query Language):</p>
+<pre><code class="language-sql">-- Get all posts by alice with her username
+SELECT u.username, p.content, p.created_at
+FROM users u
+JOIN posts p ON p.user_id = u.id
+WHERE u.username = &#39;alice&#39;
+ORDER BY p.created_at DESC;
+</code></pre>
+<h3>Popular Relational Databases</h3>
+<table>
+<thead>
+<tr>
+<th>Database</th>
+<th>Common use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>PostgreSQL</strong></td>
+<td>Web apps, analytics — the default choice for new projects</td>
+</tr>
+<tr>
+<td><strong>MySQL / MariaDB</strong></td>
+<td>Web apps, WordPress, legacy systems</td>
+</tr>
+<tr>
+<td><strong>SQLite</strong></td>
+<td>Embedded databases, local storage, mobile apps</td>
+</tr>
+<tr>
+<td><strong>Oracle / SQL Server</strong></td>
+<td>Enterprise systems with compliance requirements</td>
+</tr>
+</tbody></table>
+<h3>Strengths of Relational Databases</h3>
+<ol>
+<li><strong>ACID transactions</strong> (see Lesson 1.10) — critical for financial data, orders, inventory</li>
+<li><strong>Joins</strong> — query across multiple tables efficiently</li>
+<li><strong>Schema enforcement</strong> — the database rejects invalid data</li>
+<li><strong>Mature tooling</strong> — decades of tooling, ORMs, migration frameworks</li>
+<li><strong>Strong consistency</strong> — every read sees the latest committed write</li>
+</ol>
+<h3>Weaknesses of Relational Databases</h3>
+<ol>
+<li><strong>Schema rigidity</strong> — changing the schema of a large table is painful (can lock the table for minutes)</li>
+<li><strong>Horizontal scaling is hard</strong> — sharding a relational DB requires significant engineering</li>
+<li><strong>Object-relational impedance mismatch</strong> — mapping database rows to application objects is awkward</li>
+<li><strong>Not great for unstructured data</strong> — storing JSON blobs or variable-schema documents is clunky</li>
+</ol>
+<hr>
+<h2>NoSQL Databases</h2>
+<p>&quot;NoSQL&quot; means &quot;not only SQL.&quot; It covers a broad family of databases that trade some SQL features for gains in scalability, flexibility, or performance.</p>
+<p>There are four main NoSQL types. Each solves a different problem.</p>
+<hr>
+<h3>Type 1: Document Databases</h3>
+<p>Store data as <strong>documents</strong> (usually JSON or BSON). Each document is self-contained and can have a different structure.</p>
+<pre><code class="language-json">{
+  &quot;_id&quot;: &quot;user_123&quot;,
+  &quot;username&quot;: &quot;alice&quot;,
+  &quot;email&quot;: &quot;alice@example.com&quot;,
+  &quot;posts&quot;: [
+    { &quot;id&quot;: &quot;post_1&quot;, &quot;content&quot;: &quot;Hello world&quot;, &quot;likes&quot;: 42 },
+    { &quot;id&quot;: &quot;post_2&quot;, &quot;content&quot;: &quot;System design&quot;, &quot;likes&quot;: 17 }
+  ],
+  &quot;address&quot;: {
+    &quot;city&quot;: &quot;New York&quot;,
+    &quot;country&quot;: &quot;US&quot;
+  }
+}
+</code></pre>
+<p>Notice: posts are embedded inside the user document. No JOIN needed.</p>
+<p><strong>Examples:</strong> MongoDB, Firestore, CouchDB, DynamoDB (also key-value)</p>
+<p><strong>Use when:</strong></p>
+<ul>
+<li>Your data is hierarchical or nested</li>
+<li>Schema evolves frequently (user profiles, product catalogs)</li>
+<li>You want to avoid JOINs by denormalizing</li>
+</ul>
+<p><strong>Avoid when:</strong></p>
+<ul>
+<li>You need complex multi-document transactions</li>
+<li>You frequently query relationships that cross document boundaries</li>
+</ul>
+<hr>
+<h3>Type 2: Key-Value Stores</h3>
+<p>The simplest NoSQL model: a giant hash map. You store a value under a key, and look it up by that key.</p>
+<pre><code>SET session:user_123  →  {&quot;user_id&quot;: 123, &quot;role&quot;: &quot;admin&quot;, &quot;expires&quot;: 1712345678}
+GET session:user_123  →  {&quot;user_id&quot;: 123, &quot;role&quot;: &quot;admin&quot;, &quot;expires&quot;: 1712345678}
+DEL session:user_123
+</code></pre>
+<p>Operations are O(1). Extremely fast. No complex queries.</p>
+<p><strong>Examples:</strong> Redis, Memcached, DynamoDB</p>
+<p><strong>Use when:</strong></p>
+<ul>
+<li>Session storage</li>
+<li>Caching (the most common use case)</li>
+<li>Rate limiting counters</li>
+<li>Leaderboards (Redis sorted sets)</li>
+<li>Feature flags</li>
+</ul>
+<p><strong>Avoid when:</strong></p>
+<ul>
+<li>You need to query by value, not just by key</li>
+<li>You need complex data relationships</li>
+</ul>
+<hr>
+<h3>Type 3: Wide-Column Stores</h3>
+<p>Data is organized in tables like SQL, but columns are dynamic and can vary per row. Optimized for huge amounts of data and high write throughput.</p>
+<pre><code>Row key: alice@example.com
+  Column: name     → &quot;Alice&quot;
+  Column: age      → 30
+
+Row key: bob@example.com
+  Column: name     → &quot;Bob&quot;
+  Column: company  → &quot;Acme Inc&quot;
+  Column: tweets:2024-01-01  → &quot;Hello&quot;
+  Column: tweets:2024-01-02  → &quot;World&quot;
+</code></pre>
+<p>Bob has a <code>company</code> column that Alice does not. And Bob has a variable number of tweet columns. Each row can have billions of columns.</p>
+<p><strong>Examples:</strong> Apache Cassandra, HBase, Google Bigtable</p>
+<p><strong>Use when:</strong></p>
+<ul>
+<li>Time-series data (IoT sensor readings, metrics)</li>
+<li>Write-heavy workloads (logging, event tracking)</li>
+<li>Data that scales to petabytes</li>
+<li>Multi-region replication with no single point of failure</li>
+</ul>
+<p><strong>Avoid when:</strong></p>
+<ul>
+<li>You need complex queries or ad-hoc analytics</li>
+<li>Your data fits comfortably in a relational model</li>
+</ul>
+<hr>
+<h3>Type 4: Graph Databases</h3>
+<p>Store data as <strong>nodes</strong> (entities) and <strong>edges</strong> (relationships). Built to traverse relationships efficiently.</p>
+<pre><code>(Alice) --[FOLLOWS]--&gt; (Bob)
+(Alice) --[LIKES]--&gt; (Post:42)
+(Bob) --[AUTHORED]--&gt; (Post:42)
+</code></pre>
+<p>Finding &quot;all friends of Alice&quot; or &quot;all posts Alice might like&quot; is trivial in a graph database. In SQL, this requires complex self-joins that become exponentially slow as the graph grows.</p>
+<p><strong>Examples:</strong> Neo4j, Amazon Neptune, ArangoDB</p>
+<p><strong>Use when:</strong></p>
+<ul>
+<li>Social networks (friends-of-friends queries)</li>
+<li>Recommendation engines</li>
+<li>Fraud detection (unusual transaction patterns)</li>
+<li>Knowledge graphs</li>
+</ul>
+<p><strong>Avoid when:</strong></p>
+<ul>
+<li>Your data does not have complex, traversal-heavy relationships</li>
+</ul>
+<hr>
+<h2>The Comparison Table</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Relational (SQL)</th>
+<th>Document</th>
+<th>Key-Value</th>
+<th>Wide-Column</th>
+<th>Graph</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Structure</strong></td>
+<td>Tables/rows</td>
+<td>JSON docs</td>
+<td>Key → Value</td>
+<td>Rows/columns (dynamic)</td>
+<td>Nodes/edges</td>
+</tr>
+<tr>
+<td><strong>Query language</strong></td>
+<td>SQL</td>
+<td>Query API</td>
+<td>GET/SET</td>
+<td>CQL</td>
+<td>Cypher/Gremlin</td>
+</tr>
+<tr>
+<td><strong>Relationships</strong></td>
+<td>Foreign keys, JOINs</td>
+<td>Embedded or referenced</td>
+<td>None</td>
+<td>None</td>
+<td>First-class</td>
+</tr>
+<tr>
+<td><strong>Schema</strong></td>
+<td>Strict</td>
+<td>Flexible</td>
+<td>None</td>
+<td>Flexible</td>
+<td>Flexible</td>
+</tr>
+<tr>
+<td><strong>Horizontal scaling</strong></td>
+<td>Hard</td>
+<td>Easy</td>
+<td>Easy</td>
+<td>Built-in</td>
+<td>Hard</td>
+</tr>
+<tr>
+<td><strong>ACID transactions</strong></td>
+<td>Yes</td>
+<td>Limited</td>
+<td>No</td>
+<td>No</td>
+<td>Varies</td>
+</tr>
+<tr>
+<td><strong>Best for</strong></td>
+<td>Business data</td>
+<td>Varied structures</td>
+<td>Caching/sessions</td>
+<td>Time-series, logs</td>
+<td>Networks</td>
+</tr>
+<tr>
+<td><strong>Examples</strong></td>
+<td>PostgreSQL, MySQL</td>
+<td>MongoDB</td>
+<td>Redis</td>
+<td>Cassandra</td>
+<td>Neo4j</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>How to Choose</h2>
+<p>Use this decision tree in interviews:</p>
+<pre><code>Does the data have clear relationships that need to be queried?
+  → YES: Start with SQL (PostgreSQL)
+
+Does it need ACID transactions?
+  → YES: SQL
+
+Will the schema change frequently or vary per record?
+  → YES: Document DB (MongoDB)
+
+Is it a cache, session store, or simple lookup?
+  → YES: Key-value (Redis)
+
+Is it high-volume time-series or write-heavy with geographic distribution?
+  → YES: Wide-column (Cassandra)
+
+Does it involve complex network traversal (social graph, recommendations)?
+  → YES: Graph DB (Neo4j)
+</code></pre>
+<h3>The Default Answer</h3>
+<p>When in doubt, <strong>start with PostgreSQL</strong>. It handles relational data, supports JSON documents, has excellent scaling options, and is trusted at massive scale (Instagram, GitHub, Shopify all use Postgres).</p>
+<p>Add specialized databases when you have a proven, specific need — not preemptively.</p>
+<hr>
+<h2>A Common Architecture</h2>
+<p>Real systems often use multiple databases:</p>
+<pre><code>┌─────────────────────────────────────────────────────┐
+│  PostgreSQL — source of truth                       │
+│  (users, orders, inventory — anything needing ACID) │
+└──────────────────────┬──────────────────────────────┘
+                       │
+         ┌─────────────┼──────────────┐
+         ▼             ▼              ▼
+    ┌─────────┐  ┌──────────┐  ┌──────────┐
+    │  Redis  │  │  Elastic │  │   S3     │
+    │  cache  │  │  search  │  │  blobs   │
+    └─────────┘  └──────────┘  └──────────┘
+</code></pre>
+<p>PostgreSQL is the authoritative store. Redis caches hot data. Elasticsearch powers full-text search. S3 stores files. Each tool does what it is best at.</p>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./05-apis.md">Lesson 1.5 — APIs: REST, GraphQL &amp; gRPC</a></p>
+</blockquote>

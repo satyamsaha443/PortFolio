@@ -1,0 +1,42 @@
+{
+  "name": "system-design-course",
+  "version": "1.0.0",
+  "description": "System Design: Zero to Mastery — complete production-ready course",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "sdc": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:ui": "tsx scripts/build-ui.ts",
+    "build:free": "tsx scripts/build-ui.ts --free",
+    "build:paid": "tsx scripts/build-ui.ts",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "inquirer": "^9.2.23",
+    "marked": "^12.0.0",
+    "marked-terminal": "^7.1.0"
+  },
+  "devDependencies": {
+    "@types/marked-terminal": "^6.1.1",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.3.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

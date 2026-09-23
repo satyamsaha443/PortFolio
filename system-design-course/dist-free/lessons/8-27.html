@@ -1,0 +1,110 @@
+<h1>Design Uber / Nearby Drivers</h1>
+<blockquote>
+<p><strong>Lesson 8.27</strong> · Senior · 90 min</p>
+</blockquote>
+<hr>
+<h2>Problem statement</h2>
+<p>Design the core of a ride-hailing service: drivers continuously report their location, and when a rider requests a ride, the system finds nearby available drivers and matches one.</p>
+<p>In scope: location updates, finding nearby drivers, matching one without double-booking, and driver availability. Ride state, payments, and the trip lifecycle are a separate stateful service.</p>
+<h2>Clarifying questions</h2>
+<p>Each answer changes the design, so state it and the assumption it fixes.</p>
+<p>Driver count and update frequency? Sets the write rate — the number that drives everything.</p>
+<p>How fresh must a driver&#39;s location be for matching? A few seconds of staleness is fine, which justifies an in-memory index that is eventually consistent — replicas may briefly disagree but converge — rather than always exact.</p>
+<p>What&#39;s the match objective — nearest, lowest ETA, fairness? Shapes matching, not the index.</p>
+<p>What radius and how many candidates? Sets the geo resolution and candidate-set size.</p>
+<p>Ride state and payments here? Usually deferred — the case is location plus matching; the trip lifecycle is a separate stateful service.</p>
+<p>Global or per-city? Ride-hailing is naturally geo-partitioned — cities are mostly independent.</p>
+<h2>What makes this problem distinctive</h2>
+<p>Most systems are read-heavy, so the read path is designed first. This one is the opposite, and that inversion drives the main design constraint. Millions of drivers each emit a location update every few seconds, so the location index absorbs an order of magnitude more writes than the rider queries it serves. The design has to be built around the write path, not the read path.</p>
+<p>Two more things fall out of that. The data is ephemeral — a location is stale within seconds anyway, so persisting every update to disk is wasted I/O; hold the live index in memory, sharded by geography, and a lost shard refills within one update interval as drivers re-report. And finding &quot;who is near me&quot; must not scan every driver — it needs a geospatial index that turns proximity into a cheap cell lookup, with care at cell boundaries where the nearest driver may sit just across an edge.</p>
+<p>Key idea. Writes dominate and the data is ephemeral, so this is a write-first design over a throwaway in-memory index — the inverse of a read-optimized system, and that inversion drives the main design decisions.</p>
+<h2>Key concepts</h2>
+<p>This section covers the concepts needed to solve this problem — prerequisites for the design work that follows.</p>
+<h3>Geospatial indexing</h3>
+<p>Space is divided into a hierarchical grid of cells (H3 hexagons or geohash squares). Each shard holds a cell → drivers map, so &quot;who is near me&quot; becomes &quot;look up my cell and its neighbors&quot; instead of scanning the fleet. Cell size is chosen near the match radius.</p>
+<p>Geo cell index. A scheme (H3, geohash, S2) that maps a lat/lng to a fixed-size cell id, so all drivers in an area share a key and proximity queries touch a handful of cells.</p>
+<h3>Driver location updates</h3>
+<p>Updates are ephemeral, in-memory writes sharded by cell. A driver moving within a cell is a cheap in-place lat/lng update; only a cell crossing moves them between cell-sets. Most updates are in-place, which is what makes the firehose absorbable.</p>
+<h3>Nearby search</h3>
+<p>Look up the rider&#39;s cell and its neighbors — H3&#39;s k-ring or geohash&#39;s eight adjacents — so a driver just across a boundary isn&#39;t missed, then refine candidates by real distance (or road-network ETA) and rank.</p>
+<p>Cell size is a tradeoff against the search radius, and it is why &quot;choose a cell near the match radius&quot; matters. For a 1 km match radius, cells roughly 500–600 m across mean the rider&#39;s cell plus one ring of neighbors (the center hex plus its 6 adjacents) reliably covers the radius, and you scan only those candidates. Make the cells too large — say 2 km — and a single cell already overshoots 1 km, dragging in far-off drivers you must then distance-filter. Make them too small — say 100 m — and one ring no longer reaches 1 km, so you must query several rings: more lookups and more lists to merge.</p>
+<h3>Matching</h3>
+<p>The index is eventually consistent and may hand the same driver to two riders, so the match must atomically reserve the chosen driver. Concretely: riders R1 and R2 both read driver D7 as available from the slightly-stale index, and both try to reserve. Each issues a conditional update against D7&#39;s single source of truth — UPDATE drivers SET status=&#39;reserved&#39; WHERE driver_id=&#39;D7&#39; AND status=&#39;available&#39;. The database applies them one at a time: the first flips the row and reports 1 row changed (R1 succeeds); the second finds status no longer available and reports 0 rows changed (R2 fails). R2&#39;s </p>
+<h3>Hot cells</h3>
+<p>Assigning cells to shards by consistent hashing (a scheme that maps each cell id to a shard so adding a shard moves only a small fraction of cells) spreads cells evenly, but downtown at peak packs thousands of drivers into one cell — a hot spot in both writes and queries. Use finer resolution in dense areas (smaller cells, fewer drivers each) or split a hot cell across nodes. For example, a downtown cell C may hold 20,000 drivers at peak. Split it into sub-shards C#0–C#3 by hashing driver_id, each on a different node with ~5,000 drivers. A location update for one driver hashes to exactly one s</p>
+<p>Key idea. A geo-cell index makes proximity a cell-plus-neighbors lookup; location is eventually consistent but driver assignment must be strongly consistent.</p>
+<h2>1. Requirements</h2>
+<p>Before reading on. List the requirements, then name the property you would never compromise and the constraint that drives the design.</p>
+<h3>1.1 Functional requirements</h3>
+<p>Update location — updateLocation(driver_id, lat, lng), very high frequency.</p>
+<p>Find nearby drivers — given a rider&#39;s location, return available drivers within a radius.</p>
+<p>Match — assign one driver to a request and prevent double-assignment.</p>
+<p>Driver availability — online / offline / on-trip state.</p>
+<h3>1.2 Non-functional requirements</h3>
+<p>Write throughput — the location index must absorb millions of updates per second.</p>
+<p>Match latency — p99 under a few hundred ms from request to a matched driver.</p>
+<p>Freshness — locations stale by seconds are fine; the index is eventually consistent by design.</p>
+<p>Availability — matching stays up through node failure; a lost location update is harmless, the next arrives in seconds.</p>
+<p>Geo-locality — a city&#39;s load is served near that city; regions are largely independent.</p>
+<h3>1.3 The constraint versus the property</h3>
+<p>Match exclusivity is the property to protect: a driver must never be assigned to two riders, which is why matching is an atomic per-driver lock even though the index around it is loose. The write firehose is the constraint that drives the design: millions of updates per second to data that&#39;s stale in seconds forces an in-memory, geo-sharded, durability-free index — a relational store can&#39;t absorb it, and disk would be wasted I/O.</p>
+<p>Key idea. Protect match exclusivity with strong per-driver consistency; design the index around a write firehose of ephemeral data.</p>
+<h2>2. Back-of-the-envelope estimation</h2>
+<p>The numbers establish that writes dominate and the index is small enough to live in memory. Illustrative anchors.</p>
+<h3>2.1 The write firehose</h3>
+<p>At ~5M active drivers each updating every ~4 seconds, that is 5M ÷ 4s ≈ 1.25M location writes/sec. This is the headline number and the reason the index lives in memory.</p>
+<h3>2.2 Reads and memory</h3>
+<p>Ride requests peak around ~50K/sec — roughly 25× fewer than writes, the inverse of most systems. The live state is about ~500 MB — ~5M drivers × ~100 bytes — small enough to keep in RAM, sharded across cell-owning nodes. Durability isn&#39;t needed: a lost shard refills within one update interval as drivers re-report.</p>
+<p>Key idea. ~1.25M writes/sec versus ~50K reads/sec; ~500 MB of live state — writes dominate, the index is small and rebuildable.</p>
+<h2>3. API design</h2>
+<p>Three operations: the high-frequency write, the read, and the composite that matches.</p>
+<p>Key idea. updateLocation is a throughput-optimized write with no durable ack; requestRide composes find, refine, and an atomic reserve.</p>
+<h2>4. Data model</h2>
+<p>Three entities, each forced by what its predecessor can&#39;t hold.</p>
+<h3>4.1 Trip, location, and the inverted cell index</h3>
+<p>A durable trip records the ride; an ephemeral driver_location holds the live position; a geo_index inverts it to cell → drivers so proximity is a lookup, not a scan.</p>
+<p>The trip is durable in a store, persisted for payments and history. driver_location and geo_index are in-memory and rebuildable, co-located in the sharded location index — no durability needed, since a lost shard refills within one update interval.</p>
+<p>Key idea. The trip is durable; the live location and its inverted cell index are in-memory, rebuildable state.</p>
+<h2>5. High-level design</h2>
+<p>The design evolves by addressing each failure mode in sequence.</p>
+<p>Reading the diagrams. Each step marks the components newly added at that step with a dashed outline and a NEW badge.</p>
+<h3>5.1 Locations in a database</h3>
+<p>Store driver locations in a database; a rider query scans for nearby ones.</p>
+<p>It breaks two ways: a relational store can&#39;t absorb a million-plus writes per second of data that&#39;s stale in seconds (disk I/O wasted on values overwritten immediately), and a proximity scan over the whole fleet is far too slow for a match.</p>
+<h3>5.2 Fix 1: an in-memory, geo-sharded index</h3>
+<p>Hold the live index in RAM, sharded by geo cell so the write load spreads across nodes in proportion to where drivers are. An ingest gateway routes updates to the cell-owning shard.</p>
+<h3>5.3 Fix 2: the dual cell views</h3>
+<p>Each shard keeps two co-located maps — cell → drivers (for proximity) and driver → location (for in-place updates) — so a query reads cells and an update touches one driver. For driver D42, starting in cell A: cell[A] lists D42, and driver[D42] = {lat, lng, cell: A}. A small move that stays inside A changes only driver[D42]&#39;s lat/lng — the cell → drivers map is untouched, which is the cheap common case. A move that crosses into cell B is three coordinated edits: drop D42 from cell[A], add it to cell[B], and set driver[D42].cell = B. The driver → location map makes the in-place update O(1); the</p>
+<h3>5.4 Fix 3: matching and the durable trip store</h3>
+<p>A matching service runs findNearby, refines by distance/ETA, atomically reserves the chosen driver, and writes the ride to a durable trip store — the only thing here that needs to survive a restart. An optional location stream tees updates to pub-sub for ETA and surge models.</p>
+<p>Key idea. Each component answers one failure: an in-memory geo-sharded index for the firehose, dual cell views for cheap reads and updates, and a matching service with an atomic reserve over a durable trip store.</p>
+<h2>6. Deep dives</h2>
+<h3>6.1 Absorbing the write firehose</h3>
+<p>Before reading on. A million-plus location updates a second hit the index. Most change very little. What lets the system absorb them, and why is durability not required?</p>
+<p>Hold the index in RAM, sharded by geo cell so the write load spreads with driver density. Most updates preserve the current cell, so they are an in-place lat/lng modification, not an index restructure; only a cell crossing moves a driver between cell-sets. The gateway coalesces updates per shard: within a short batch window it keeps only the latest position per driver, so ten rapid pings from one driver collapse to a single write. Under extreme load it sheds gracefully by dropping the oldest queued updates first once a shard&#39;s lag passes a freshness bound (say 2 seconds) — it drops positions a</p>
+<h3>6.2 Nearby search and matching</h3>
+<p>Before reading on. A rider stands right at a cell boundary; the closest driver is just across it. A lookup of only the rider&#39;s cell misses that driver. How do you avoid it, and how do you not hand the driver to two riders?</p>
+<p>Look up the rider&#39;s cell and its neighbors (H3 k-ring, geohash&#39;s eight adjacents), then refine candidates by real distance or road-network ETA and filter out on_trip/offline. Cell size is chosen near the match radius so a query touches only a handful of cells with manageable candidate counts. Matching then atomically reserves the chosen driver — a per-driver lock or CAS flipping available → reserved — so concurrent requests can&#39;t both take them; losers retry the next candidate.</p>
+<h3>6.3 Hot cells and match consistency</h3>
+<p>Before reading on. Downtown at rush hour packs thousands of drivers into one cell, overloading its shard. And the index can hand one driver to two riders. These need different fixes — what are they?</p>
+<p>Hot cells are a density problem: use finer resolution in dense zones (smaller cells, fewer drivers each) or split a hot cell across nodes. Match consistency is a correctness problem: the index is eventually consistent on purpose, but assignment must be linearizable on a single key, so the reserve is a per-driver CAS — two consistency contracts serving different layers deliberately. Drivers that stop reporting (crash, tunnel) should expire after a few intervals so the system doesn&#39;t dispatch to a stale driver record.</p>
+<h2>7. Variants</h2>
+<p>For ETA and routing, real matching ranks by road-network ETA, not straight-line distance — a routing service over a road graph with live traffic ranks the candidates the geo index found.</p>
+<p>For surge pricing, surge is a supply/demand ratio per cell over short intervals, computed from the same location firehose as a pub-sub consumer alongside request rates.</p>
+<p>For 10× scale, add more cell-shards, finer resolution in dense regions, aggressive batching/sampling of updates, and per-region clusters — since cities operate independently.</p>
+<p>Key idea. The geo index and the location firehose feed ETA, surge, and routing as additional consumers; cities shard independently at scale.</p>
+<h2>8. The transferable pattern</h2>
+<p>When writes dominate and the data is ephemeral, an in-memory index with optional durability becomes the right tool, and proximity reduces to a cell lookup plus refinement. Two consistency contracts coexist on purpose: an eventually-consistent location view paired with a strongly-consistent per-driver assignment, because location staleness is acceptable but assigning the same driver twice is not. The same shape recurs wherever a high-frequency, low-value write stream feeds occasional high-stakes decisions — real-time bidding, fleet telemetry, presence and matchmaking.</p>
+<h2>Review: the 30-second answer</h2>
+<p>Two flows: a write firehose and a query. Drivers stream location every few seconds; riders occasionally ask &quot;who&#39;s near me.&quot; Writes far outnumber reads — size for the writes.</p>
+<p>In-memory geo index, sharded by cell. A cell → drivers map turns proximity into a lookup; durability isn&#39;t needed because drivers re-report.</p>
+<p>Search the cell and its neighbors, then refine by distance or ETA — so a boundary-adjacent driver isn&#39;t missed.</p>
+<p>Match with an atomic per-driver reserve (lock or CAS) so two riders never take the same driver.</p>
+<p>Two consistency contracts: eventually-consistent locations, strongly-consistent assignment.</p>
+<h2>Quiz</h2>
+<h2>Sources and further reading</h2>
+<p>H3: Uber&#39;s Hexagonal Hierarchical Spatial Index — Uber Engineering — the hexagonal cell grid behind the geo index and its k-ring neighbor lookups.</p>
+<p>H3 documentation — h3geo.org — cell resolutions, neighbor traversal, and the trade-offs in choosing a cell size near the match radius.</p>
+<p>Geospatial indexing explained — Ben Feifke — geohash and grid indexing, the boundary problem, and why proximity becomes a cell lookup.</p>
+<p>The System Design Courses</p>
+<p>Go beyond memorizing solutions to specific problems. Learn the core concepts, patterns and templates to solve any problem.</p>

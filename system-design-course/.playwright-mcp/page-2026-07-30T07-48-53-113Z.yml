@@ -1,0 +1,7 @@
+- generic [active] [ref=f158e1]:
+  - generic [ref=f158e2]:
+    - generic [ref=f158e4]:
+      - heading "404" [level=1] [ref=f158e5]
+      - heading "This page could not be found." [level=2] [ref=f158e7]
+    - button "Send feedback" [ref=f158e9] [cursor=pointer]
+  - alert [ref=f158e13]

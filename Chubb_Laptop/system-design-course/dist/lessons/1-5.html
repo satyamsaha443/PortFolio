@@ -1,0 +1,311 @@
+<h1>APIs: REST, GraphQL &amp; gRPC Compared</h1>
+<blockquote>
+<p><strong>Lesson 1.5</strong> · Beginner + Pro · 30 min</p>
+</blockquote>
+<hr>
+<h2>What Is an API?</h2>
+<p>An <strong>API (Application Programming Interface)</strong> is a contract that defines how two software components communicate. It specifies:</p>
+<ul>
+<li>What operations are available</li>
+<li>What input each operation expects</li>
+<li>What output each operation returns</li>
+<li>What errors can occur</li>
+</ul>
+<p>APIs are the boundaries between services. In system design, almost everything you draw — the line between a frontend and a backend, between two microservices, between your app and Stripe — is an API.</p>
+<hr>
+<h2>REST</h2>
+<p><strong>REST (Representational State Transfer)</strong> is the most common API style on the web. It uses HTTP verbs and URLs to represent operations on resources.</p>
+<h3>Core Principles</h3>
+<ol>
+<li><strong>Resources have URLs:</strong> <code>/users/123</code>, <code>/posts/456/comments</code></li>
+<li><strong>HTTP verbs define the action:</strong> GET reads, POST creates, PUT/PATCH updates, DELETE removes</li>
+<li><strong>Stateless:</strong> Each request contains all the information needed; the server stores no session state</li>
+<li><strong>Representations:</strong> Resources are returned as JSON (most common), XML, or HTML</li>
+</ol>
+<h3>Example: A Blog API</h3>
+<pre><code>GET    /posts              → List all posts
+POST   /posts              → Create a new post
+GET    /posts/42           → Get post #42
+PUT    /posts/42           → Replace post #42
+PATCH  /posts/42           → Update specific fields of post #42
+DELETE /posts/42           → Delete post #42
+GET    /posts/42/comments  → Get comments on post #42
+POST   /posts/42/comments  → Add a comment to post #42
+</code></pre>
+<h3>A REST Request and Response</h3>
+<pre><code>Request:
+POST /posts HTTP/1.1
+Host: api.example.com
+Authorization: Bearer eyJhbGciOiJSUzI1NiJ9...
+Content-Type: application/json
+
+{
+  &quot;title&quot;: &quot;System Design Basics&quot;,
+  &quot;content&quot;: &quot;Let me explain...&quot;,
+  &quot;tags&quot;: [&quot;backend&quot;, &quot;architecture&quot;]
+}
+
+Response:
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /posts/123
+
+{
+  &quot;id&quot;: 123,
+  &quot;title&quot;: &quot;System Design Basics&quot;,
+  &quot;content&quot;: &quot;Let me explain...&quot;,
+  &quot;tags&quot;: [&quot;backend&quot;, &quot;architecture&quot;],
+  &quot;created_at&quot;: &quot;2024-03-15T10:30:00Z&quot;,
+  &quot;author&quot;: { &quot;id&quot;: 7, &quot;username&quot;: &quot;alice&quot; }
+}
+</code></pre>
+<h3>REST Strengths</h3>
+<ul>
+<li><strong>Universally understood</strong> — every developer knows REST</li>
+<li><strong>HTTP caching works out of the box</strong> — GET requests are cacheable</li>
+<li><strong>Stateless</strong> — scales horizontally with no sticky sessions</li>
+<li><strong>Human-readable</strong> — URLs are self-documenting</li>
+<li><strong>Works with every HTTP client</strong> — browser, curl, mobile app</li>
+</ul>
+<h3>REST Weaknesses</h3>
+<ul>
+<li><strong>Over-fetching:</strong> You get back the entire resource even if you only need one field</li>
+<li><strong>Under-fetching:</strong> Getting a post with its author and comments requires 3 separate requests</li>
+<li><strong>Versioning pain:</strong> Changing the API often requires <code>/v1/</code>, <code>/v2/</code> prefixes</li>
+<li><strong>No strict contract:</strong> The API shape is defined by documentation, not enforced by the protocol</li>
+</ul>
+<hr>
+<h2>GraphQL</h2>
+<p><strong>GraphQL</strong> is a query language for APIs developed by Facebook. Instead of fixed endpoints, clients send a query describing exactly what data they need.</p>
+<h3>The Core Idea</h3>
+<p>With REST, the server decides what data to return. With GraphQL, <strong>the client decides</strong>.</p>
+<pre><code class="language-graphql"># Client asks for exactly what it needs
+query {
+  post(id: 42) {
+    title
+    author {
+      username
+      avatarUrl
+    }
+    comments(first: 3) {
+      content
+      createdAt
+    }
+  }
+}
+</code></pre>
+<pre><code class="language-json">// Server returns exactly that — no more, no less
+{
+  &quot;data&quot;: {
+    &quot;post&quot;: {
+      &quot;title&quot;: &quot;System Design Basics&quot;,
+      &quot;author&quot;: {
+        &quot;username&quot;: &quot;alice&quot;,
+        &quot;avatarUrl&quot;: &quot;https://cdn.example.com/alice.jpg&quot;
+      },
+      &quot;comments&quot;: [
+        { &quot;content&quot;: &quot;Great post!&quot;, &quot;createdAt&quot;: &quot;2024-03-15T11:00:00Z&quot; }
+      ]
+    }
+  }
+}
+</code></pre>
+<p>One request, no over-fetching, no under-fetching.</p>
+<h3>GraphQL Mutations</h3>
+<pre><code class="language-graphql">mutation {
+  createPost(input: { title: &quot;Hello&quot;, content: &quot;World&quot; }) {
+    id
+    title
+    createdAt
+  }
+}
+</code></pre>
+<h3>GraphQL Strengths</h3>
+<ul>
+<li><strong>No over/under-fetching</strong> — clients get exactly what they need</li>
+<li><strong>One endpoint</strong> — <code>POST /graphql</code> for everything</li>
+<li><strong>Strongly typed schema</strong> — the schema is the contract; tools auto-generate types</li>
+<li><strong>Great for complex, nested data</strong> — social feeds, dashboards</li>
+<li><strong>Introspection</strong> — clients can query the schema itself</li>
+</ul>
+<h3>GraphQL Weaknesses</h3>
+<ul>
+<li><strong>Caching is hard</strong> — everything is a POST to the same URL; HTTP caching does not apply</li>
+<li><strong>N+1 query problem</strong> — naive implementations execute one DB query per item (solved by DataLoader)</li>
+<li><strong>Complex for simple APIs</strong> — significant overhead for basic CRUD</li>
+<li><strong>Rate limiting is harder</strong> — a single query can be arbitrarily expensive</li>
+<li><strong>Steeper learning curve</strong> — schema, resolvers, and query language to learn</li>
+</ul>
+<p><strong>When to use GraphQL:</strong> Mobile apps and frontends with complex data needs. Multiple different clients (iOS, Android, web) that need different shapes of the same data.</p>
+<hr>
+<h2>gRPC</h2>
+<p><strong>gRPC</strong> (Google Remote Procedure Call) is a framework for calling functions on a remote server as if they were local. It uses <strong>Protocol Buffers (protobuf)</strong> as its data format and runs over HTTP/2.</p>
+<h3>How It Works</h3>
+<p>You define your service in a <code>.proto</code> file:</p>
+<pre><code class="language-protobuf">syntax = &quot;proto3&quot;;
+
+service UserService {
+  rpc GetUser (GetUserRequest) returns (User);
+  rpc CreateUser (CreateUserRequest) returns (User);
+  rpc ListUsers (ListUsersRequest) returns (stream User);
+}
+
+message User {
+  int64 id = 1;
+  string username = 2;
+  string email = 3;
+}
+
+message GetUserRequest {
+  int64 id = 1;
+}
+</code></pre>
+<p>gRPC generates client and server code in your language. Calling a remote service looks like a local function call:</p>
+<pre><code class="language-python"># Python client — looks like a local function call
+user = stub.GetUser(GetUserRequest(id=123))
+print(user.username)
+</code></pre>
+<h3>Protobuf vs JSON</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>JSON</th>
+<th>Protobuf</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Format</td>
+<td>Human-readable text</td>
+<td>Binary</td>
+</tr>
+<tr>
+<td>Size</td>
+<td>Larger</td>
+<td>3-10x smaller</td>
+</tr>
+<tr>
+<td>Parse speed</td>
+<td>Slower</td>
+<td>Much faster</td>
+</tr>
+<tr>
+<td>Schema</td>
+<td>Optional</td>
+<td>Required</td>
+</tr>
+<tr>
+<td>Debuggability</td>
+<td>Easy</td>
+<td>Harder (binary)</td>
+</tr>
+</tbody></table>
+<h3>gRPC Strengths</h3>
+<ul>
+<li><strong>High performance</strong> — binary protocol + HTTP/2 multiplexing = fastest option</li>
+<li><strong>Streaming</strong> — native support for server streaming, client streaming, bidirectional streaming</li>
+<li><strong>Strongly typed</strong> — protobuf schema prevents many bugs</li>
+<li><strong>Code generation</strong> — clients and servers generated automatically</li>
+<li><strong>Great for microservices</strong> — internal service-to-service communication</li>
+</ul>
+<h3>gRPC Weaknesses</h3>
+<ul>
+<li><strong>Not browser-native</strong> — browsers cannot use gRPC directly (requires grpc-web proxy)</li>
+<li><strong>Less human-readable</strong> — binary format makes debugging harder</li>
+<li><strong>Harder to learn</strong> — protobuf + codegen workflow</li>
+<li><strong>Breaking changes need care</strong> — field numbering in protobuf requires careful management</li>
+</ul>
+<p><strong>When to use gRPC:</strong> Internal microservice communication. High-throughput services. Any case where performance matters more than browser accessibility.</p>
+<hr>
+<h2>The Comparison</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>REST</th>
+<th>GraphQL</th>
+<th>gRPC</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Protocol</strong></td>
+<td>HTTP/1.1 or HTTP/2</td>
+<td>HTTP/1.1 or HTTP/2</td>
+<td>HTTP/2 only</td>
+</tr>
+<tr>
+<td><strong>Data format</strong></td>
+<td>JSON</td>
+<td>JSON</td>
+<td>Protobuf (binary)</td>
+</tr>
+<tr>
+<td><strong>Type safety</strong></td>
+<td>None (OpenAPI optional)</td>
+<td>Schema required</td>
+<td>Schema required</td>
+</tr>
+<tr>
+<td><strong>Caching</strong></td>
+<td>Excellent (HTTP cache)</td>
+<td>Difficult</td>
+<td>Difficult</td>
+</tr>
+<tr>
+<td><strong>Performance</strong></td>
+<td>Good</td>
+<td>Good</td>
+<td>Excellent</td>
+</tr>
+<tr>
+<td><strong>Streaming</strong></td>
+<td>Limited (SSE)</td>
+<td>Subscriptions</td>
+<td>Native</td>
+</tr>
+<tr>
+<td><strong>Browser support</strong></td>
+<td>Native</td>
+<td>Native</td>
+<td>Limited (grpc-web)</td>
+</tr>
+<tr>
+<td><strong>Learning curve</strong></td>
+<td>Low</td>
+<td>Medium</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>Best for</strong></td>
+<td>Public APIs, external</td>
+<td>Complex frontend data needs</td>
+<td>Internal microservices</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>How to Choose in an Interview</h2>
+<pre><code>Is this a public API consumed by external developers?
+  → REST. It is universally understood and well-documented.
+
+Is this a mobile/web frontend with complex, varied data requirements?
+  → GraphQL. Clients fetch exactly what they need.
+
+Is this internal service-to-service communication?
+  → gRPC. Performance, streaming, and type safety matter more than browser accessibility.
+
+Are you building a simple CRUD API with low traffic?
+  → REST. No need to introduce complexity.
+</code></pre>
+<h3>A Common Pattern</h3>
+<pre><code>External (browser/mobile) → REST or GraphQL API Gateway
+                                       │
+                    ┌──────────────────┼──────────────────┐
+                    ▼                  ▼                  ▼
+             gRPC service      gRPC service       gRPC service
+             (user-service)   (post-service)     (notification-service)
+</code></pre>
+<p>Public-facing APIs use REST or GraphQL (browser-friendly). Internal microservices communicate via gRPC (fast, typed).</p>
+<hr>
+<blockquote>
+<p><strong>Next:</strong> <a href="./06-caching-basics.md">Lesson 1.6 — Caching: Browser to CDN to Server</a></p>
+</blockquote>
